@@ -14,9 +14,3 @@ def main():
         from aiida_datagen.workflows.step3 import step_3
         if step_3():
             stpnmbr = 4
-    if stpnmbr == 4:
-        from aiida_datagen.workflows.step4 import step_4
-        step_4()
-    if stpnmbr == -1:
-        from aiida_datagen.workflows.rerun import rerun
-        rerun()

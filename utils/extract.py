@@ -30,9 +30,6 @@ def get_input_data(group_label='imported_calculation_nodes'):
     builder.append(Node, with_group='group', filters={'label': 'inputs'}, project='id')
     pk = builder.all(flat=True)[0]
     inputs = load_node(pk).get_dict()
-    if len(inputs['Chemical_formula']) > 1:
-        print('More than one chemical formula')
-        sys.exit()
     return inputs
 
 def get_protocol(input_parameters, code, group_label='imported_calculation_nodes'):
@@ -126,16 +123,12 @@ def collect_node_data(group_label, code):
                     if output_parameters['sirius_version'] != code_version_2:
                         print('wrong code version 2')
                         sys.exit(-35)
-                print(input_parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['GK_CUTOFF'])
-                print(a_node.label)
                 if not gk_cutoff:
                     gk_cutoff = input_parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['GK_CUTOFF']
                 else:
                     if input_parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['GK_CUTOFF'] != gk_cutoff:
-                        print(input_parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['GK_CUTOFF'])
-                        print(gk_cutoff)
                         print('wrong GK CUTOFF')
-#                        sys.exit(-36)
+                        sys.exit(-36)
                 if not pw_cutoff:
                     pw_cutoff = input_parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['PW_CUTOFF']
                 else:
@@ -168,8 +161,7 @@ def collect_node_data(group_label, code):
             species.append(motion_step['symbols'])
             energies.append(motion_step['energy_eV'])
             forces.append(np.array(motion_step['forces']))
-    code_version = [code_version_1, code_version_2] if code_version_2 else [code_version_1]
-    return labels, cells, positions, species, energies, forces, pps, input_parameters, code_version
+    return labels, cells, positions, species, energies, forces, pps, input_parameters, [code_version_1, code_version_2]
 
 def collect_data(code):
     labels, cells, positions, species, energies, forces, pps, input_parameters, code_version = collect_node_data('imported_calculation_nodes', code)
@@ -216,6 +208,21 @@ def collect_data(code):
                 plot_vpa_b.append(structure.volume/nat)
             training_data.append(tmp_dict)
             plot_force.extend(tot_force)
+    for i, e in enumerate(plot_epa_b):
+        if e > min_epa + 5:
+            del plot_epa_b[i]
+            del plot_nat_b[i]
+            del plot_vpa_b[i]
+    for i, e in enumerate(plot_epa_b):
+        if e > min_epa + 5:
+            del plot_epa_b[i]
+            del plot_nat_b[i]
+            del plot_vpa_b[i]
+    for i, e in enumerate(plot_epa_c):
+        if e > min_epa + 5:
+            del plot_epa_c[i]
+            del plot_nat_c[i]
+
     collected_data = [training_data,
                       min_epa,
                       plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c,
@@ -254,6 +261,7 @@ def plot_1(plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c, min_epa, 
         plt.xlabel('nat')
         plt.ylabel(r'epa ($eV/atom$)')
         plt.plot([min(plot_nat_b), max(plot_nat_b)], [min_epa, min_epa])
+        plt.subplots_adjust(left=0.2)
         plt.savefig(os.path.join(dirname, 'bulk_epa-vs-nat.png'))
         plt.close()
 
@@ -263,6 +271,7 @@ def plot_1(plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c, min_epa, 
         plt.xlabel(r'vpa (${\AA}^3/atom$)')
         plt.ylabel(r'epa ($eV/atom$)')
         plt.plot([min(plot_vpa_b), max(plot_vpa_b)], [min_epa, min_epa], color='navy')
+        plt.subplots_adjust(left=0.2)
         plt.savefig(os.path.join(dirname, 'bulk_epa-vs-vpa.png'))
         plt.close()
 
@@ -271,13 +280,14 @@ def plot_1(plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c, min_epa, 
         plt.scatter(plot_nat_c,plot_epa_c, label='epa-vs-nat')
         plt.xlabel('nat')
         plt.ylabel(r'epa ($eV/atom$)')
+        plt.subplots_adjust(left=0.2)
         plt.plot([min(plot_nat_c), max(plot_nat_c)], [min_epa, min_epa], color='navy')
         plt.savefig(os.path.join(dirname, 'cluster_epa-vs-nat.png'))
         plt.close()
 
 def plot_2(forces, dirname="."):
     fmin = 0 #min(forces)
-    fmax = max(forces)
+    fmax = 10 #max(forces)
     steps = int((fmax - fmin) * 10)
     fstep = (fmax - fmin)/steps
     f_intervals = []
@@ -300,14 +310,14 @@ def plot_2(forces, dirname="."):
     fig, ax = plt.subplots()
     ax.bar(plot_i, plot_b, width = 0.05)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    plt.xlabel(r'force ($meV/\AA$)')
+    plt.xlabel(r'force ($eV/\AA$)')
     plt.savefig(os.path.join(dirname, 'forces.png'))
     plt.close()
 
 def plot_3(training_data, dirname="."):
     all_distances = get_all_distances(training_data, 5)
-    dmin = 0 #min(all_distances)
-    dmax = 5
+    dmin = 0.2 #min(all_distances)
+    dmax = 5.2
     steps = int(10 * (dmax - dmin))
     dstep = (dmax - dmin)/steps
     d_intervals = []
@@ -329,9 +339,12 @@ def plot_3(training_data, dirname="."):
         plot_b.append(values/max_value)
     plt.figure()
     plt.bar(plot_i, plot_b, width = 0.05)
-    plt.xticks(plot_i, plot_d)
+    lst1 = [v for i, v in enumerate(plot_i) if i % 2 == 0]
+    lst2 = [v for i, v in enumerate(plot_d) if i % 2 == 0]
+    plt.xticks(lst1, lst2)
     plt.xticks(rotation='vertical')
     plt.xlabel(r'($\AA$)')
+    plt.subplots_adjust(bottom=0.2)
     plt.savefig(os.path.join(dirname, 'bonds.png'))
     plt.close()
 
@@ -345,6 +358,7 @@ if __name__ == "__main__":
     parser.add_argument('filename', help='Input filename *.aiida')
     parser.add_argument('-r', '--replace', action='store_true', help='Replace output file DATASET.json if it already exists')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose mode')
+    parser.add_argument('-n', '--no-convenience', action='store_true', help='Suppress additions for convenience')
 
     args = parser.parse_args()
 
@@ -393,28 +407,82 @@ if __name__ == "__main__":
     code = inputs['ab_initio_code']
     collected_data, pps, input_parameters, code_version = collect_data(code)
     protocol = get_protocol(input_parameters, code)
-#    if not code_version[-1]:
-#        code_version.pop(-1)
+    if not code_version[-1]:
+        code_version.pop(-1)
     todump = {'Author data': author_data}
+
+    # double check 'Chemical_formula' field, it should be an array with exactly 1 entry
+    if type(inputs['Chemical_formula']) is list:
+
+        if 1 != len(inputs['Chemical_formula']):
+
+            print(f"inputs['Chemical_formula'] is supposed to be a list of length 1 exactly")
+            print("    actually is: ", inputs['Chemical_formula'])
+            print("abort")
+            sys.exit(-13)
+
+    else:
+
+        print(f"inputs['Chemical_formula'] is supposed to be a list")
+        print("    actually is: ", inputs['Chemical_formula'])
+        print("abort")
+        sys.exit(-12)
+
+    # modify 'pps' dict, turn it into a string with <key>:<value> entries separated by spaces
+    prefix= "UPF "
+    for k in pps:
+        if pps[k].startswith(prefix):
+            pps[k]= pps[k][len(prefix):]
+    pps_string= json.dumps(pps)
+
     todump.update(
-            {'Chemical formula': inputs['Chemical_formula'][0],
+            {'Chemical formula': inputs['Chemical_formula'][0], # compare above, must have exactly one entry, this we use
              'number of data': len(collected_data[0]),
              'number of bulks': len(collected_data[2]),
              'number of clusters': len(collected_data[5]),
              'code': inputs['ab_initio_code'],
              'code_version': code_version,
-             'pps': pps,
+             'pps': pps_string,
              'protocol': protocol
             }
     )
+
     # store
     with open(outputfilename, 'w', encoding='utf-8') as outfile:
         json.dump(todump, outfile, indent=4)
-    with gzip.open(trainingdatafilename, 'wt', encoding='UTF-8') as outfilezip:
-        json.dump(collected_data[0], outfilezip) 
+
+    # may clash with git annex locked files
+    try:
+        with gzip.open(trainingdatafilename, 'wt', encoding='UTF-8') as outfilezip:
+            json.dump(collected_data[0], outfilezip) 
+    except PermissionError:
+        print(f"WARNING: cannot write {trainingdatafilename} because of access permissions (may try 'datalad unlock'), ignoring")
 
     # plots
     plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], 
         collected_data[6], collected_data[1], dirname=dirname)
     plot_2(collected_data[7], dirname=dirname)
     plot_3(collected_data[0], dirname=dirname)
+
+
+    # convenience additions
+
+    # Add a README.md file which shows all the images
+    # ... some selected metadata could be added too
+
+    pngfilelist= [file for file in os.listdir(dirname) if file.endswith('.png')]
+
+    readme_file = f"# Dataset {inputs['Chemical_formula'][0]}\n\n"
+    readme_file += f"number of data: {todump['number of data']}, "
+    readme_file += f"number of bulks: {todump['number of bulks']}, "
+    readme_file += f"number of clusters: {todump['number of clusters']}\n\n"
+
+    readme_file += f"Generated with {todump['code']}\n\n"
+
+
+    for p in pngfilelist:
+        readme_file += f"![{p}]({p})\n\n"
+
+    with open(os.path.join(dirname, "README.md"), 'w', encoding='utf-8') as outfile:
+        outfile.write(readme_file)
+

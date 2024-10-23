@@ -1,12 +1,137 @@
+import os
 import sys
-from time import sleep
+import gzip
 from random import sample
+from time import sleep
+import json
+import yaml
 from pymatgen.core.structure import Structure, Molecule
-from aiida.orm import Group
 from aiida.plugins import DataFactory
+from aiida.orm import List, Group, load_node, QueryBuilder, WorkChainNode, CalcJobNode
 from aiida_datagen.codes.utils import get_time, get_reference_structures, get_structures_from_local_db, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
 from aiida_datagen.workflows.core import log_write, previous_run_exist_check, group_is_empty_check, report
-from aiida_datagen.workflows.settings import inputs, steps_status, job_script
+from aiida_datagen.workflows.settings import inputs, steps_status, job_script, run_dir, output_dir
+from utils.export_data import add_input_node, add_author_data, add_protocol, add_known_structures, add_calculation_nodes, add_nodes
+from utils.extract import get_author_data, get_input_data, collect_data, get_protocol, plot_1, plot_2, plot_3  
+
+def export_data(dir_path):
+    with open(os.path.join(output_dir, 'datagen.log'), 'r', encoding='utf-8') as fhandle:
+        lines = fhandle.readlines()
+    computing_time = 0.0
+    for a_line in lines:
+        if a_line.startswith('total'):
+            computing_time += float(a_line.split()[3])
+    with open(os.path.join(run_dir, 'author_data.yaml'), 'r', encoding='utf-8') as fhandle:
+        author_data = yaml.safe_load(fhandle)
+    author_data['computing_time'] = f'{computing_time} core-hours'
+    with open(os.path.join(run_dir, 'author_data.yaml'), 'w', encoding='utf-8') as fhandle:
+        yaml.dump(author_data, fhandle, default_flow_style=False)
+
+    file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    pks = []
+    pks, inputs_data = add_input_node()
+    pks.append(add_author_data())
+    pks.append(add_protocol(inputs_data))
+    pks.extend(add_known_structures())
+    pks.extend(add_calculation_nodes())
+    add_nodes(pks)
+    os.system(f"verdi archive create --no-call-calc-backward --no-call-work-backward --no-create-backward {file_path} --groups tmp_group")
+    with open('node_pks.dat', 'w', encoding='utf-8') as fhandle:
+        for a_pk in pks:
+            fhandle.write(f'{a_pk}'+'\n')
+    tmp_group, _ = Group.collection.get_or_create('tmp_group')
+    Group.collection.delete(tmp_group.pk)
+
+def extract_data(dir_path):
+    group, _ = Group.collection.get_or_create('imported_calculation_nodes')
+    group.clear()
+    file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    os.system(f"verdi archive import -G imported_calculation_nodes {file_path}")
+    author_data = get_author_data()
+    input_data = get_input_data()
+    code = input_data['ab_initio_code']
+    collected_data, pps, input_parameters, code_version = collect_data(code)
+    protocol = get_protocol(input_parameters, code)
+    todump = {'Author data': author_data}
+
+    prefix= "UPF "
+    for k in pps:
+        if pps[k].startswith(prefix):
+            pps[k]= pps[k][len(prefix):]
+    pps_string= json.dumps(pps)
+    todump.update(
+            {'Chemical formula': inputs['Chemical_formula'][0],
+             'number of data': len(collected_data[0]),
+             'number of bulks': len(collected_data[2]),
+             'number of clusters': len(collected_data[5]),
+             'code': inputs['ab_initio_code'],
+             'code_version': code_version,
+             'pps': pps_string,
+             'protocol': protocol
+            }
+    )
+    # store
+    outputfilename= os.path.join(dir_path,'DATASET.json')
+    trainingdatafilename= os.path.join(dir_path, 'training_data.json.gz')
+
+    with open(outputfilename, 'w', encoding='utf-8') as fhandle:
+        json.dump(todump, fhandle, indent=4)
+    with gzip.open(trainingdatafilename, 'wt', encoding='UTF-8') as fhandle:
+        json.dump(collected_data[0], fhandle) 
+    # plots
+    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], 
+        collected_data[6], collected_data[1], dirname=dir_path)
+    plot_2(collected_data[7], dirname=dir_path)
+    plot_3(collected_data[0], dirname=dir_path)
+
+    pngfilelist= [file for file in os.listdir(dir_path) if file.endswith('.png')]
+    
+    readme_file = f"# Dataset {inputs['Chemical_formula'][0]}\n\n"
+    readme_file += f"number of data: {todump['number of data']}, "
+    readme_file += f"number of bulks: {todump['number of bulks']}, "
+    readme_file += f"number of clusters: {todump['number of clusters']}\n\n"
+    
+    readme_file += f"Generated with {todump['code']}\n\n"
+    
+    
+    for p in pngfilelist:
+        readme_file += f"![{p}]({p})\n\n"
+    
+    with open(os.path.join(dir_path, "README.md"), 'w', encoding='utf-8') as outfile:
+        outfile.write(readme_file)
+
+def store_step3_results():
+    calculation_nodes = []
+    builder = QueryBuilder()
+    builder.append(Group, filters={'label': 'results_step3'}, tag='results_group')
+    builder.append(WorkChainNode, with_group='results_group', tag='wf_nodes')
+    builder.append(CalcJobNode, with_incoming='wf_nodes', project='*')
+    calcjob_nodes = builder.all(flat=True)
+    if 'VASP' in inputs['ab_initio_code']:
+        for a_node in calcjob_nodes:
+            if a_node.exit_status != 0:
+                continue
+            misc_node = a_node.base.links.get_outgoing(link_label_filter='misc').all_nodes()[0]
+            if not misc_node.dict.run_status['electronic_converged']:
+                continue
+            calculation_nodes.append(a_node.pk)
+    if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
+        for a_node in calcjob_nodes:
+            if a_node.exit_status != 0:
+                continue
+            output_parameters = a_node.base.links.get_outgoing(link_label_filter='output_parameters').all_nodes()[0]
+            motion_step = output_parameters['motion_step_info']
+            if 'False' in motion_step['scf_converged']:
+                continue
+            calculation_nodes.append(a_node.pk)
+
+    calculation_nodes_group = Group.collection.get(label='calculation_nodes')
+    for a_node in calculation_nodes_group.nodes:
+        if 'step_3' in a_node.label:
+            calculation_nodes_group.remove_nodes([load_node(a_node.pk)])
+    a_node = List(calculation_nodes).store()
+    a_node.label = 'step_3'
+    calculation_nodes_group.add_nodes(a_node)
 
 def read_structures():
     """ Read known and random bulk structures
@@ -194,11 +319,19 @@ def step_3():
         sleep(60)
     # store
     total_computing_time, submitted_jobs, finished_job = report('wf_step3')
+    store_step3_results()
     log_write(f'submitted jobs: {submitted_jobs}, succesful jobs: {finished_job}'+'\n')
     log_write(f'total computing time: {round(total_computing_time, 2)} core-hours'+'\n')
     log_write('STEP 3 ended'+'\n')
     log_write(f'end time: {get_time()}'+'\n')
-    if not steps_status[3]:
-        store_calculation_nodes()
-        log_write('End of the step 3. Bye!'+'\n')
+    log_write('Exporting data'+'\n')
+    dir_path = os.path.join(run_dir, inputs['Chemical_formula'][0])
+    try:
+        os.mkdir(dir_path)
+    except FileExistsError:
+        pass
+    export_data(dir_path)
+    log_write('Extracting data'+'\n')
+    extract_data(dir_path)
+    store_calculation_nodes()
     return steps_status[3]

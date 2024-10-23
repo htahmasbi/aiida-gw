@@ -215,7 +215,7 @@ class Scheme1GeOptWorkChain(WorkChain):
 
     def run_single_point_2(self):
         structure = self.ctx['opt1vc'].outputs['structure']
-        scaled_structure = get_scaled_structure(uniform(0.65,0.85), structure)
+        scaled_structure = get_scaled_structure(uniform(0.75,0.95), structure)
         protocol = self.ctx.vasp_protocol['single_point']
         protocol['name'] = 'single_point_scaled_bulk'
         potential_family = self.ctx.potential['potential_family']

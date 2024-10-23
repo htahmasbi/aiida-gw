@@ -1,13 +1,7 @@
 # Strat/restart from step
-# -1: rerun
 # 1: step-1, reference calculations
 # 2: step-2, random structure generation 
-# 3: step-3, initial ab-initio calculations
-# 4: step-4, training loop 
+# 3: step-3, ab-initio calculations
 #
-re-start_from_step: 1 # 1, 2, 3, 4 or -1 for rerun
-stop_after_step: -1    # 1, 2, 3, or -1 for non-stop running
-#
-# training loop steps: train, MH, QBC/FDC, SP
-training_loop_start: [1, train] # [loop number, step name]
-training_loop_stop:  [3, train] # [loop number, step name]  
+re-start_from_step: 1 # 1, 2, 3
+stop_after_step: -1   # 1, 2, 3, or -1 for non-stop running

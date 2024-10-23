@@ -7,7 +7,7 @@ from pymatgen.core.composition import Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from mp_api.client import MPRester
 from aiida.orm import Group, Dict
-from aiida_datagen.workflows.settings import inputs, output_dir, api_key, run_dir, Flame_dir
+from aiida_datagen.workflows.settings import inputs, output_dir, api_key, run_dir, output_dir
 
 def get_pertured_failed_structures(cycle_number):
     """ Perturb fialed crystal structures.
@@ -15,15 +15,15 @@ def get_pertured_failed_structures(cycle_number):
     failed_b_structures = []
     failed_c_structures = []
 
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','failed_bulk.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','failed_bulk.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             failed_b_structures.extend(json.loads(fhandle.read()))
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','failed_structures.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','failed_structures.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             failed_b_structures.extend(json.loads(fhandle.read()))
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','failed_cluster.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','failed_cluster.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             failed_c_structures.extend(json.loads(fhandle.read()))
@@ -51,17 +51,17 @@ def get_rejected_structures(cycle_number):
     rejected_bulk_structures = []
     rejected_cluster_structures = []
 
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','rejected_bulks.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','rejected_bulks.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             b_structures.extend(json.loads(fhandle.read()))
 
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','rejected_structuress.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','rejected_structuress.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             b_structures.extend(json.loads(fhandle.read()))
 
-    fpath = os.path.join(Flame_dir,cycle_number,'minimahopping','rejected_clusters.json')
+    fpath = os.path.join(output_dir,cycle_number,'minimahopping','rejected_clusters.json')
     if os.path.exists(fpath):
         with open(fpath, 'r', encoding='utf-8') as fhandle:
             c_structures = json.loads(fhandle.read())

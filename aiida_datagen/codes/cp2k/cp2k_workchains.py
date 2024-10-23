@@ -11,7 +11,6 @@ import aiida_datagen.workflows.settings as settings
 
 results_step1_group = load_group(label='results_step1')
 results_step3_group = load_group(label='results_step3')
-results_singlepoint_group = load_group(label='results_singlepoint')
 StructureData = DataFactory('structure')
 
 def dict_merge(dct, merge_dct):
@@ -363,7 +362,7 @@ class Scheme1GeOptWorkChain(WorkChain):
 
     def run_single_point_2(self):
         structure = self.ctx['opt1vc'].outputs['output_structure']
-        scaled_structure = get_scaled_structure(uniform(0.65,0.85), structure)
+        scaled_structure = get_scaled_structure(uniform(0.75,0.95), structure)
         QSorSIRIUS = self.inputs.QSorSIRIUS.value
         # parameters
         basis_pseudo = self.ctx.protocol['basis_pseudo']

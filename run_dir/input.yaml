@@ -23,32 +23,8 @@ check_number_of_atoms: False # if nat should be the same as bulk_number_of_atoms
 energy_window: 5 # to control the maximum energy of training data (eV)
 max_force: 10 # to control the maximum value of forces (eV/A)
 
-# Behler-Parrinello training parameters
-number_of_nodes: [10, 10, 10, 10] # number of nodes in the hidden layer
-number_of_epoch: [11, 11, 11, 11] # number of epochs
-
-# minima hopping (MH) parameters
-minimahopping_time: [12.0, 24.0] # minmum and maximum hours for each minhocao calculation
-# minima hopping with variable cell
-minhocao_steps: [3, 50, 50]
-bulk_minhocao: [500, 500, 500] # maximum number of structures for minhocao calculations
-# minima hopping with fixed cell (bulk and cluster)
-minhopp_steps: [3, 50, 50]
-bulk_minhopp: [500, 500, 500] # maximum number of structures for bulk minhopp calculations
-cluster_minhopp: [500, 500, 500] # maximum number of structures for cluster minhopp calculations
-
-# selecting to-be-labeled structures
-selecting_method: QBC # QBC: Query by Committee, FDC: FLAME diversity check
-# parameters for FDC
-dtol_prefactor: 0.03 # the larger the value is, the more structures are considered similar
-prefactor_cluster: 1.01 
-
 # ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
 ab_initio_code:
 user_specified_CP2K_files: False #  if True, then copy codes/cp2k/cp2k_files into your run directory
 user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory
 user_specified_VASP_files: False #  if True, then copy codes/vasp/vasp_files into your run directory
-
-# cleaning local/remote folders
-clean_remote_folders: False
-clean_local_folders: False

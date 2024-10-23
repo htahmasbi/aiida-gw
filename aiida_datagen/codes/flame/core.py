@@ -1,9 +1,6 @@
 import os
 import json
-from itertools import combinations_with_replacement
-import yaml
 from pymatgen.core.structure import Structure
-from aiida_datagen.codes.utils import get_element_list
 import aiida_datagen.workflows.settings as settings
 
 def conf2pymatgenstructure(confs):
@@ -64,42 +61,3 @@ def get_confs_from_list(struct_list, bc_list, energy_list, force_list): # struct
         tmp_dict['conf']['units_length'] = 'angstrom'
         confs.append(tmp_dict)
     return confs
-
-def write_SE_ann_input(folder, cycle_number):
-    rcut = r_cut() * 1.88973
-    element_list = get_element_list()
-    if cycle_number:
-        with open(os.path.join(settings.Flame_dir,cycle_number,'train','ann_input.yaml'), 'r', encoding='utf-8') as fhandle:
-            ann_input = yaml.safe_load(fhandle)
-        c_no = int(cycle_number.split('-')[-1])
-        number_of_nodes = settings.inputs['number_of_nodes'][c_no-1]
-    else:
-        with open(os.path.join(settings.PyFLAME_directory,'codes/flame/flame_files','ann_input.yaml'), 'r', encoding='utf-8') as fhandle:
-            ann_input = yaml.safe_load(fhandle)
-        number_of_nodes = 10
-
-    g02_list = ann_input['g02']
-    g05_list = ann_input['g05']
-
-    ener_ref = 0.0
-    method = 'behler'
-    combinations_index = list(combinations_with_replacement(range(len(element_list)),2))
-    for elmnt in element_list:
-        fname = str(elmnt) + '.ann.input.yaml'
-        with folder.open(fname, 'w', encoding='utf-8') as fhandle:
-            fhandle.write('main:'+'\n')
-            fhandle.write(f'    nodes: [{number_of_nodes},{number_of_nodes}]'+'\n')
-            fhandle.write(f'    rcut:        {rcut}'+'\n')
-            fhandle.write(f'    ener_ref:    {ener_ref}'+'\n')
-            fhandle.write(f'    method:      {method}'+'\n'+'\n')
-            fhandle.write('symfunc:'+'\n')
-            n = 0
-            for g in g02_list:
-                for i in range(len(element_list)):
-                    n = n + 1
-                    fhandle.write(f'    g02_{n:03d}: {g}    {element_list[i]}'+'\n')
-            n = 0
-            for g in g05_list:
-                for i in range(len(combinations_index)):
-                    n = n + 1
-                    fhandle.write(f'    g05_{n:03d}: {g}    {element_list[combinations_index[i][0]]}    {element_list[combinations_index[i][1]]}'+'\n')

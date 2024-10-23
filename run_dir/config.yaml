@@ -17,20 +17,3 @@ job_script:
     ntasks:
     time: #in s
     exclusive: False
-  train:
-    number_of_jobs: 3
-    nodes:
-    ntasks:
-    time: #in s
-    exclusive: True
-  minimahopping:
-    number_of_jobs:
-    nodes: 1
-    ntasks: 1 # only serial
-    exclusive: False
-  QBC: # or FDV
-    number_of_jobs: 9
-    nodes: 1
-    ntasks: 2
-    time: 3600
-    exclusive: False

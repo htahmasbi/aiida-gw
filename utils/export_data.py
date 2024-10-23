@@ -7,25 +7,25 @@ from aiida.manage.configuration import load_profile
 
 load_profile()
 
-def add_input_node(pks):
+def add_input_node():
+    pks = []
     with open(os.path.join(run_dir,'input.yaml'), 'r', encoding='utf8') as fhandle:
-        inputs = yaml.safe_load(fhandle)
-    a_node = Dict(inputs)
+        inputs_data = yaml.safe_load(fhandle)
+    a_node = Dict(inputs_data)
     a_node.label = 'inputs'
     store = a_node.store()
     pks.append(store.pk)
-    return pks, inputs
+    return pks, inputs_data
 
-def add_author_data(pks):
+def add_author_data():
     with open(os.path.join(run_dir,'author_data.yaml'), 'r', encoding='utf8') as fhandle:
         author_data = yaml.safe_load(fhandle)
     a_node = Dict(author_data)
     a_node.label = 'author_data'
     store = a_node.store()
-    pks.append(store.pk)
-    return pks
+    return store.pk
 
-def add_protocol(pks, inputs):
+def add_protocol(inputs):
     CP2K_input_files_path = os.path.join(run_dir,'cp2k_files')\
                             if inputs['user_specified_CP2K_files']\
                             else os.path.join(datagen_directory,'codes/cp2k','cp2k_files')
@@ -39,7 +39,7 @@ def add_protocol(pks, inputs):
         a_node = Dict(single_point_protocol)
         a_node.label = 'protocol'
         store = a_node.store()
-        pks.append(store.pk)
+        return store.pk
     if 'SIRIUS' in inputs['ab_initio_code']:
         with open(os.path.join(CP2K_input_files_path,'protocol_SIRIUS.yml'), 'r', encoding='utf8') as fhandle:
             cp2k_protocol = yaml.safe_load(fhandle)
@@ -48,7 +48,7 @@ def add_protocol(pks, inputs):
         a_node = Dict(single_point_protocol)
         a_node.label = 'protocol'
         store = a_node.store()
-        pks.append(store.pk)
+        return store.pk
     if 'QS' in inputs['ab_initio_code']:
         with open(os.path.join(CP2K_input_files_path,'protocol_QS.yml'), 'r', encoding='utf8') as fhandle:
             cp2k_protocol = yaml.safe_load(fhandle)
@@ -56,25 +56,26 @@ def add_protocol(pks, inputs):
         a_node = Dict(single_point_protocol)
         a_node.label = 'protocol'
         store = a_node.store()
-        pks.append(store.pk)
-    return pks
+        return store.pk
 
-def add_known_structures(pks):
+def add_known_structures():
+    pks = []
     known_structures_group = Group.collection.get(label='known_structures')
     for a_node in known_structures_group.nodes:
         pks.append(a_node.pk)
     return pks
 
-def add_calculation_nodes(pks):
+def add_calculation_nodes():
+    pks = []
     calculation_nodes_group = Group.collection.get(label='calculation_nodes')
     for a_node in calculation_nodes_group.nodes:
         pks.extend(a_node.get_list())
     return pks
 
-def add_nodes(pks):
+def add_nodes(pk_list):
     tmp_group, _ = Group.collection.get_or_create('tmp_group')
     tmp_group.clear()
-    for a_pk in pks:
+    for a_pk in pk_list:
         try:
             a_node = load_node(a_pk)
         except:
@@ -91,12 +92,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    pks = []
-    pks, inputs = add_input_node(pks)
-    pks = add_author_data(pks)
-    pks = add_protocol(pks, inputs)
-    pks = add_known_structures(pks)
-    pks = add_calculation_nodes(pks)
+    pks, inputs_data = add_input_node()
+    pks.append(add_author_data())
+    pks.append(add_protocol(inputs_data))
+    pks.append(add_known_structures())
+    pks.append(add_calculation_nodes())
     add_nodes(pks)
     os.system(f"verdi archive create --no-call-calc-backward --no-call-work-backward --no-create-backward {args.filename} --groups tmp_group")
     with open('node_pks.dat', 'w', encoding='utf-8') as fhandle:

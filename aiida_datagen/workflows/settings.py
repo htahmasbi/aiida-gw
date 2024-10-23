@@ -6,7 +6,7 @@ from aiida.manage.configuration import load_profile
 load_profile()
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
-datage_directory = os.path.split(this_directory)[0]
+datagen_directory = os.path.split(this_directory)[0]
 
 run_folder_group = Group.collection.get(label='run_folder')
 run_dir = run_folder_group.nodes[0].value
@@ -14,7 +14,6 @@ run_dir = run_folder_group.nodes[0].value
 additional_structures_dir = os.path.join(run_dir,'additional_structures')
 
 output_dir = os.path.join(run_dir, 'output')
-Flame_dir = os.path.join(output_dir)
 log_file = os.path.join(output_dir,'datagen.log')
 
 with open(os.path.join(run_dir,'input.yaml'), 'r', encoding='utf8') as fhandle:

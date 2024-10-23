@@ -19,7 +19,7 @@
 	"aiida.parsers": [
 	    "cp2k_efs_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
             "cp2k_simple_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kSimpleParser",
-            "datagene_gensymcrys_parser = aiida_datagen.codes.flame.flame_parsers: GenSymCrysParser",
+            "datagen_gensymcrys_parser = aiida_datagen.codes.flame.flame_parsers: GenSymCrysParser",
             "datagen_averdist_parser = aiida_datagen.codes.flame.flame_parsers: AverDistParser",
 	    "dategen_train_parser = aiida_datagen.codes.flame.flame_parsers: TrainParser",
 	    "datagen_minhocao_parser = aiida_datagen.codes.flame.flame_parsers: MinhocaoParser",
