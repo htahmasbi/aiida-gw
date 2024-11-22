@@ -1,6 +1,9 @@
 # chemical formula of the system(s) of interest
 Chemical_formula: [] # more than one formula can be provided (list)
   
+# data generation for finetuning
+finetuning_data: False
+  
 # number of bulk structures and number of atoms (nat) per unit cell
 bulk_number_of_atoms: [] # number of atoms (nat) of bulk structures from the MP database (list)
 number_of_bulk_structures: # maximum number of bulk structures sent for ab-initio calculations to initiate the training cycle
@@ -18,10 +21,6 @@ min_distance_prefactor: 0.90 # default value is 90%. That is, 0.90 * the distanc
 # data from local databases. Atomic structures will be retrieved from run_dir/local_db/bulk_structures.json and/or molecule_structures.json (a list of dict representation pymatgen Structure)
 from_local_db: False 
 check_number_of_atoms: False # if nat should be the same as bulk_number_of_atoms
-
-# energy and force limits
-energy_window: 5 # to control the maximum energy of training data (eV)
-max_force: 10 # to control the maximum value of forces (eV/A)
 
 # ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
 ab_initio_code:

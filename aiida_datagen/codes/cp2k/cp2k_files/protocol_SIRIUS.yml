@@ -16,7 +16,7 @@ opt1: # cluster
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 100
+        NUM_DFT_ITER: 200
         SMEARING: GAUSSIAN
         SMEARING_WIDTH: 0.0001
         DENSITY_TOL: 1.0E-6
@@ -25,6 +25,7 @@ opt1: # cluster
         TYPE: ANDERSON
         USE_HARTREE: True
         BETA: 0.2
+        BETA0: 0.05
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
         MIN_TOLERANCE: 3.675E-6 #1e-4 eV
@@ -83,7 +84,7 @@ opt1vc: # bulk
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 100
+        NUM_DFT_ITER: 200
         SMEARING: GAUSSIAN
         SMEARING_WIDTH: 0.0001
         DENSITY_TOL: 1.0E-6
@@ -92,6 +93,7 @@ opt1vc: # bulk
         TYPE: ANDERSON
         USE_HARTREE: True
         BETA: 0.2
+        BETA0: 0.05
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
         MIN_TOLERANCE: 3.675E-6 #1e-4 eV
@@ -153,7 +155,7 @@ bulk: # reference
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 100
+        NUM_DFT_ITER: 200
         SMEARING: GAUSSIAN
         SMEARING_WIDTH: 0.0001
         DENSITY_TOL: 1.0E-6
@@ -162,6 +164,7 @@ bulk: # reference
         TYPE: ANDERSON
         USE_HARTREE: True
         BETA: 0.2
+        BETA0: 0.05
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
         MIN_TOLERANCE: 3.675E-8 # 1e-6
@@ -228,7 +231,7 @@ single_point: # bulk/cluster
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 100
+        NUM_DFT_ITER: 200
         SMEARING: GAUSSIAN
         SMEARING_WIDTH: 0.0001
         DENSITY_TOL: 1.0E-6
@@ -237,6 +240,7 @@ single_point: # bulk/cluster
         TYPE: ANDERSON
         USE_HARTREE: True
         BETA: 0.2
+        BETA0: 0.05
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
         MIN_TOLERANCE: 3.675E-8 # 1e-6
@@ -269,7 +273,7 @@ dimer:
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 100
+        NUM_DFT_ITER: 200
         SMEARING: GAUSSIAN
         SMEARING_WIDTH: 0.0001
         DENSITY_TOL: 1.0E-6
@@ -278,6 +282,7 @@ dimer:
         TYPE: ANDERSON
         USE_HARTREE: True
         BETA: 0.2
+        BETA0: 0.05
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
         MIN_TOLERANCE: 3.675E-6  #1e-4
