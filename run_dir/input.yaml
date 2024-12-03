@@ -1,8 +1,8 @@
 # chemical formula of the system(s) of interest
 Chemical_formula: [] # more than one formula can be provided (list)
-  
-# data generation for finetuning
-finetuning_data: False
+
+# type of calculations: from_scratch, singlepoint, and finetuning
+calculation_type: from_scratch
   
 # number of bulk structures and number of atoms (nat) per unit cell
 bulk_number_of_atoms: [] # number of atoms (nat) of bulk structures from the MP database (list)
@@ -25,5 +25,5 @@ check_number_of_atoms: False # if nat should be the same as bulk_number_of_atoms
 # ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
 ab_initio_code:
 user_specified_CP2K_files: False #  if True, then copy codes/cp2k/cp2k_files into your run directory
-user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory
 user_specified_VASP_files: False #  if True, then copy codes/vasp/vasp_files into your run directory
+user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory

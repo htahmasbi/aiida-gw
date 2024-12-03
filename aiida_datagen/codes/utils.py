@@ -7,7 +7,7 @@ from pymatgen.core.composition import Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from mp_api.client import MPRester
 from aiida.orm import Group, Dict
-from aiida_datagen.workflows.settings import inputs, output_dir, api_key, run_dir, output_dir
+from aiida_datagen.workflows.settings import inputs, output_dir, api_key
 
 def get_pertured_failed_structures(cycle_number):
     """ Perturb fialed crystal structures.
@@ -149,36 +149,6 @@ def get_reference_structures(EAH):
                         continue
                 return reference_structures, vpas
 
-def get_structures_from_local_db():
-    """ Read structures from the local database
-    """
-    bulk_structures = []
-    molecule_structures = []
-    if inputs['from_local_db']:
-        if os.path.exists(os.path.join(run_dir,'local_db','bulk_structures.json')):
-            with open(os.path.join(run_dir,'local_db','bulk_structures.json'), 'r', encoding='utf-8') as fhandle:
-                structures_from_local_db = json.loads(fhandle.read())
-            for a_s_f_l_db in structures_from_local_db:
-                a_structure_from_local_db = Structure.from_dict(a_s_f_l_db)
-                if not is_structure_valid(a_structure_from_local_db, False, False, True, False, False)[0]:
-                    continue
-                if inputs['check_number_of_atoms'] and inputs['bulk_number_of_atoms']:
-                    if len(a_structure_from_local_db.sites) in inputs['bulk_number_of_atoms']:
-                        bulk_structures.append(a_structure_from_local_db.as_dict())
-                elif len(a_structure_from_local_db.sites) < 120:
-                    bulk_structures.append(a_structure_from_local_db.as_dict())
-        if inputs['cluster_calculation'] and os.path.exists(os.path.join(run_dir,'local_db','molecule_structures.json')):
-            with open(os.path.join(run_dir,'local_db','molecule_structures.json'), 'r', encoding='utf-8') as fhandle:
-                structures_from_local_db = json.loads(fhandle.read())
-            for a_s_f_l_db in structures_from_local_db:
-                a_structure_from_local_db = Structure.from_dict(a_s_f_l_db)
-                if inputs['check_number_of_atoms'] and inputs['cluster_number_of_atoms']:
-                    if len(a_structure_from_local_db.sites) in inputs['cluster_number_of_atoms']:
-                        molecule_structures.append(a_structure_from_local_db.as_dict())
-                elif len(a_structure_from_local_db.sites) < 120:
-                    molecule_structures.append(a_structure_from_local_db.as_dict())
-    return bulk_structures, molecule_structures
-
 def get_allowed_n_atom_for_compositions(composition_list):
     """ Returns allowed number of atoms for given crystal structures.
     """
@@ -264,6 +234,6 @@ def store_calculation_nodes():
     known_structures_nodes = []
     for a_node in known_structures_group.nodes:
         known_structures_nodes.append(a_node.pk)
-    with open(os.path.join(output_dir, 'calculation_nodes.dat'), 'w', encoding='utf-8') as fhandle:
-        for a_node in known_structures_nodes+calculation_nodes:
-            fhandle.write(f'{a_node}'+'\n')
+#    with open(os.path.join(output_dir, 'calculation_nodes.dat'), 'w', encoding='utf-8') as fhandle:
+#        for a_node in known_structures_nodes+calculation_nodes:
+#            fhandle.write(f'{a_node}'+'\n')

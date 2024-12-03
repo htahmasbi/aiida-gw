@@ -65,7 +65,7 @@ opt1: # cluster
       MAX_DR: 0.5
       RMS_DR: 0.5
       BFGS:
-        TRUST_RADIUS: 0.25
+        TRUST_RADIUS: 0.15
 opt1vc: # bulk
   kpoints_distance: 1
   GLOBAL:
@@ -127,7 +127,7 @@ opt1vc: # bulk
         _: 'OFF'
     CELL_OPT:
       TYPE: DIRECT_CELL_OPT
-      EXTERNAL_PRESSURE: 200 #bar
+      EXTERNAL_PRESSURE: 0
       PRESSURE_TOLERANCE: 200
       OPTIMIZER: BFGS
       MAX_ITER:  200
@@ -136,9 +136,9 @@ opt1vc: # bulk
       MAX_DR: 0.5
       RMS_DR: 0.5
       BFGS:
-        TRUST_RADIUS: 0.25
+        TRUST_RADIUS: 0.15
 bulk: # reference 
-  kpoints_distance: 0.4
+  kpoints_distance: 0.35
   GLOBAL:
     PREFERRED_DIAG_LIBRARY: SCALAPACK
     PRINT_LEVEL: MEDIUM
@@ -207,9 +207,9 @@ bulk: # reference
       MAX_DR: 0.0050
       RMS_DR: 0.0050
       BFGS:
-        TRUST_RADIUS: 0.25
+        TRUST_RADIUS: 0.10
 single_point: # bulk/cluster
-  kpoints_distance: 0.4
+  kpoints_distance: 0.35
   GLOBAL:
     PREFERRED_DIAG_LIBRARY: SCALAPACK
     PRINT_LEVEL: MEDIUM
@@ -217,6 +217,10 @@ single_point: # bulk/cluster
     PRINT: #only for single point calculation
         FORCES:
             FILENAME: s_p_forces
+            EACH:
+                JUST_ENERGY: 1
+        STRESS_TENSOR:
+            FILENAME: s_p_stress_tensor
             EACH:
                 JUST_ENERGY: 1
     METHOD: SIRIUS
@@ -323,4 +327,4 @@ dimer:
       MAX_DR: 0.5
       RMS_DR: 0.5
       BFGS:
-        TRUST_RADIUS: 0.25
+        TRUST_RADIUS: 0.10

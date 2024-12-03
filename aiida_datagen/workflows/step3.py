@@ -1,18 +1,19 @@
 import os
 import sys
 import gzip
-from random import sample
+from random import sample, uniform
 from time import sleep
 import json
 import yaml
+import numpy as np
 from pymatgen.core.structure import Structure, Molecule
 from aiida.plugins import DataFactory
 from aiida.orm import List, Group, load_node, QueryBuilder, WorkChainNode, CalcJobNode
-from aiida_datagen.codes.utils import get_time, get_reference_structures, get_structures_from_local_db, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
+from aiida_datagen.codes.utils import get_time, get_reference_structures, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
 from aiida_datagen.workflows.core import log_write, previous_run_exist_check, group_is_empty_check, report
 from aiida_datagen.workflows.settings import inputs, steps_status, job_script, run_dir, output_dir
 from utils.export_data import add_input_node, add_author_data, add_protocol, add_known_structures, add_calculation_nodes, add_nodes
-from utils.extract import get_author_data, get_input_data, collect_data, get_protocol, plot_1, plot_2, plot_3  
+from utils.extract import get_author_data, get_input_data, collect_data, get_protocol, plot_1, plot_2, plot_3
 
 def export_data(dir_path):
     with open(os.path.join(output_dir, 'datagen.log'), 'r', encoding='utf-8') as fhandle:
@@ -77,26 +78,25 @@ def extract_data(dir_path):
     with open(outputfilename, 'w', encoding='utf-8') as fhandle:
         json.dump(todump, fhandle, indent=4)
     with gzip.open(trainingdatafilename, 'wt', encoding='UTF-8') as fhandle:
-        json.dump(collected_data[0], fhandle) 
+        json.dump(collected_data[0], fhandle)
     # plots
-    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], 
+    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5],
         collected_data[6], collected_data[1], dirname=dir_path)
     plot_2(collected_data[7], dirname=dir_path)
     plot_3(collected_data[0], dirname=dir_path)
 
     pngfilelist= [file for file in os.listdir(dir_path) if file.endswith('.png')]
-    
+
     readme_file = f"# Dataset {inputs['Chemical_formula'][0]}\n\n"
     readme_file += f"number of data: {todump['number of data']}, "
     readme_file += f"number of bulks: {todump['number of bulks']}, "
     readme_file += f"number of clusters: {todump['number of clusters']}\n\n"
-    
+
     readme_file += f"Generated with {todump['code']}\n\n"
-    
-    
+
     for p in pngfilelist:
         readme_file += f"![{p}]({p})\n\n"
-    
+
     with open(os.path.join(dir_path, "README.md"), 'w', encoding='utf-8') as outfile:
         outfile.write(readme_file)
 
@@ -133,7 +133,7 @@ def store_step3_results():
     a_node.label = 'step_3'
     calculation_nodes_group.add_nodes(a_node)
 
-def read_structures():
+def get_structures_from_nodes():
     """ Read known and random bulk structures
     """
     random_structures_group = Group.collection.get(label='random_structures')
@@ -154,27 +154,121 @@ def read_structures():
     for a_node in random_structures_group.nodes:
         if int(a_node.label) in allowed_n_atom_bulk:
             random_bulk_structures_dict[int(a_node.label)] = a_node.get_dict()[a_node.label]
+    return n_struct_geopt, random_bulk_structures_dict
+
+def get_structures_references():
+    bulk_structures = []
+    # references
+    if os.path.exists(os.path.join(run_dir,'local_db','bulk_structures.json')):
+        with open(os.path.join(run_dir,'local_db','bulk_structures.json'), 'r', encoding='utf-8') as fhandle:
+            bulk_structures = json.loads(fhandle.read())
+    log_write(f'Number of bulk structures from the local database: {len(bulk_structures)}'+'\n')
+    return bulk_structures
+
+def get_structures_singlepoint():
+    bulk_structures = []
+    cluster_structures = []
+    if os.path.exists(os.path.join(run_dir,'local_db','bulk_structures.json')):
+        with open(os.path.join(run_dir,'local_db','bulk_structures.json'), 'r', encoding='utf-8') as fhandle:
+            bulk_structures = json.loads(fhandle.read())
+    if inputs['cluster_calculation'] and os.path.exists(os.path.join(run_dir,'local_db','molecule_structures.json')):
+        with open(os.path.join(run_dir,'local_db','molecule_structures.json'), 'r', encoding='utf-8') as fhandle:
+            cluster_structures = json.loads(fhandle.read())
+
+    if os.path.exists(os.path.join(run_dir,'local_db','training_data.json.gz')):
+        with gzip.open(os.path.join(run_dir,'local_db','training_data.json.gz'), 'rb') as fhandle:
+            data_from_file = json.loads(fhandle.read())
+        for a_data in data_from_file:
+            if 'free' in a_data['bc'] and inputs['cluster_calculation']:
+                cluster_structures.append(a_data['structure'])
+            if 'bulk' in a_data['bc']:
+                bulk_structures.append(a_data['structure'])
+    log_write(f'Number of bulk structures from the local database: {len(bulk_structures)}'+'\n')
+    log_write(f'Number of cluster structures from the local database: {len(cluster_structures)}'+'\n')
+    return bulk_structures, cluster_structures
+
+def get_structures_finetuning():
     # get reference structures, if any
     reference_structures, _ = get_reference_structures(EAH=False)
-    # from local db
-    bulk_structures, molecule_structures = get_structures_from_local_db()
-    if bulk_structures:
-        log_write(f'Number of bulk structures from the local database: {len(bulk_structures)}'+'\n')
-    elif inputs['from_local_db']:
-        log_write(' >>> WARNING: no bulk strucutre is availalbe in the local database <<<'+'\n')
-    if molecule_structures:
-        log_write(f'Number of molecule structures from the local database: {len(molecule_structures)}'+'\n')
-    elif inputs['from_local_db']:
-        log_write(' >>> WARNING: no molecule strucutre is availalbe in the local database <<<'+'\n')
+    low_energy_bulk_structures = []
+    if os.path.exists(os.path.join(run_dir,'local_db','training_data.json.gz')):
+        with gzip.open(os.path.join(run_dir,'local_db','training_data.json.gz'), 'rb') as fhandle:
+            data_from_file = json.loads(fhandle.read())
+        epas = []
+        structures = []
+        for a_data in data_from_file:
+            if 'free' in a_data['bc']:
+                continue
+            pymatgen_structure = Structure.from_dict(a_data['structure'])
+            nat = len(pymatgen_structure.sites)
+            epas.append(float(a_data['energy'])/nat)
+            structures.append(a_data['structure'])
+        low_energy_indices = np.argsort(epas)[:inputs['number_of_bulk_structures']]
+        for l_e_i in low_energy_indices:
+            low_energy_bulk_structures.append(structures[l_e_i])
+    log_write(f'Number of bulk structures from the local database: {len(low_energy_bulk_structures)}'+'\n')
+    return low_energy_bulk_structures+reference_structures
 
-    return n_struct_geopt, reference_structures, random_bulk_structures_dict, bulk_structures, molecule_structures
+def add_structures_to_parent_group_finetuning():
+    pg_step3_group = Group.collection.get(label='pg_step3')
+    StructureData = DataFactory('structure')
+    low_energy_bulk_structures = get_structures_finetuning()
+
+    for i, l_e_strct in enumerate(low_energy_bulk_structures):
+        a_structure = Structure.from_dict(l_e_strct)
+        nat = len(a_structure.sites)
+        a_structure.perturb(uniform(0.03, 0.05))
+        lestrct_node = StructureData(pymatgen=a_structure).store()
+        lestrct_node.label = 'scheme3'
+        lestrct_node.base.extras.set('job', 'scheme3-'+str(i+1)+'_'+str(nat)+'-atoms')
+        pg_step3_group.add_nodes(lestrct_node)
+
+def add_structures_to_parent_group_singlepoint():
+    pg_singlepoint_group = Group.collection.get(label='pg_singlepoint')
+    StructureData = DataFactory('structure')
+    bulk_structures, molecule_structures = get_structures_singlepoint()
+    for i, bulk_sp in enumerate(bulk_structures):
+        a_structure = Structure.from_dict(bulk_sp)
+        nat = len(a_structure.sites)
+        bulk_sp_node = StructureData(pymatgen=a_structure).store()
+        bulk_sp_node.label = 'bulk-sp'
+        bulk_sp_node.base.extras.set('job', 'bulk-sp'+str(i+1)+'_'+str(nat)+'-atoms')
+        pg_singlepoint_group.add_nodes(bulk_sp_node)
+    if molecule_structures:
+        boxed_molecule = []
+        for i, molecule in enumerate(molecule_structures):
+            boxed_molecule = []
+            a_struct = Structure.from_dict(molecule)
+            cart_coords = a_struct.cart_coords
+            maxx = max(cart_coords[:,0:1])[0]
+            minx = min(cart_coords[:,0:1])[0]
+            maxy = max(cart_coords[:,1:2])[0]
+            miny = min(cart_coords[:,1:2])[0]
+            maxz = max(cart_coords[:,2:3])[0]
+            minz = min(cart_coords[:,2:3])[0]
+            a_cluster = maxx-minx+inputs['vacuum_length']
+            b_cluster = maxy-miny+inputs['vacuum_length']
+            c_cluster = maxz-minz+inputs['vacuum_length']
+            if max(a_cluster, b_cluster, c_cluster) > 50: #max. box size 50 A
+                continue
+            molecule = Molecule(a_struct.species, cart_coords)
+            boxed_molecule.append(molecule.get_boxed_structure(a_cluster,b_cluster,c_cluster))
+        for i, a_boxed_molecule in enumerate(boxed_molecule):
+            nat = len(a_boxed_molecule.sites)
+            bmstrct_node = StructureData(pymatgen=a_boxed_molecule).store()
+            bmstrct_node.label = 'moleculei-sp'
+            bmstrct_node.base.extras.set('job', 'molecule-sp'+str(i)+'_'+str(nat)+'-atoms')
+            pg_singlepoint_group.add_nodes(bmstrct_node)
 
 def add_structures_to_parent_group():
     """ add structures to parent groups
     """
     pg_step3_group = Group.collection.get(label='pg_step3')
     StructureData = DataFactory('structure')
-    n_struct_geopt, reference_structures, random_bulk_structures_dict, bulk_structures, molecule_structures = read_structures()
+
+    n_struct_geopt, random_bulk_structures_dict = get_structures_from_nodes()
+    bulk_structures = get_structures_references()
+
     cluster_list = []
     for a_key in random_bulk_structures_dict.keys():
         indices_schm1_geopt = []
@@ -207,7 +301,7 @@ def add_structures_to_parent_group():
             s1strct_node.label = 'scheme1'
             s1strct_node.base.extras.set('job', 'scheme1-'+str(i+1)+'_'+str(a_key)+'-atoms')
             pg_step3_group.add_nodes(s1strct_node)
-            if a_key in inputs['cluster_number_of_atoms']:
+            if a_key in inputs['cluster_number_of_atoms'] and inputs['cluster_calculation'] :
                 cluster_list.append(a_structure)
         for i, indx in enumerate(indices_schm2_geopt):
             a_structure = Structure.from_dict(random_bulk_structures_dict[a_key][indx])
@@ -215,9 +309,9 @@ def add_structures_to_parent_group():
             s2strct_node.label = 'scheme2'
             s2strct_node.base.extras.set('job', 'scheme2-'+str(i+1)+'_'+str(a_key)+'-atoms')
             pg_step3_group.add_nodes(s2strct_node)
-            if a_key in inputs['cluster_number_of_atoms']:
+            if a_key in inputs['cluster_number_of_atoms'] and inputs['cluster_calculation'] :
                 cluster_list.append(a_structure)
-        if inputs['cluster_calculation'] and cluster_list:
+        if cluster_list:
             boxed_molecule = []
             for a_struct in cluster_list:
                 cart_coords = a_struct.cart_coords
@@ -245,7 +339,7 @@ def add_structures_to_parent_group():
                 bmstrct_node.base.extras.set('job', 'cluster-'+str(i)+'_'+str(a_key)+'-atoms')
                 pg_step3_group.add_nodes(bmstrct_node)
 
-    for i, ref_strct in enumerate(reference_structures+bulk_structures):
+    for i, ref_strct in enumerate(bulk_structures):
         a_structure = Structure.from_dict(ref_strct)
         nat = len(a_structure.sites)
         rfstrct_node = StructureData(pymatgen=a_structure).store()
@@ -253,30 +347,30 @@ def add_structures_to_parent_group():
         rfstrct_node.base.extras.set('job', 'scheme3-'+str(i+1)+'_'+str(nat)+'-atoms')
         pg_step3_group.add_nodes(rfstrct_node)
 
-    if molecule_structures:
-        for i, molecule in enumerate(molecule_structures):
-            boxed_molecule = []
-            a_struct = Structure.from_dict(molecule)
-            cart_coords = a_struct.cart_coords
-            maxx = max(cart_coords[:,0:1])[0]
-            minx = min(cart_coords[:,0:1])[0]
-            maxy = max(cart_coords[:,1:2])[0]
-            miny = min(cart_coords[:,1:2])[0]
-            maxz = max(cart_coords[:,2:3])[0]
-            minz = min(cart_coords[:,2:3])[0]
-            a_cluster = maxx-minx+inputs['vacuum_length']
-            b_cluster = maxy-miny+inputs['vacuum_length']
-            c_cluster = maxz-minz+inputs['vacuum_length']
-            if max(a_cluster, b_cluster, c_cluster) > 50: #max. box size 50 A
-                continue
-            molecule = Molecule(a_struct.species, cart_coords)
-            boxed_molecule.append(molecule.get_boxed_structure(a_cluster,b_cluster,c_cluster))
-        for i, a_boxed_molecule in enumerate(selected_boxed_molecule):
-            nat = len(a_boxed_molecule.sites)
-            bmstrct_node = StructureData(pymatgen=a_boxed_molecule).store()
-            bmstrct_node.label = 'molecule'
-            bmstrct_node.base.extras.set('job', 'molecule-'+str(i)+'_'+str(nat)+'-atoms')
-            pg_step3_group.add_nodes(bmstrct_node)
+#   if molecule_structures:
+#       for i, molecule in enumerate(molecule_structures):
+#           boxed_molecule = []
+#           a_struct = Structure.from_dict(molecule)
+#           cart_coords = a_struct.cart_coords
+#           maxx = max(cart_coords[:,0:1])[0]
+#           minx = min(cart_coords[:,0:1])[0]
+#           maxy = max(cart_coords[:,1:2])[0]
+#           miny = min(cart_coords[:,1:2])[0]
+#           maxz = max(cart_coords[:,2:3])[0]
+#           minz = min(cart_coords[:,2:3])[0]
+#           a_cluster = maxx-minx+inputs['vacuum_length']
+#           b_cluster = maxy-miny+inputs['vacuum_length']
+#           c_cluster = maxz-minz+inputs['vacuum_length']
+#           if max(a_cluster, b_cluster, c_cluster) > 50: #max. box size 50 A
+#               continue
+#           molecule = Molecule(a_struct.species, cart_coords)
+#           boxed_molecule.append(molecule.get_boxed_structure(a_cluster,b_cluster,c_cluster))
+#       for i, a_boxed_molecule in enumerate(boxed_molecule):
+#           nat = len(a_boxed_molecule.sites)
+#           bmstrct_node = StructureData(pymatgen=a_boxed_molecule).store()
+#           bmstrct_node.label = 'molecule'
+#           bmstrct_node.base.extras.set('job', 'molecule-'+str(i)+'_'+str(nat)+'-atoms')
+#           pg_step3_group.add_nodes(bmstrct_node)
 
 def step_3():
     """ Step 3
@@ -292,23 +386,49 @@ def step_3():
         a_group, _ = Group.collection.get_or_create(a_group_label)
         a_group.clear()
     # add structures
-    add_structures_to_parent_group()
+    if 'scratch' in inputs['calculation_type']:
+        add_structures_to_parent_group()
+    elif 'singlepoint' in inputs['calculation_type']:
+        add_structures_to_parent_group_singlepoint()
+    elif 'finetuning' in inputs['calculation_type']:
+        add_structures_to_parent_group_finetuning()
+    else:
+        log_write('>>> ERROR: calculation type is not provided  <<<'+'\n')
+        sys.exit()
     # submit jobs
     if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
-        from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController
+        from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController, CP2KSPSubmissionController
         log_write(f'Ab-initio calculations with {inputs["ab_initio_code"]}'+'\n')
-        controller = CP2KSubmissionController(
-            parent_group_label='pg_step3',
-            group_label='wf_step3',
-            max_concurrent=job_script['geopt']['number_of_jobs'],
-            QSorSIRIUS=inputs['ab_initio_code'])
+        if 'singlepoint' in inputs['calculation_type']:
+            controller = CP2KSPSubmissionController(
+                parent_group_label='pg_singlepoint',
+                group_label='wf_step3',
+                max_concurrent=job_script['geopt']['number_of_jobs'],
+                QSorSIRIUS=inputs['ab_initio_code'])
+        else:
+            controller = CP2KSubmissionController(
+                parent_group_label='pg_step3',
+                group_label='wf_step3',
+               max_concurrent=job_script['geopt']['number_of_jobs'],
+               QSorSIRIUS=inputs['ab_initio_code'])
     elif inputs['ab_initio_code']=='VASP':
-        from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController
+        from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController, VASPSPSubmissionController
         log_write('Ab-initio calculations with VASP'+'\n')
-        controller = VASPSubmissionController(
-            parent_group_label='pg_step3',
-            group_label='wf_step3',
-            max_concurrent=job_script['geopt']['number_of_jobs'])
+        if 'scratch' in inputs['calculation_type'] or 'finetuning' in inputs['calculation_type']:
+            controller = VASPSubmissionController(
+                parent_group_label='pg_step3',
+                group_label='wf_step3',
+                max_concurrent=job_script['geopt']['number_of_jobs'])
+        if 'singlepoint' in inputs['calculation_type']:
+            controller = VASPSPSubmissionController(
+                parent_group_label='pg_singlepoint',
+                group_label='wf_step3',
+                max_concurrent=job_script['geopt']['number_of_jobs'])
+        else:
+            controller = VASPSubmissionController(
+                parent_group_label='pg_step3',
+                group_label='wf_step3',
+                max_concurrent=job_script['geopt']['number_of_jobs'])
     else:
         log_write('>>> ERROR: no ab_initio code is provided <<<'+'\n')
         sys.exit()

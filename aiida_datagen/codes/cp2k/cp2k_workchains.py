@@ -84,7 +84,7 @@ def get_kinds_section_SIRIUS(structure, basis_pseudo, magnetization_tags=None):
         kinds.append(new_atom)
     return {'FORCE_EVAL': {'SUBSYS': {'KIND': kinds}}}
 
-def get_cutoff_SIRIUS_mod(structure, basis_pseudo):
+def get_cutoff_SIRIUS(structure, basis_pseudo):
     gk_cutoff = [6]
     pw_cutoff = [15]
     with open(os.path.join(settings.CP2K_input_files_path, basis_pseudo), 'rb') as fhandle:
@@ -96,22 +96,8 @@ def get_cutoff_SIRIUS_mod(structure, basis_pseudo):
     for symbol, tag in symbol_tag:
         gk_cutoff.append(round(0.5 + (atom_data[symbol]['cutoff_wfc'])**0.5))
         pw_cutoff.append(round((atom_data[symbol]['cutoff_rho'])**0.5))
-
+        pw_cutoff.append(2.5 * max(gk_cutoff))
     return max(pw_cutoff), max(gk_cutoff)
-
-def get_cutoff_SIRIUS(structure, basis_pseudo):
-    gk_cutoff = 6
-    with open(os.path.join(settings.CP2K_input_files_path, basis_pseudo), 'rb') as fhandle:
-        atom_data = json.loads(fhandle.read())
-    ase_structure = structure.get_ase()
-    symbol_tag = {
-    (symbol, str(tag)) for symbol, tag in zip(ase_structure.get_chemical_symbols(), ase_structure.get_tags())
-    }
-    for symbol, tag in symbol_tag:
-        gk_cutoff = max(gk_cutoff, round(0.5 + (atom_data[symbol]['cutoff_wfc'])**0.5))
-        pw_cutoff = max(2.5 * gk_cutoff, round((atom_data[symbol]['cutoff_rho'])**0.5))
-
-    return pw_cutoff, gk_cutoff
 
 def get_file_section_QS():
     """ Potential files for QS
@@ -199,6 +185,8 @@ def construct_builder(structure, parameters, basis_pseudo, QSorSIRIUS):
                                      'aiida-frc-1.xyz',
                                      'aiida-1.cell',
                                      'aiida-s_p_forces-1_0.xyz',
+                                     'aiida-s_p_stress_tensor-1_0.stress_tensor',
+                                     'aiida-1.stress',
                                      'aiida.coords.xyz']})
     builder.cp2k.metadata.options = get_options()
     if job_type in ['opt1vc', 'opt1c']:
@@ -643,4 +631,57 @@ class MoleculeGeOptWorkChain(WorkChain):
             self.report('The calculation did not finish successfully')
             return self.exit_codes.ERROR_CALCULATION_FAILED
         a_node = self.ctx['molecule']
+        results_step3_group.add_nodes(a_node)
+
+class SinglePointtWorkChain(WorkChain):
+    """ CP2K WorkChain
+    """
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        spec.input('structure', valid_type=StructureData)
+        spec.input('QSorSIRIUS', valid_type=Str)
+        spec.input('bc', valid_type=Str)
+        spec.outline(
+            cls.initialize,
+            cls.run_single_point,
+            cls.inspect_calculation_1)
+        spec.exit_code(
+            300, 'ERROR_CALCULATION_FAILED',
+            message='The calculation did not finish successfully')
+
+    def initialize(self):
+        if 'QS' in self.inputs.QSorSIRIUS.value:
+            protocol = os.path.join(settings.CP2K_input_files_path,'protocol_QS.yml')
+        else:
+            protocol = os.path.join(settings.CP2K_input_files_path,'protocol_SIRIUS.yml')
+        with open(protocol, 'r', encoding='utf8') as fhandle:
+            self.ctx.protocol = yaml.safe_load(fhandle)
+
+    def run_single_point(self):
+        structure = self.inputs.structure
+        QSorSIRIUS = self.inputs.QSorSIRIUS.value
+        # parameters
+        parameters = self.ctx.protocol['single_point']
+        basis_pseudo = self.ctx.protocol['basis_pseudo']
+        parameters['GLOBAL']['RUN_TYPE'] = 'ENERGY_FORCE'
+
+        bc = self.inputs.bc.value
+        if 'free' in bc:
+            job_type = 'single_point_cluster'
+            parameters['kpoints_distance'] = 10
+        else:
+            job_type = 'single_point_bulk'
+        parameters['### JOB_TYPE'] = job_type
+        # builder
+        builder = construct_builder(structure, parameters, basis_pseudo, QSorSIRIUS)
+        # submit
+        future = self.submit(builder)
+        self.to_context(**{'single_point': future})
+
+    def inspect_calculation_1(self):
+        if not self.ctx['single_point'].is_finished_ok:
+            self.report('The calculation did not finish successfully')
+            return self.exit_codes.ERROR_CALCULATION_FAILED
+        a_node = self.ctx['single_point']
         results_step3_group.add_nodes(a_node)

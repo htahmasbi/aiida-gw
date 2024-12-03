@@ -194,6 +194,15 @@ def read_s_p_forces(content):
     s_p_forces = [(np.array(parsed_lines, np.float64)) * HaB2eVA]
     return s_p_forces
 
+def read_s_p_stress_tensor(content):
+    """ ENERGY FORCE calculations
+    """
+    stress_tensor = []
+    lines = content.splitlines()[3:6]
+    for line in lines:
+        stress_tensor.extend(np.array(line.split()[2:], np.float64) * 1000) # [bar]
+    return stress_tensor
+
 def read_forces(content):
     HaB2eVA = 51.42208619083232
     start_lines = []
@@ -208,6 +217,13 @@ def read_forces(content):
         parsed_lines = parse_lines(lines, a_s_l, a_s_l+nlines)
         forces.append(np.array(parsed_lines, np.float64) * HaB2eVA)
     return forces
+
+def read_stress_tensor(content):
+    stress_tensor = []
+    lines = content.splitlines()[1:]
+    for line in lines:
+        stress_tensor.append(np.array(line.split()[2:], np.float64)) # xx, xy, xz, yx, yy, yz, zx, zy, zz [bar]
+    return stress_tensor
 
 def read_cell_parameters(content):
     cell_parameters = []

@@ -10,7 +10,9 @@ from aiida_datagen.codes.cp2k.parsers import (
     read_coordinates,
     read_positions,
     read_forces,
+    read_stress_tensor,
     read_s_p_forces,
+    read_s_p_stress_tensor,
     read_cell_parameters,
     read_lattice_parameters)
 
@@ -89,13 +91,14 @@ class Cp2kEFSParser(Cp2kBaseParser):
         return None
 
     def _parse_efs(self, result_dict):
-        symbols = positions = cells = forces = []
+        symbols = positions = cells = forces = stress_tensor = []
         if result_dict["run_type"] in ["GEO_OPT", "CELL_OPT"]:
             if 'aiida-pos-1.xyz' in self.retrieved.list_object_names() and\
                'aiida-frc-1.xyz' in self.retrieved.list_object_names() and\
                'aiida-1.cell' in self.retrieved.list_object_names():
                 positions = read_positions(self.retrieved.get_object_content('aiida-pos-1.xyz'))
                 forces = read_forces(self.retrieved.get_object_content('aiida-frc-1.xyz'))
+                stress_tensor = read_stress_tensor(self.retrieved.get_object_content('aiida-1.stress'))
                 cells = read_cell_parameters(self.retrieved.get_object_content('aiida-1.cell'))
                 symbols, _ = read_coordinates(self.retrieved.get_object_content('aiida.coords.xyz'))
             else:
@@ -110,8 +113,13 @@ class Cp2kEFSParser(Cp2kBaseParser):
                     cells = [read_lattice_parameters(self.retrieved.get_object_content('aiida.inp'))]
             else:
                 return self.exit_codes.ERROR_OUTPUT_MISSING
-        if symbols and  positions and cells and forces:
-            result_dict['motion_step_info'].update({'symbols': symbols, 'positions': positions, 'cells': cells, 'forces': forces})
+            if 'aiida-s_p_stress_tensor-1_0.stress_tensor' in self.retrieved.list_object_names():
+                stress_tensor = read_s_p_stress_tensor(self.retrieved.get_object_content('aiida-s_p_stress_tensor-1_0.stress_tensor'))
+            else:
+                return self.exit_codes.ERROR_OUTPUT_MISSING
+
+        if symbols and positions and cells and forces and stress_tensor:
+            result_dict['motion_step_info'].update({'symbols': symbols, 'positions': positions, 'cells': cells, 'forces': forces, 'stress_tensor': stress_tensor})
         else:
             return self.exit_codes.ERROR_OUTPUT_MISSING
         cell_pbc = [True, True, True] #result_dict['cell_pbc']

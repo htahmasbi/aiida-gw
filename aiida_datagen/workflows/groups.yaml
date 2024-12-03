@@ -1,5 +1,5 @@
 structures_group_list: ['known_structures', 'random_structures']
-parent_group_list: ['pg_step1', 'pg_step3']
+parent_group_list: ['pg_step1', 'pg_step3', 'pg_singlepoint']
 workflows_group_list: ['wf_step1', 'wf_step2', 'wf_step3']
 results_group_list: ['results_step1', 'results_step3']
 calculation_nodes: ['calculation_nodes']
