@@ -162,7 +162,7 @@ def get_structures_references():
     if os.path.exists(os.path.join(run_dir,'local_db','bulk_structures.json')):
         with open(os.path.join(run_dir,'local_db','bulk_structures.json'), 'r', encoding='utf-8') as fhandle:
             bulk_structures = json.loads(fhandle.read())
-    log_write(f'Number of bulk structures from the local database: {len(bulk_structures)}'+'\n')
+    log_write(f'Number of reference bulk structures from the local database: {len(bulk_structures)}'+'\n')
     return bulk_structures
 
 def get_structures_singlepoint():
@@ -205,7 +205,8 @@ def get_structures_finetuning():
             structures.append(a_data['structure'])
         low_energy_indices = np.argsort(epas)[:inputs['number_of_bulk_structures']]
         for l_e_i in low_energy_indices:
-            low_energy_bulk_structures.append(structures[l_e_i])
+            a_p_structure = Structure.from_dict(structures[l_e_i]).perturb(uniform(0.03, 0.05))
+            low_energy_bulk_structures.append(a_p_structure.as_dict())
     log_write(f'Number of bulk structures from the local database: {len(low_energy_bulk_structures)}'+'\n')
     return low_energy_bulk_structures+reference_structures
 
@@ -213,11 +214,11 @@ def add_structures_to_parent_group_finetuning():
     pg_step3_group = Group.collection.get(label='pg_step3')
     StructureData = DataFactory('structure')
     low_energy_bulk_structures = get_structures_finetuning()
+    ref_structures = get_structures_references()
 
-    for i, l_e_strct in enumerate(low_energy_bulk_structures):
-        a_structure = Structure.from_dict(l_e_strct)
+    for i, l_e_struct in enumerate(low_energy_bulk_structures + ref_structures):
+        a_structure = Structure.from_dict(l_e_struct)
         nat = len(a_structure.sites)
-        a_structure.perturb(uniform(0.03, 0.05))
         lestrct_node = StructureData(pymatgen=a_structure).store()
         lestrct_node.label = 'scheme3'
         lestrct_node.base.extras.set('job', 'scheme3-'+str(i+1)+'_'+str(nat)+'-atoms')
@@ -347,31 +348,6 @@ def add_structures_to_parent_group():
         rfstrct_node.base.extras.set('job', 'scheme3-'+str(i+1)+'_'+str(nat)+'-atoms')
         pg_step3_group.add_nodes(rfstrct_node)
 
-#   if molecule_structures:
-#       for i, molecule in enumerate(molecule_structures):
-#           boxed_molecule = []
-#           a_struct = Structure.from_dict(molecule)
-#           cart_coords = a_struct.cart_coords
-#           maxx = max(cart_coords[:,0:1])[0]
-#           minx = min(cart_coords[:,0:1])[0]
-#           maxy = max(cart_coords[:,1:2])[0]
-#           miny = min(cart_coords[:,1:2])[0]
-#           maxz = max(cart_coords[:,2:3])[0]
-#           minz = min(cart_coords[:,2:3])[0]
-#           a_cluster = maxx-minx+inputs['vacuum_length']
-#           b_cluster = maxy-miny+inputs['vacuum_length']
-#           c_cluster = maxz-minz+inputs['vacuum_length']
-#           if max(a_cluster, b_cluster, c_cluster) > 50: #max. box size 50 A
-#               continue
-#           molecule = Molecule(a_struct.species, cart_coords)
-#           boxed_molecule.append(molecule.get_boxed_structure(a_cluster,b_cluster,c_cluster))
-#       for i, a_boxed_molecule in enumerate(boxed_molecule):
-#           nat = len(a_boxed_molecule.sites)
-#           bmstrct_node = StructureData(pymatgen=a_boxed_molecule).store()
-#           bmstrct_node.label = 'molecule'
-#           bmstrct_node.base.extras.set('job', 'molecule-'+str(i)+'_'+str(nat)+'-atoms')
-#           pg_step3_group.add_nodes(bmstrct_node)
-
 def step_3():
     """ Step 3
     """
@@ -382,7 +358,7 @@ def step_3():
     previous_run_exist_check()
     group_is_empty_check('wf_step3')
     # clear groups
-    for a_group_label in ['pg_step3', 'results_step3']:
+    for a_group_label in ['pg_singlepoint', 'pg_step3', 'results_step3']:
         a_group, _ = Group.collection.get_or_create(a_group_label)
         a_group.clear()
     # add structures
