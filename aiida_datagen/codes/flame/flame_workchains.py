@@ -23,11 +23,13 @@ def get_options(job_type, max_wallclock = False):
     if 'averdist' in job_type:
         resources = {
             'num_machines': 1,
+            'num_cores_per_mpiproc': 1,
             'num_mpiprocs_per_machine': job_script['QBC']['ntasks']}
         job_type = 'QBC'
     else:
         resources = {
             'num_machines': job_script[job_type]['nodes'],
+            'num_cores_per_mpiproc': 1,
             'num_mpiprocs_per_machine': job_script[job_type]['ntasks']}
     options = {'resources': resources}
     if job_script[job_type]['exclusive']:

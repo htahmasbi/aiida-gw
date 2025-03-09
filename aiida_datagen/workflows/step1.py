@@ -160,16 +160,16 @@ def add_structures_to_parent_group(structures):
         a_node.base.extras.set('job', 'reference-'+str(i+1)+'_'+str(nat)+'-atoms')
         pg_step1_group.add_nodes(a_node)
    # dimers
-    covalent_radius = CovalentRadius.radius
-    element_list = get_element_list()
-    for i, a_dimer in enumerate(combinations_with_replacement(element_list, 2)):
-        d = covalent_radius[a_dimer[0]] + covalent_radius[a_dimer[-1]]
-        molecule = Molecule(a_dimer, [[0,0,0], [0,0,d]])
-        boxed_molecule = molecule.get_boxed_structure(15, 15, 15)
-        a_node = StructureData(pymatgen=boxed_molecule).store()
-        a_node.label = 'dimer'
-        a_node.base.extras.set('job', 'dimer-'+str(i+1))
-        pg_step1_group.add_nodes(a_node)
+#    covalent_radius = CovalentRadius.radius
+#    element_list = get_element_list()
+#    for i, a_dimer in enumerate(combinations_with_replacement(element_list, 2)):
+#        d = covalent_radius[a_dimer[0]] + covalent_radius[a_dimer[-1]]
+#        molecule = Molecule(a_dimer, [[0,0,0], [0,0,d]])
+#        boxed_molecule = molecule.get_boxed_structure(15, 15, 15)
+#        a_node = StructureData(pymatgen=boxed_molecule).store()
+#        a_node.label = 'dimer'
+#        a_node.base.extras.set('job', 'dimer-'+str(i+1))
+#        pg_step1_group.add_nodes(a_node)
 
 def step_1():
     """ Step 1

@@ -3,13 +3,10 @@
 import os
 import sys
 import argparse
-
-from collections import defaultdict
 import numpy as np
 import json
 import gzip
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from pymatgen.core.structure import Structure
 from aiida.orm import Group, QueryBuilder, CalcJobNode, Node, load_node
 from aiida.manage.configuration import load_profile
@@ -209,17 +206,17 @@ def collect_data(code):
             training_data.append(tmp_dict)
             plot_force.extend(tot_force)
     for i, e in enumerate(plot_epa_b):
-        if e > min_epa + 5:
+        if e > min_epa + 20:
             del plot_epa_b[i]
             del plot_nat_b[i]
             del plot_vpa_b[i]
     for i, e in enumerate(plot_epa_b):
-        if e > min_epa + 5:
+        if e > min_epa + 20:
             del plot_epa_b[i]
             del plot_nat_b[i]
             del plot_vpa_b[i]
     for i, e in enumerate(plot_epa_c):
-        if e > min_epa + 5:
+        if e > min_epa + 20:
             del plot_epa_c[i]
             del plot_nat_c[i]
 
@@ -254,97 +251,63 @@ def value_to_step(val, intervals):
             return round(sum(interval)/len(interval), 2)
     return 0
 
-def plot_1(plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c, min_epa, dirname="."):
+def plot_1(plot_nat_b, plot_epa_b, plot_vpa_b, plot_nat_c, plot_epa_c, dirname="."):
     if plot_nat_b and plot_epa_b:
-        plt.figure()
-        plt.scatter(plot_nat_b,plot_epa_b, label='epa-vs-nat')
-        plt.xlabel('nat')
-        plt.ylabel(r'epa ($eV/atom$)')
-        plt.plot([min(plot_nat_b), max(plot_nat_b)], [min_epa, min_epa])
+        fig, ax = plt.subplots()
+        ax.scatter(plot_nat_b,plot_epa_b, color='midnightblue')
+        ax.set_xlabel('nat')
+        ax.set_ylabel('epa ($eV/atom$)')
+        ax.set_xticks([max(plot_nat_b), min(plot_nat_b)])
+        ax.set_xlim([min(plot_nat_b)-1, max(plot_nat_b)+1])
         plt.subplots_adjust(left=0.2)
         plt.savefig(os.path.join(dirname, 'bulk_epa-vs-nat.png'))
         plt.close()
 
     if plot_epa_b and plot_vpa_b:
-        plt.figure()
-        plt.scatter(plot_vpa_b,plot_epa_b, label='epa-vs-vpa')
-        plt.xlabel(r'vpa (${\AA}^3/atom$)')
-        plt.ylabel(r'epa ($eV/atom$)')
-        plt.plot([min(plot_vpa_b), max(plot_vpa_b)], [min_epa, min_epa], color='navy')
+        fig, ax = plt.subplots()
+        ax.scatter(plot_vpa_b,plot_epa_b, color='midnightblue')
+        ax.set_xlabel('vpa (${\AA}^3/atom$)')
+        ax.set_ylabel('epa ($eV/atom$)')
         plt.subplots_adjust(left=0.2)
         plt.savefig(os.path.join(dirname, 'bulk_epa-vs-vpa.png'))
         plt.close()
 
     if plot_nat_c and plot_epa_c:
-        plt.figure()
-        plt.scatter(plot_nat_c,plot_epa_c, label='epa-vs-nat')
-        plt.xlabel('nat')
-        plt.ylabel(r'epa ($eV/atom$)')
+        fig, ax = plt.subplots()
+        ax.scatter(plot_nat_c,plot_epa_c, color='midnightblue')
+        ax.set_xlabel('nat')
+        ax.set_xticks([max(plot_nat_c), min(plot_nat_c)])
+        ax.set_xlim([min(plot_nat_c)-1, max(plot_nat_c)+1])
+        ax.set_ylabel('epa ($eV/atom$)')
         plt.subplots_adjust(left=0.2)
-        plt.plot([min(plot_nat_c), max(plot_nat_c)], [min_epa, min_epa], color='navy')
         plt.savefig(os.path.join(dirname, 'cluster_epa-vs-nat.png'))
         plt.close()
 
-def plot_2(forces, dirname="."):
-    fmin = 0 #min(forces)
-    fmax = 10 #max(forces)
-    steps = int((fmax - fmin) * 10)
-    fstep = (fmax - fmin)/steps
-    f_intervals = []
-    to_plot = defaultdict(int)
-    plot_i = []
-    for s in range(steps):
-        f_intervals.append([fmin+s*fstep, fmin+(s+1)*fstep])
-        to_plot[round((fmin+s*fstep + fmin+(s+1)*fstep)/2, 2)] = 0
-        plot_i.append(round((fmin+s*fstep + fmin+(s+1)*fstep)/2, 2))
-    for a_force in forces:
-        val = value_to_step(a_force, f_intervals)
-        if val != 0:
-            to_plot[val] = to_plot[val] + 1
-    plot_d = []
-    plot_b = []
-    max_value = max(to_plot.values())
-    for keys, values in sorted(to_plot.items()):
-        plot_d.append(str(keys))
-        plot_b.append(values/max_value)
+def plot_2(data, dirname="."):
+    forces = []
+    for a_data in data:
+        if a_data > 10:
+            continue
+        forces.append(a_data)
     fig, ax = plt.subplots()
-    ax.bar(plot_i, plot_b, width = 0.05)
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    plt.xlabel(r'force ($eV/\AA$)')
+    ax.hist(forces, bins=np.arange(0, 10, step=0.1), alpha=0.5, density=False, color='midnightblue', facecolor='midnightblue', edgecolor='black')
+    ax.set_xlabel("force ($eV/\AA$)")
+    ax.set_ylabel("count")
+    ax.set_xticks(np.arange(0, 11, step=1))
+    plt.subplots_adjust(left=0.2)
+    ax.set_xlim([-0.2, 10.2])
     plt.savefig(os.path.join(dirname, 'forces.png'))
     plt.close()
 
 def plot_3(training_data, dirname="."):
-    all_distances = get_all_distances(training_data, 5)
-    dmin = 0.2 #min(all_distances)
-    dmax = 5.2
-    steps = int(10 * (dmax - dmin))
-    dstep = (dmax - dmin)/steps
-    d_intervals = []
-    to_plot = defaultdict(int)
-    plot_i = []
-    for i in range(steps):
-        d_intervals.append([dmin+i*dstep,dmin+(i+1)*dstep])
-        to_plot[round((dmin+i*dstep + dmin+(i+1)*dstep)/2, 2)] = 0
-        plot_i.append(round((dmin+i*dstep + dmin+(i+1)*dstep)/2, 2))
-    for a_d in all_distances:
-        val = value_to_step(a_d, d_intervals)
-        if val != 0:
-            to_plot[val] = to_plot[val] + 1
-    plot_d = []
-    plot_b = []
-    max_value = max(to_plot.values())
-    for keys, values in sorted(to_plot.items()):
-        plot_d.append(str(keys))
-        plot_b.append(values/max_value)
-    plt.figure()
-    plt.bar(plot_i, plot_b, width = 0.05)
-    lst1 = [v for i, v in enumerate(plot_i) if i % 2 == 0]
-    lst2 = [v for i, v in enumerate(plot_d) if i % 2 == 0]
-    plt.xticks(lst1, lst2)
-    plt.xticks(rotation='vertical')
-    plt.xlabel(r'($\AA$)')
-    plt.subplots_adjust(bottom=0.2)
+    distances = get_all_distances(training_data, 7)
+    fig, ax = plt.subplots()
+    ax.hist(distances, bins=np.arange(0.2, 7.2, step=0.1), alpha=0.5, density=False, facecolor='midnightblue', edgecolor='black')
+    ax.set_xlabel("distance ($\AA$)")
+    ax.set_ylabel("count")
+    ax.set_xticks(np.arange(0, 7.2, step=1))
+    ax.set_xlim([0.2, 7.2])
+    plt.subplots_adjust(left=0.2)
     plt.savefig(os.path.join(dirname, 'bonds.png'))
     plt.close()
 
@@ -353,7 +316,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog='extract_metadata.py',
                     description='Extract metadata and training files from AiiDA data files',
-                    epilog='Specific script for this datalad repository, ask a.knuepfer@hzdr.de')
+                    epilog='Specific script for this datalad repository')
 
     parser.add_argument('filename', help='Input filename *.aiida')
     parser.add_argument('-r', '--replace', action='store_true', help='Replace output file DATASET.json if it already exists')
@@ -416,15 +379,15 @@ if __name__ == "__main__":
 
         if 1 != len(inputs['Chemical_formula']):
 
-            print(f"inputs['Chemical_formula'] is supposed to be a list of length 1 exactly")
-            print("    actually is: ", inputs['Chemical_formula'])
+            print(f"{inputs['Chemical_formula']} is supposed to be a list of length 1 exactly")
+            print(f"    actually is:  {inputs['Chemical_formula']}")
             print("abort")
             sys.exit(-13)
 
     else:
 
-        print(f"inputs['Chemical_formula'] is supposed to be a list")
-        print("    actually is: ", inputs['Chemical_formula'])
+        print(f"{inputs['Chemical_formula']} is supposed to be a list")
+        print(f"    actually is: {inputs['Chemical_formula']}")
         print("abort")
         sys.exit(-12)
 
@@ -459,16 +422,10 @@ if __name__ == "__main__":
         print(f"WARNING: cannot write {trainingdatafilename} because of access permissions (may try 'datalad unlock'), ignoring")
 
     # plots
-    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], 
-        collected_data[6], collected_data[1], dirname=dirname)
+    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], collected_data[6], dirname=dirname)
     plot_2(collected_data[7], dirname=dirname)
     plot_3(collected_data[0], dirname=dirname)
 
-
-    # convenience additions
-
-    # Add a README.md file which shows all the images
-    # ... some selected metadata could be added too
 
     pngfilelist= [file for file in os.listdir(dirname) if file.endswith('.png')]
 
@@ -479,10 +436,8 @@ if __name__ == "__main__":
 
     readme_file += f"Generated with {todump['code']}\n\n"
 
-
     for p in pngfilelist:
         readme_file += f"![{p}]({p})\n\n"
 
     with open(os.path.join(dirname, "README.md"), 'w', encoding='utf-8') as outfile:
         outfile.write(readme_file)
-

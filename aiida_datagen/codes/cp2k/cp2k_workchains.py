@@ -86,7 +86,7 @@ def get_kinds_section_SIRIUS(structure, basis_pseudo, magnetization_tags=None):
 
 def get_cutoff_SIRIUS(structure, basis_pseudo):
     gk_cutoff = [6]
-    pw_cutoff = [15]
+    pw_cutoff = [12]
     with open(os.path.join(settings.CP2K_input_files_path, basis_pseudo), 'rb') as fhandle:
         atom_data = json.loads(fhandle.read())
     ase_structure = structure.get_ase()
@@ -96,7 +96,7 @@ def get_cutoff_SIRIUS(structure, basis_pseudo):
     for symbol, tag in symbol_tag:
         gk_cutoff.append(round(0.5 + (atom_data[symbol]['cutoff_wfc'])**0.5))
         pw_cutoff.append(round((atom_data[symbol]['cutoff_rho'])**0.5))
-        pw_cutoff.append(2.5 * max(gk_cutoff))
+        pw_cutoff.append(round(2 * max(gk_cutoff)))
     return max(pw_cutoff), max(gk_cutoff)
 
 def get_file_section_QS():
@@ -160,15 +160,18 @@ def construct_builder(structure, parameters, basis_pseudo, QSorSIRIUS):
     if 'SIRIUS' in QSorSIRIUS:
         if mesh != [1, 1, 1]:
             parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['NGRIDK'] = f'{mesh[0]} {mesh[1]} {mesh[2]}'
-        else:
-            pass
-            parameters['FORCE_EVAL']['PW_DFT']['CONTROL']['MPI_GRID_DIMS'] = f'{1} {settings.job_script["geopt"]["ntasks"]}'
+        parameters['FORCE_EVAL']['PW_DFT']['CONTROL']['MPI_GRID_DIMS'] = f'{1} {settings.job_script["geopt"]["ntasks"]}'
         cell = parameters['FORCE_EVAL']['SUBSYS']['CELL']
         for i, keys in enumerate(cell.keys()):
             cell[keys] = f'{cell[keys]} {round(structure.cell[i][0],14):<15} {round(structure.cell[i][1],14):<15} {round(structure.cell[i][2],14):<15}'
         dict_merge(parameters, get_kinds_section_SIRIUS(structure, basis_pseudo))
         builder.cp2k.file = get_file_section_SIRIUS(structure, basis_pseudo)
         pw_cutoff, gk_cutoff = get_cutoff_SIRIUS(structure, basis_pseudo)
+        if job_type in ['opt1vc', 'opt1c']:
+            pw_cutoff = round(pw_cutoff * 0.8)
+            gk_cutoff = round(gk_cutoff * 0.8)
+            if pw_cutoff < 2 * gk_cutoff:
+                pw_cutoff = 2 * gk_cutoff
         parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['PW_CUTOFF'] = pw_cutoff
         parameters['FORCE_EVAL']['PW_DFT']['PARAMETERS']['GK_CUTOFF'] = gk_cutoff
         dict_merge(parameters, get_kinds_section_SIRIUS(structure, basis_pseudo))
@@ -247,51 +250,6 @@ class DimerGeOptWorkChain(WorkChain):
             self.report('The calculation did not finish successfully')
             return self.exit_codes.ERROR_CALCULATION_FAILED
         a_node = self.ctx['dimer']
-        results_step1_group.add_nodes(a_node)
-
-class RefGeOptWorkChain(WorkChain):
-    """ CP2K WorkChain
-    """
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.input('structure', valid_type=StructureData)
-        spec.input('QSorSIRIUS', valid_type=Str)
-        spec.outline(
-            cls.initialize,
-            cls.run_bulk,
-            cls.inspect_calculation)
-        spec.exit_code(
-            300, 'ERROR_CALCULATION_FAILED',
-            message='The calculation did not finish successfully')
-
-    def initialize(self):
-        if 'QS' in self.inputs.QSorSIRIUS.value:
-            protocol = os.path.join(settings.CP2K_input_files_path,'protocol_QS.yml')
-        else:
-            protocol = os.path.join(settings.CP2K_input_files_path,'protocol_SIRIUS.yml')
-        with open(protocol, 'r', encoding='utf8') as fhandle:
-            self.ctx.protocol = yaml.safe_load(fhandle)
-
-    def run_bulk(self):
-        structure = self.inputs.structure
-        QSorSIRIUS = self.inputs.QSorSIRIUS.value
-        # parameters
-        parameters = self.ctx.protocol['bulk']
-        basis_pseudo = self.ctx.protocol['basis_pseudo']
-        parameters['GLOBAL']['RUN_TYPE'] = 'CELL_OPT'
-        parameters['### JOB_TYPE'] = 'bulk'
-        # builder
-        builder = construct_builder(structure, parameters, basis_pseudo, QSorSIRIUS)
-        # submit
-        future = self.submit(builder)
-        self.to_context(**{'bulk': future})
-
-    def inspect_calculation(self):
-        if not self.ctx['bulk'].is_finished_ok:
-            self.report('The calculation did not finish successfully')
-            return self.exit_codes.ERROR_CALCULATION_FAILED
-        a_node = self.ctx['bulk']
         results_step1_group.add_nodes(a_node)
 
 class Scheme1GeOptWorkChain(WorkChain):

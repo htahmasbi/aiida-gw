@@ -9,26 +9,25 @@ opt1: # cluster
     PW_DFT:
       CONTROL:
         VERBOSITY: 1
-        MPI_GRID_DIMS: 1 1
+        MPI_GRID_DIMS: 1 1 #
         SPGLIB_TOLERANCE: 1.0E-6
       PARAMETERS:
         ELECTRONIC_STRUCTURE_METHOD: pseudopotential
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 200
-        SMEARING: GAUSSIAN
-        SMEARING_WIDTH: 0.0001
-        DENSITY_TOL: 1.0E-6
-        ENERGY_TOL: 3.675E-6 #1e-4 eV
+        NUM_DFT_ITER: 500
+        SMEARING: FERMI_DIRAC
+        SMEARING_WIDTH: 0.0184
+        DENSITY_TOL: 5.0E-6
+        ENERGY_TOL: 5.0E-6
       MIXER:
         TYPE: ANDERSON
         USE_HARTREE: True
-        BETA: 0.2
-        BETA0: 0.05
+        BETA: 0.10
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-6 #1e-4 eV
+        MIN_TOLERANCE: 1.8375E-5 #5e-4 eV
     DFT:
       XC:
         XC_FUNCTIONAL:
@@ -60,14 +59,15 @@ opt1: # cluster
     GEO_OPT:
       TYPE: MINIMIZATION
       OPTIMIZER: BFGS
+      MAX_ITER: 300
       MAX_FORCE: "[bohr^-1*hartree] 0.0097234483" # 0.5 eV/A
       RMS_FORCE: 0.01
-      MAX_DR: 0.5
-      RMS_DR: 0.5
+      MAX_DR: 1
+      RMS_DR: 1
       BFGS:
-        TRUST_RADIUS: 0.15
+        TRUST_RADIUS: 0.10
 opt1vc: # bulk
-  kpoints_distance: 1
+  kpoints_distance: 2
   GLOBAL:
     PREFERRED_DIAG_LIBRARY: SCALAPACK
     PRINT_LEVEL: MEDIUM
@@ -84,19 +84,18 @@ opt1vc: # bulk
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 200
-        SMEARING: GAUSSIAN
-        SMEARING_WIDTH: 0.0001
-        DENSITY_TOL: 1.0E-6
-        ENERGY_TOL: 3.675E-6 #1e-4 eV
+        NUM_DFT_ITER: 500
+        SMEARING: FERMI_DIRAC
+        SMEARING_WIDTH: 0.011
+        DENSITY_TOL: 5.0E-6
+        ENERGY_TOL: 5.0E-6
       MIXER:
         TYPE: ANDERSON
         USE_HARTREE: True
-        BETA: 0.2
-        BETA0: 0.05
+        BETA: 0.15
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-6 #1e-4 eV
+        MIN_TOLERANCE: 1.8375E-5 #5e-4 eV
     DFT:
       XC:
         XC_FUNCTIONAL:
@@ -130,15 +129,15 @@ opt1vc: # bulk
       EXTERNAL_PRESSURE: 0
       PRESSURE_TOLERANCE: 200
       OPTIMIZER: BFGS
-      MAX_ITER:  200
+      MAX_ITER:  300
       MAX_FORCE: "[bohr^-1*hartree] 0.0097234483" # 0.5 eV/A (or 0.1 eV/A for Scheme1)
       RMS_FORCE: 0.01 
-      MAX_DR: 0.5
-      RMS_DR: 0.5
+      MAX_DR: 1
+      RMS_DR: 1
       BFGS:
-        TRUST_RADIUS: 0.15
+        TRUST_RADIUS: 0.10
 bulk: # reference 
-  kpoints_distance: 0.35
+  kpoints_distance: 0.3
   GLOBAL:
     PREFERRED_DIAG_LIBRARY: SCALAPACK
     PRINT_LEVEL: MEDIUM
@@ -155,19 +154,18 @@ bulk: # reference
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 200
-        SMEARING: GAUSSIAN
-        SMEARING_WIDTH: 0.0001
+        NUM_DFT_ITER: 500
+        SMEARING: FERMI_DIRAC
+        SMEARING_WIDTH: 0.0022
         DENSITY_TOL: 1.0E-6
         ENERGY_TOL: 1.0E-6
       MIXER:
         TYPE: ANDERSON
         USE_HARTREE: True
-        BETA: 0.2
-        BETA0: 0.05
+        BETA: 0.15
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-8 # 1e-6
+        MIN_TOLERANCE: 3.675E-7 # 1e-5
     DFT:
       XC:
         XC_FUNCTIONAL:
@@ -209,7 +207,7 @@ bulk: # reference
       BFGS:
         TRUST_RADIUS: 0.10
 single_point: # bulk/cluster
-  kpoints_distance: 0.35
+  kpoints_distance: 0.3
   GLOBAL:
     PREFERRED_DIAG_LIBRARY: SCALAPACK
     PRINT_LEVEL: MEDIUM
@@ -235,19 +233,18 @@ single_point: # bulk/cluster
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 200
-        SMEARING: GAUSSIAN
-        SMEARING_WIDTH: 0.0001
+        NUM_DFT_ITER: 500
+        SMEARING: FERMI_DIRAC
+        SMEARING_WIDTH: 0.0022
         DENSITY_TOL: 1.0E-6
         ENERGY_TOL: 1.0E-6
       MIXER:
         TYPE: ANDERSON
         USE_HARTREE: True
-        BETA: 0.2
-        BETA0: 0.05
+        BETA: 0.15
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-8 # 1e-6
+        MIN_TOLERANCE: 3.675E-7 # 1e-5
     DFT:
       XC:
         XC_FUNCTIONAL:
@@ -277,19 +274,18 @@ dimer:
         USE_SYMMETRY: TRUE
         PW_CUTOFF: 0 #
         GK_CUTOFF: 0 #
-        NUM_DFT_ITER: 200
-        SMEARING: GAUSSIAN
-        SMEARING_WIDTH: 0.0001
+        NUM_DFT_ITER: 300
+        SMEARING: FERMI_DIRAC
+        SMEARING_WIDTH: 0.0022
         DENSITY_TOL: 1.0E-6
         ENERGY_TOL: 3.675e-6 #1e-4 eV
       MIXER:
         TYPE: ANDERSON
         USE_HARTREE: True
-        BETA: 0.2
-        BETA0: 0.05
+        BETA: 0.15
       ITERATIVE_SOLVER:
         SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-6  #1e-4
+        MIN_TOLERANCE: 1.837E-5  #5e-4
     DFT:
       XC:
         XC_FUNCTIONAL:

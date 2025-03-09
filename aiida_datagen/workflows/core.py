@@ -60,8 +60,10 @@ def report(group_label):
         if exit_status == 0:
             finished_job += 1
         try:
+
             total_computing_time += (a_dict['calcjob_nodes']['attributes']['last_job_info']['wallclock_time_seconds']/3600) *\
                                      a_dict['calcjob_nodes']['attributes']['resources']['num_machines'] *\
+                                     a_dict['calcjob_nodes']['attributes']['resources']['num_cores_per_mpiproc'] *\
                                      a_dict['calcjob_nodes']['attributes']['resources']['num_mpiprocs_per_machine']
         except:
             pass

@@ -1,7 +1,6 @@
 from aiida.orm import Str
 from aiida_submission_controller import FromGroupSubmissionController
 from aiida_datagen.codes.cp2k.cp2k_workchains import (
-    RefGeOptWorkChain,
     DimerGeOptWorkChain,
     Scheme1GeOptWorkChain,
     Scheme2GeOptWorkChain,

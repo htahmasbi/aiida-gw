@@ -18,12 +18,8 @@ random_structure_generator: FLAME
 # to control the minimum distance between atoms in initial random structures
 min_distance_prefactor: 0.90 # default value is 90%. That is, 0.90 * the distance between dimer atoms or 0.90 * (0.85 * sum of the covalent radii))
 
-# data from local databases. Atomic structures will be retrieved from run_dir/local_db/bulk_structures.json and/or molecule_structures.json (a list of dict representation pymatgen Structure)
-from_local_db: False 
-check_number_of_atoms: False # if nat should be the same as bulk_number_of_atoms
-
 # ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
-ab_initio_code:
+ab_initio_code: SIRIUS_CP2K
 user_specified_CP2K_files: False #  if True, then copy codes/cp2k/cp2k_files into your run directory
 user_specified_VASP_files: False #  if True, then copy codes/vasp/vasp_files into your run directory
 user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory
