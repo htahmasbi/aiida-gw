@@ -1,12 +1,13 @@
 import os
 import sys
 import gzip
-from random import sample, uniform
+from random import sample
 from time import sleep
 import json
 import yaml
 import numpy as np
 from pymatgen.core.structure import Structure, Molecule
+from pymatgen.analysis.structure_matcher import StructureMatcher
 from aiida.plugins import DataFactory
 from aiida.orm import List, Group, load_node, QueryBuilder, WorkChainNode, CalcJobNode
 from aiida_datagen.codes.utils import get_time, get_reference_structures, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
@@ -80,8 +81,7 @@ def extract_data(dir_path):
     with gzip.open(trainingdatafilename, 'wt', encoding='UTF-8') as fhandle:
         json.dump(collected_data[0], fhandle)
     # plots
-    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5],
-        collected_data[6], collected_data[1], dirname=dir_path)
+    plot_1(collected_data[2], collected_data[3], collected_data[4], collected_data[5], collected_data[6], dirname=dir_path)
     plot_2(collected_data[7], dirname=dir_path)
     plot_3(collected_data[0], dirname=dir_path)
 
@@ -191,8 +191,8 @@ def get_structures_finetuning():
     # get reference structures, if any
     reference_structures, _ = get_reference_structures(EAH=False)
     low_energy_bulk_structures = []
-    if os.path.exists(os.path.join(run_dir,'local_db','training_data.json.gz')):
-        with gzip.open(os.path.join(run_dir,'local_db','training_data.json.gz'), 'rb') as fhandle:
+    if os.path.exists(os.path.join(run_dir, 'local_db','training_data.json.gz')):
+        with gzip.open(os.path.join(run_dir, 'local_db','training_data.json.gz'), 'rb') as fhandle:
             data_from_file = json.loads(fhandle.read())
         epas = []
         structures = []
@@ -203,12 +203,27 @@ def get_structures_finetuning():
             nat = len(pymatgen_structure.sites)
             epas.append(float(a_data['energy'])/nat)
             structures.append(a_data['structure'])
-        low_energy_indices = np.argsort(epas)[:inputs['number_of_bulk_structures']]
-        for l_e_i in low_energy_indices:
-            a_p_structure = Structure.from_dict(structures[l_e_i]).perturb(uniform(0.03, 0.05))
-            low_energy_bulk_structures.append(a_p_structure.as_dict())
+
+#        low_energy_indices = np.argsort(epas)[:inputs['number_of_bulk_structures']]
+        low_energy_indices = np.argsort(epas)[:200]
+
+        for i in low_energy_indices:
+            print(i)
+            for j in low_energy_indices:
+                if i == j:
+                    continue
+                s1 = Structure.from_dict(structures[i])
+                s2 = Structure.from_dict(structures[j])
+                if len(s1.sites) != len(s2.sites):
+                    continue
+                matcher = StructureMatcher(ltol = 0.2, stol = 0.3, angle_tol = 5, primitive_cell = False, scale = True, attempt_supercell = False, allow_subset = False) #, comparator = SpeciesComparator)
+                if matcher.fit(s1, s2):
+                    break
+            else:
+                low_energy_bulk_structures.append(s1.as_dict())
+            continue
     log_write(f'Number of bulk structures from the local database: {len(low_energy_bulk_structures)}'+'\n')
-    return low_energy_bulk_structures+reference_structures
+    return sample(low_energy_bulk_structures, 20 - len(reference_structures)) + reference_structures
 
 def add_structures_to_parent_group_finetuning():
     pg_step3_group = Group.collection.get(label='pg_step3')
