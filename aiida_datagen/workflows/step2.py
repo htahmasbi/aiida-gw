@@ -133,10 +133,10 @@ def step2_flame(composition_list):
 def step_2():
     """ Step 2
     """
+    log_write("---------------------------------------------------------------------------------------------------"+'\n')
+    log_write('STEP 2'+'\n')
+    log_write(f'start time: {get_time()}'+'\n')
     if 'scratch' in inputs['calculation_type']:
-        log_write("---------------------------------------------------------------------------------------------------"+'\n')
-        log_write('STEP 2'+'\n')
-        log_write(f'start time: {get_time()}'+'\n')
         # check
         previous_run_exist_check()
         group_is_empty_check('wf_step2')
@@ -154,9 +154,9 @@ def step_2():
         else:
             log_write('random structure generation with gensymcrys'+'\n')
             step2_flame(composition_list)
-        log_write('STEP 2 ended'+'\n')
-        log_write(f'end time: {get_time()}'+'\n')
-        if not steps_status[2]:
-            store_calculation_nodes()
-            log_write('End of the step 2. Bye!'+'\n')
+    log_write('STEP 2 ended'+'\n')
+    log_write(f'end time: {get_time()}'+'\n')
+    if not steps_status[2]:
+        store_calculation_nodes()
+        log_write('End of the step 2. Bye!'+'\n')
     return steps_status[2]

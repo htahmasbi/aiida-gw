@@ -2,7 +2,7 @@
 Chemical_formula: [] # more than one formula can be provided (list)
 
 # type of calculations: from_scratch, singlepoint, and finetuning
-calculation_type: from_scratch
+calculation_type: singlepoint
   
 # number of bulk structures and number of atoms (nat) per unit cell
 bulk_number_of_atoms: [] # number of atoms (nat) of bulk structures from the MP database (list)
@@ -19,7 +19,7 @@ random_structure_generator: FLAME
 min_distance_prefactor: 0.90 # default value is 90%. That is, 0.90 * the distance between dimer atoms or 0.90 * (0.85 * sum of the covalent radii))
 
 # ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
-ab_initio_code: SIRIUS_CP2K
+ab_initio_code: CP2K_QS
 user_specified_CP2K_files: False #  if True, then copy codes/cp2k/cp2k_files into your run directory
 user_specified_VASP_files: False #  if True, then copy codes/vasp/vasp_files into your run directory
 user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory

@@ -28,8 +28,10 @@ def export_data(dir_path):
     author_data['computing_time'] = f'{computing_time} core-hours'
     with open(os.path.join(run_dir, 'author_data.yaml'), 'w', encoding='utf-8') as fhandle:
         yaml.dump(author_data, fhandle, default_flow_style=False)
-
-    file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    if 'single' in inputs['calculation_type']:
+        file_path = os.path.join(dir_path, 'single_point'+'.aiida')
+    else:
+        file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
     pks = []
     pks, inputs_data = add_input_node()
     pks.append(add_author_data())
@@ -47,7 +49,10 @@ def export_data(dir_path):
 def extract_data(dir_path):
     group, _ = Group.collection.get_or_create('imported_calculation_nodes')
     group.clear()
-    file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    if 'single' in inputs['calculation_type']:
+        file_path = os.path.join(dir_path, 'single_point'+'.aiida')
+    else:
+        file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
     os.system(f"verdi archive import -G imported_calculation_nodes {file_path}")
     author_data = get_author_data()
     input_data = get_input_data()
@@ -61,7 +66,18 @@ def extract_data(dir_path):
         if pps[k].startswith(prefix):
             pps[k]= pps[k][len(prefix):]
     pps_string= json.dumps(pps)
-    todump.update(
+    if 'single' in inputs['calculation_type']:
+        todump.update(
+            {'number of data': len(collected_data[0]),
+             'number of bulks': len(collected_data[2]),
+             'number of clusters': len(collected_data[5]),
+             'code': inputs['ab_initio_code'],
+             'code_version': code_version,
+             'pps': pps_string,
+             'protocol': protocol
+            })
+    else:
+        todump.update(
             {'Chemical formula': inputs['Chemical_formula'][0],
              'number of data': len(collected_data[0]),
              'number of bulks': len(collected_data[2]),
@@ -70,8 +86,7 @@ def extract_data(dir_path):
              'code_version': code_version,
              'pps': pps_string,
              'protocol': protocol
-            }
-    )
+            })
     # store
     outputfilename= os.path.join(dir_path,'DATASET.json')
     trainingdatafilename= os.path.join(dir_path, 'training_data.json.gz')
@@ -85,25 +100,25 @@ def extract_data(dir_path):
     plot_2(collected_data[7], dirname=dir_path)
     plot_3(collected_data[0], dirname=dir_path)
 
-    pngfilelist= [file for file in os.listdir(dir_path) if file.endswith('.png')]
-
-    readme_file = f"# Dataset {inputs['Chemical_formula'][0]}\n\n"
-    readme_file += f"number of data: {todump['number of data']}, "
-    readme_file += f"number of bulks: {todump['number of bulks']}, "
-    readme_file += f"number of clusters: {todump['number of clusters']}\n\n"
-
-    readme_file += f"Generated with {todump['code']}\n\n"
-
-    for p in pngfilelist:
-        readme_file += f"![{p}]({p})\n\n"
-
-    with open(os.path.join(dir_path, "README.md"), 'w', encoding='utf-8') as outfile:
-        outfile.write(readme_file)
+#    pngfilelist= [file for file in os.listdir(dir_path) if file.endswith('.png')]
+#    readme_file = f"# Dataset {inputs['Chemical_formula'][0]}\n\n"
+#    readme_file += f"number of data: {todump['number of data']}, "
+#    readme_file += f"number of bulks: {todump['number of bulks']}, "
+#    readme_file += f"number of clusters: {todump['number of clusters']}\n\n"
+#
+#    readme_file += f"Generated with {todump['code']}\n\n"
+#
+#    for p in pngfilelist:
+#        readme_file += f"![{p}]({p})\n\n"
+#
+#    with open(os.path.join(dir_path, "README.md"), 'w', encoding='utf-8') as outfile:
+#        outfile.write(readme_file)
 
 def store_step3_results():
     calculation_nodes = []
+    group_label = 'results_step3'
     builder = QueryBuilder()
-    builder.append(Group, filters={'label': 'results_step3'}, tag='results_group')
+    builder.append(Group, filters={'label': group_label}, tag='results_group')
     builder.append(WorkChainNode, with_group='results_group', tag='wf_nodes')
     builder.append(CalcJobNode, with_incoming='wf_nodes', project='*')
     calcjob_nodes = builder.all(flat=True)
@@ -436,7 +451,10 @@ def step_3():
     log_write('STEP 3 ended'+'\n')
     log_write(f'end time: {get_time()}'+'\n')
     log_write('Exporting data'+'\n')
-    dir_path = os.path.join(run_dir, inputs['Chemical_formula'][0])
+    if 'single' in inputs['calculation_type']:
+        dir_path = os.path.join(run_dir, 'singlepoint')
+    else:
+        dir_path = os.path.join(run_dir, inputs['Chemical_formula'][0])
     try:
         os.mkdir(dir_path)
     except FileExistsError:

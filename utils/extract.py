@@ -52,7 +52,9 @@ def collect_node_data(group_label, code):
     builder.append(Group, filters={'label': group_label}, tag='group')
     builder.append(CalcJobNode, with_group='group', project='*')
     calcjob_nodes = builder.all(flat=True)
-
+    if not calcjob_nodes:
+        print("No CalcJobNode")
+        sys.exit()
     code_version_1 = None
     code_version_2 = None
     gk_cutoff = None
@@ -374,23 +376,6 @@ if __name__ == "__main__":
         code_version.pop(-1)
     todump = {'Author data': author_data}
 
-    # double check 'Chemical_formula' field, it should be an array with exactly 1 entry
-    if type(inputs['Chemical_formula']) is list:
-
-        if 1 != len(inputs['Chemical_formula']):
-
-            print(f"{inputs['Chemical_formula']} is supposed to be a list of length 1 exactly")
-            print(f"    actually is:  {inputs['Chemical_formula']}")
-            print("abort")
-            sys.exit(-13)
-
-    else:
-
-        print(f"{inputs['Chemical_formula']} is supposed to be a list")
-        print(f"    actually is: {inputs['Chemical_formula']}")
-        print("abort")
-        sys.exit(-12)
-
     # modify 'pps' dict, turn it into a string with <key>:<value> entries separated by spaces
     prefix= "UPF "
     for k in pps:
@@ -399,7 +384,7 @@ if __name__ == "__main__":
     pps_string= json.dumps(pps)
 
     todump.update(
-            {'Chemical formula': inputs['Chemical_formula'][0], # compare above, must have exactly one entry, this we use
+            {'Chemical formula': inputs['Chemical_formula'][0],
              'number of data': len(collected_data[0]),
              'number of bulks': len(collected_data[2]),
              'number of clusters': len(collected_data[5]),

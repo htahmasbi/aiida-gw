@@ -3,7 +3,7 @@ import sys
 from time import sleep
 from itertools import combinations_with_replacement
 from pymatgen.analysis.molecule_structure_comparator import CovalentRadius
-from pymatgen.core.structure import Structure, Molecule
+from pymatgen.core.structure import Structure
 from pymatgen.core.composition import Composition
 from aiida.orm import Group, List, Dict, load_node, QueryBuilder, WorkChainNode, CalcJobNode
 from aiida.plugins import DataFactory
@@ -184,29 +184,30 @@ def step_1():
     log_write(f'start time: {get_time()}'+'\n')
     # check
     previous_run_exist_check()
-    if not inputs['Chemical_formula']:
-        log_write('>>> ERROR: no composition is provided <<<'+'\n')
-        sys.exit()
-    composition_list = inputs['Chemical_formula']
-    log_write(f'Composition list: {composition_list}'+'\n')
     # create/clear groups
     for group_list in groups.values():
         for a_group_label in group_list:
             group, _ = Group.collection.get_or_create(a_group_label)
             group.clear()
-    # get_known_structures
-    l = get_structures_from_mpdb()
-    if l == 0:
-        log_write('>>> WARNING: no bulk structure was found in the MPD <<<'+'\n')
-    else:
-        log_write(f'Number of atomic structures from the MPD: {l}'+'\n')
-    # Reference structures
-    reference_structures, vpas_db = get_reference_structures(True)
-    if reference_structures:
-        log_write(f'Number of reference atomic structures from the MPD: {len(reference_structures)}'+'\n')
-    else:
-        log_write('>>> WARNING: no reference bulk structure was found in the MPD <<<'+'\n')
+
     if 'scratch' in inputs['calculation_type']:
+        if not inputs['Chemical_formula']:
+            log_write('>>> ERROR: no composition is provided <<<'+'\n')
+            sys.exit()
+        composition_list = inputs['Chemical_formula']
+        log_write(f'Composition list: {composition_list}'+'\n')
+        # get_known_structures
+        l = get_structures_from_mpdb()
+        if l == 0:
+            log_write('>>> WARNING: no bulk structure was found in the MPD <<<'+'\n')
+        else:
+            log_write(f'Number of atomic structures from the MPD: {l}'+'\n')
+        # Reference structures
+        reference_structures, vpas_db = get_reference_structures(True)
+        if reference_structures:
+            log_write(f'Number of reference atomic structures from the MPD: {len(reference_structures)}'+'\n')
+        else:
+            log_write('>>> WARNING: no reference bulk structure was found in the MPD <<<'+'\n')
         # submit jobs
         if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
             # add structures to the parent group

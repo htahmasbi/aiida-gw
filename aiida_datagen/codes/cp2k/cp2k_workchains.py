@@ -155,6 +155,9 @@ def construct_builder(structure, parameters, basis_pseudo, QSorSIRIUS):
     if 'QS' in QSorSIRIUS:
         if mesh != [1, 1, 1]:
             builder.cp2k.kpoints = kpoints
+        cell = parameters['FORCE_EVAL']['SUBSYS']['CELL']
+        for i, keys in enumerate(cell.keys()):
+            cell[keys] = f'{cell[keys]} {round(structure.cell[i][0],14):<15} {round(structure.cell[i][1],14):<15} {round(structure.cell[i][2],14):<15}'
         dict_merge(parameters, get_kinds_section_QS(structure, basis_pseudo))
         builder.cp2k.file = get_file_section_QS()
     if 'SIRIUS' in QSorSIRIUS:

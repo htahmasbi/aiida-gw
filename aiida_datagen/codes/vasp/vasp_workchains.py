@@ -8,7 +8,6 @@ import aiida_datagen.workflows.settings as settings
 
 results_step1_group = load_group(label='results_step1')
 results_step3_group = load_group(label='results_step3')
-results_singlepoint_group = load_group(label='results_singlepoint')
 StructureData = DataFactory('structure')
 
 def get_options():
@@ -497,4 +496,4 @@ class SinglePointtWorkChain(WorkChain):
             self.report('The calculation did not finish successfully')
             return self.exit_codes.ERROR_CALCULATION_FAILED
         a_node = self.ctx['single_point']
-        results_singlepoint_group.add_nodes(a_node)
+        results_step3_group.add_nodes(a_node)

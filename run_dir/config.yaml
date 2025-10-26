@@ -1,19 +1,19 @@
 MP_api:
-  api_key: 
+  api_key:
 aiida_settings:
   DFT_code_string:
-  FLAME_code_string:
+  FLAME_code_string: 
 job_script:
   geopt:
-    number_of_jobs: 40
-    nodes:
-    ntasks:
-    ncpu:
-    time: #in s
+    number_of_jobs: 1
+    nodes: 1
+    ntasks: 48
+    ncpu: 1
+    time: 28800 #in s
     exclusive: False
   gensymcrys:
-    number_of_jobs: 5
-    nodes:
-    ntasks:
-    time: #in s
+    number_of_jobs: 10
+    nodes: 1
+    ntasks: 1
+    time: 10800 #in s
     exclusive: False
