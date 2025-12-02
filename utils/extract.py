@@ -207,20 +207,15 @@ def collect_data(code):
                 plot_vpa_b.append(structure.volume/nat)
             training_data.append(tmp_dict)
             plot_force.extend(tot_force)
-    for i, e in enumerate(plot_epa_b):
-        if e > min_epa + 20:
-            del plot_epa_b[i]
-            del plot_nat_b[i]
-            del plot_vpa_b[i]
-    for i, e in enumerate(plot_epa_b):
-        if e > min_epa + 20:
-            del plot_epa_b[i]
-            del plot_nat_b[i]
-            del plot_vpa_b[i]
-    for i, e in enumerate(plot_epa_c):
-        if e > min_epa + 20:
-            del plot_epa_c[i]
-            del plot_nat_c[i]
+#    for i, e in enumerate(plot_epa_b):
+#        if e > min_epa + 20:
+#            del plot_epa_b[i]
+#            del plot_nat_b[i]
+#            del plot_vpa_b[i]
+#    for i, e in enumerate(plot_epa_c):
+#        if e > min_epa + 20:
+#            del plot_epa_c[i]
+#            del plot_nat_c[i]
 
     collected_data = [training_data,
                       min_epa,

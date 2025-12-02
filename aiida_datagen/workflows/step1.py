@@ -191,57 +191,59 @@ def step_1():
             group.clear()
 
     if 'scratch' in inputs['calculation_type']:
-        if not inputs['Chemical_formula']:
-            log_write('>>> ERROR: no composition is provided <<<'+'\n')
+        if not inputs['Chemical_formula'] and not inputs['Chemical_system']:
+            log_write('>>> ERROR: niether composition nor chemical system is provided <<<'+'\n')
             sys.exit()
-        composition_list = inputs['Chemical_formula']
-        log_write(f'Composition list: {composition_list}'+'\n')
-        # get_known_structures
-        l = get_structures_from_mpdb()
-        if l == 0:
-            log_write('>>> WARNING: no bulk structure was found in the MPD <<<'+'\n')
-        else:
-            log_write(f'Number of atomic structures from the MPD: {l}'+'\n')
-        # Reference structures
-        reference_structures, vpas_db = get_reference_structures(True)
-        if reference_structures:
-            log_write(f'Number of reference atomic structures from the MPD: {len(reference_structures)}'+'\n')
-        else:
-            log_write('>>> WARNING: no reference bulk structure was found in the MPD <<<'+'\n')
-        # submit jobs
-        if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
-            # add structures to the parent group
-            add_structures_to_parent_group([])
-            from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController
-            log_write(f'Reference calculations with {inputs["ab_initio_code"]}'+'\n')
-            controller = CP2KSubmissionController(
-                parent_group_label='pg_step1',
-                group_label='wf_step1',
-                max_concurrent=job_script['geopt']['number_of_jobs'],
-                QSorSIRIUS=inputs['ab_initio_code'])
-        elif inputs['ab_initio_code']=='VASP':
-            # add structures to the parent group
-            add_structures_to_parent_group(reference_structures)
-            from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController
-            log_write('Reference calculations with VASP'+'\n')
-            controller = VASPSubmissionController(
-                parent_group_label='pg_step1',
-                group_label='wf_step1',
-                max_concurrent=job_script['geopt']['number_of_jobs'])
-        else:
-            log_write('>>> ERROR: no ab_initio code is provided <<<'+'\n')
-            sys.exit()
-        # wait until all jobs are done
-        while controller.num_to_run > 0 or controller.num_active_slots > 0:
-            if controller.num_to_run > 0:
-                controller.submit_new_batch(dry_run=False)
-            sleep(60)
-        # report
-        total_computing_time, submitted_jobs, finished_job = report('wf_step1')
-        log_write(f'submitted jobs: {submitted_jobs}, succesful jobs: {finished_job}'+'\n')
-        log_write(f'total computing time: {round(total_computing_time, 2)} core-hours'+'\n')
-        # store step1 resutls
-        store_step1_results(vpas_db)
+
+        if inputs['Chemical_formula']:
+            composition_list = inputs['Chemical_formula']
+            log_write(f'Composition list: {composition_list}'+'\n')
+            # get_known_structures
+            l = get_structures_from_mpdb()
+            if l == 0:
+                log_write('>>> WARNING: no bulk structure was found in the MPD <<<'+'\n')
+            else:
+                log_write(f'Number of atomic structures from the MPD: {l}'+'\n')
+            # Reference structures
+            reference_structures, vpas_db = get_reference_structures(True)
+            if reference_structures:
+                log_write(f'Number of reference atomic structures from the MPD: {len(reference_structures)}'+'\n')
+            else:
+                log_write('>>> WARNING: no reference bulk structure was found in the MPD <<<'+'\n')
+            # submit jobs
+            if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
+                # add structures to the parent group
+                add_structures_to_parent_group([])
+                from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController
+                log_write(f'Reference calculations with {inputs["ab_initio_code"]}'+'\n')
+                controller = CP2KSubmissionController(
+                    parent_group_label='pg_step1',
+                    group_label='wf_step1',
+                    max_concurrent=job_script['geopt']['number_of_jobs'],
+                    QSorSIRIUS=inputs['ab_initio_code'])
+            elif inputs['ab_initio_code']=='VASP':
+                # add structures to the parent group
+                add_structures_to_parent_group(reference_structures)
+                from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController
+                log_write('Reference calculations with VASP'+'\n')
+                controller = VASPSubmissionController(
+                    parent_group_label='pg_step1',
+                    group_label='wf_step1',
+                    max_concurrent=job_script['geopt']['number_of_jobs'])
+            else:
+                log_write('>>> ERROR: no ab_initio code is provided <<<'+'\n')
+                sys.exit()
+            # wait until all jobs are done
+            while controller.num_to_run > 0 or controller.num_active_slots > 0:
+                if controller.num_to_run > 0:
+                    controller.submit_new_batch(dry_run=False)
+                sleep(60)
+            # report
+            total_computing_time, submitted_jobs, finished_job = report('wf_step1')
+            log_write(f'submitted jobs: {submitted_jobs}, succesful jobs: {finished_job}'+'\n')
+            log_write(f'total computing time: {round(total_computing_time, 2)} core-hours'+'\n')
+            # store step1 resutls
+            store_step1_results(vpas_db)
     log_write('STEP 1 ended'+'\n')
     log_write(f'end time: {get_time()}'+'\n')
     if not steps_status[1]:

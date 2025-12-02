@@ -50,7 +50,7 @@ def parse_cp2k_output_simple(fstring):
     result_dict["cp2k_version"] = None
     result_dict["sirius_version"] = None
     energy = None
-#    bohr2ang = 0.529177208590000
+    bohr2ang = 0.529177208590000
     Eh2eV = 27.211324570273
 
     for i_line, line in enumerate(lines):
@@ -65,19 +65,19 @@ def parse_cp2k_output_simple(fstring):
         if line.startswith(" GLOBAL| Run type"):
             result_dict["run_type"] = line.split()[-1]
 
-#        if line.startswith("[unit cell] lattice vectors"):
-#            lattice_vertor_A = [bohr2ang*float(lines[i_line+1].split()[4]),
-#                                bohr2ang*float(lines[i_line+1].split()[5]),
-#                                bohr2ang*float(lines[i_line+1].split()[6])]
-#            lattice_vertor_B = [bohr2ang*float(lines[i_line+2].split()[4]),
-#                                bohr2ang*float(lines[i_line+2].split()[5]),
-#                                bohr2ang*float(lines[i_line+2].split()[6])]
-#            lattice_vertor_C = [bohr2ang*float(lines[i_line+3].split()[4]),
-#                                bohr2ang*float(lines[i_line+3].split()[5]),
-#                                bohr2ang*float(lines[i_line+3].split()[6])]
-#            result_dict["lattice_vectors"] = np.array([lattice_vertor_A,
-#                                                       lattice_vertor_B,
-#                                                       lattice_vertor_C], np.float64)
+        if line.startswith("[unit cell] lattice vectors"):
+            lattice_vertor_A = [bohr2ang*float(lines[i_line+1].split()[4]),
+                                bohr2ang*float(lines[i_line+1].split()[5]),
+                                bohr2ang*float(lines[i_line+1].split()[6])]
+            lattice_vertor_B = [bohr2ang*float(lines[i_line+2].split()[4]),
+                                bohr2ang*float(lines[i_line+2].split()[5]),
+                                bohr2ang*float(lines[i_line+2].split()[6])]
+            lattice_vertor_C = [bohr2ang*float(lines[i_line+3].split()[4]),
+                                bohr2ang*float(lines[i_line+3].split()[5]),
+                                bohr2ang*float(lines[i_line+3].split()[6])]
+            result_dict["lattice_vectors"] = np.array([lattice_vertor_A,
+                                                       lattice_vertor_B,
+                                                       lattice_vertor_C], np.float64)
         if "The number of warnings for this run is" in line:
             result_dict["nwarnings"] = int(line.split()[-1])
 

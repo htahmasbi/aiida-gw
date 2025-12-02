@@ -1,11 +1,15 @@
 MP_api:
   api_key:
 aiida_settings:
-  DFT_code_string:
-  FLAME_code_string: 
+  DFT_code_string: CP2K2025@otusn # cp2k@noctua2n
+  FLAME_code_string:
+  MatterGen_code_string: MatterGen@otus_gpu
+MatterGen_model_name: chemical_system_energy_above_hull
+MatterGen_batch_size: 10
+MatterGen_num_batch: 3
 job_script:
   geopt:
-    number_of_jobs: 1
+    number_of_jobs: 10
     nodes: 1
     ntasks: 48
     ncpu: 1
@@ -15,5 +19,12 @@ job_script:
     number_of_jobs: 10
     nodes: 1
     ntasks: 1
+    time: 10800 #in s
+    exclusive: False
+  mattergen: #gpu
+    number_of_jobs: 1
+    nodes: 1
+    ntasks: 8
+    ncpu: 1
     time: 10800 #in s
     exclusive: False

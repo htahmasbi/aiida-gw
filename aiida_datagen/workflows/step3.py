@@ -30,8 +30,10 @@ def export_data(dir_path):
         yaml.dump(author_data, fhandle, default_flow_style=False)
     if 'single' in inputs['calculation_type']:
         file_path = os.path.join(dir_path, 'single_point'+'.aiida')
-    else:
+    elif inputs['Chemical_formula']:
         file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    elif inputs['Chemical_system']:
+        file_path = os.path.join(dir_path, inputs['Chemical_system'][0]+'.aiida')
     pks = []
     pks, inputs_data = add_input_node()
     pks.append(add_author_data())
@@ -51,8 +53,11 @@ def extract_data(dir_path):
     group.clear()
     if 'single' in inputs['calculation_type']:
         file_path = os.path.join(dir_path, 'single_point'+'.aiida')
-    else:
+    elif inputs['Chemical_formula']:
         file_path = os.path.join(dir_path, inputs['Chemical_formula'][0]+'.aiida')
+    elif inputs['Chemical_system']:
+        file_path = os.path.join(dir_path, inputs['Chemical_system'][0]+'.aiida')
+
     os.system(f"verdi archive import -G imported_calculation_nodes {file_path}")
     author_data = get_author_data()
     input_data = get_input_data()
@@ -76,9 +81,20 @@ def extract_data(dir_path):
              'pps': pps_string,
              'protocol': protocol
             })
-    else:
+    elif inputs['Chemical_formula']:
         todump.update(
             {'Chemical formula': inputs['Chemical_formula'][0],
+             'number of data': len(collected_data[0]),
+             'number of bulks': len(collected_data[2]),
+             'number of clusters': len(collected_data[5]),
+             'code': inputs['ab_initio_code'],
+             'code_version': code_version,
+             'pps': pps_string,
+             'protocol': protocol
+            })
+    elif inputs['Chemical_system']:
+        todump.update(
+            {'Chemical system': inputs['Chemical_system'][0],
              'number of data': len(collected_data[0]),
              'number of bulks': len(collected_data[2]),
              'number of clusters': len(collected_data[5]),
@@ -291,6 +307,65 @@ def add_structures_to_parent_group_singlepoint():
             bmstrct_node.base.extras.set('job', 'molecule-sp'+str(i)+'_'+str(nat)+'-atoms')
             pg_singlepoint_group.add_nodes(bmstrct_node)
 
+def add_structures_to_parent_group_mattergen():
+    """ add structures to parent groups
+    """
+    pg_step3_group = Group.collection.get(label='pg_step3')
+    StructureData = DataFactory('structure')
+    random_structures_group = Group.collection.get(label='random_structures')
+    random_bulk_structures = []
+    for a_node in random_structures_group.nodes:
+        r_b_s = a_node['structures']
+        for a_struct in r_b_s:
+            valid = True
+            pmg_structure = Structure.from_dict(a_struct)
+            comp = pmg_structure.composition
+            for n in comp.get_el_amt_dict().values():
+                if n < 2:
+                    valid = False
+                    break
+            if valid and len(pmg_structure) > 10:
+                random_bulk_structures.append(a_struct)
+
+    indices_schm1_geopt = []
+    indices_schm2_geopt = []
+
+    indices = list(range(len(random_bulk_structures)))
+    n_struct_schm1_geopt = int(0.5 * inputs['number_of_bulk_structures'])
+    n_struct_schm2_geopt = inputs['number_of_bulk_structures'] - n_struct_schm1_geopt
+
+    if len(indices) >= n_struct_schm1_geopt:
+        indices_schm1_geopt = sample(indices, n_struct_schm1_geopt)
+    else:
+        log_write('>>> WARNING: not enough structures for optimization with scheme 1 <<<'+'\n')
+        sys.exit()
+
+    for rem in indices_schm1_geopt:
+        indices.remove(rem)
+
+    if len(indices) >= n_struct_schm2_geopt:
+        indices_schm2_geopt = sample(indices, n_struct_schm2_geopt)
+    else:
+        log_write(' >>> WARNING: not enough structures for optimization with scheme 2 <<<'+'\n')
+        sys.exit()
+
+    for rem in indices_schm2_geopt:
+        indices.remove(rem)
+
+    for i, indx in enumerate(indices_schm1_geopt):
+        a_structure = Structure.from_dict(random_bulk_structures[indx])
+        s1strct_node = StructureData(pymatgen=a_structure).store()
+        s1strct_node.label = 'scheme1'
+        s1strct_node.base.extras.set('job', 'scheme1-'+str(i+1))
+        pg_step3_group.add_nodes(s1strct_node)
+
+    for i, indx in enumerate(indices_schm2_geopt):
+        a_structure = Structure.from_dict(random_bulk_structures[indx])
+        s2strct_node = StructureData(pymatgen=a_structure).store()
+        s2strct_node.label = 'scheme2'
+        s2strct_node.base.extras.set('job', 'scheme2-'+str(i+1))
+        pg_step3_group.add_nodes(s2strct_node)
+
 def add_structures_to_parent_group():
     """ add structures to parent groups
     """
@@ -393,7 +468,10 @@ def step_3():
         a_group.clear()
     # add structures
     if 'scratch' in inputs['calculation_type']:
-        add_structures_to_parent_group()
+        if inputs['Chemical_formula']:
+            add_structures_to_parent_group()
+        if inputs['Chemical_system']:
+            add_structures_to_parent_group_mattergen()
     elif 'singlepoint' in inputs['calculation_type']:
         add_structures_to_parent_group_singlepoint()
     elif 'finetuning' in inputs['calculation_type']:
@@ -453,8 +531,10 @@ def step_3():
     log_write('Exporting data'+'\n')
     if 'single' in inputs['calculation_type']:
         dir_path = os.path.join(run_dir, 'singlepoint')
-    else:
+    elif inputs['Chemical_formula']:
         dir_path = os.path.join(run_dir, inputs['Chemical_formula'][0])
+    elif inputs['Chemical_system']:
+        dir_path = os.path.join(run_dir, inputs['Chemical_system'][0])
     try:
         os.mkdir(dir_path)
     except FileExistsError:

@@ -10,17 +10,22 @@
     "reentry_register": true,
     "python_requires": ">=3.6",
     "install_requires": [
-        "aiida-submission-controller", "mp-api", "pyxtal"
+        "aiida-submission-controller==0.1.2", "mp-api", "pyxtal"
     ],
     "entry_points": {
 	"aiida.calculations": [
-	    "flame = aiida_datagen.codes.flame.flame_calculations:FlameCalculation"
+	    "flame = aiida_datagen.codes.flame.flame_calculations:FlameCalculation",
+            "mattergen = aiida_datagen.codes.mattergen.mattergen_calculation:MatterGenCalculation"
+
 	],
 	"aiida.parsers": [
 	    "cp2k_efs_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
             "cp2k_simple_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kSimpleParser",
-            "datagen_gensymcrys_parser = aiida_datagen.codes.flame.flame_parsers: GenSymCrysParser"
+            "datagen_gensymcrys_parser = aiida_datagen.codes.flame.flame_parsers: GenSymCrysParser",
+ 	    "mattergen_parser = aiida_datagen.codes.mattergen.mattergen_parser:MatterGenParser"
 	],
-	"aiida.workflows": []
+	"aiida.workflows": [
+            "mattergen.base = aiida_datagen.codes.mattergen.mattergen_workchains:MatterGenBaseWorkChain"
+	]
     }
 }

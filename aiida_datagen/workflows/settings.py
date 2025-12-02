@@ -44,3 +44,5 @@ CP2K_input_files_path = os.path.join(run_dir,'cp2k_files')\
 VASP_input_files_path = os.path.join(run_dir,'vasp_files')\
                         if inputs['user_specified_VASP_files']\
                         else os.path.join(datagen_directory,'codes/vasp','vasp_files')
+mattergen_files_path = os.path.join(datagen_directory, 'codes/mattergen', 'mattergen_files')
+
