@@ -36,4 +36,4 @@ gw:
           REGULARIZATION_RI: 0.01
     SUBSYS:
       CELL:
-        PERIODIC: XY
+        PERIODIC: XZ
