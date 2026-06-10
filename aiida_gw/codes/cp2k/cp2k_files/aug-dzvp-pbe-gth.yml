@@ -1,0 +1,46 @@
+# Augmented DZVP basis sets for GW with CP2K
+# Maps elements to orbital basis, RI auxiliary basis, and GTH-PBE pseudopotentials
+basis_set:
+  H:  aug-DZVP-MOLOPT-GTH-q1
+  He: aug-DZVP-MOLOPT-GTH-q2
+  Li: aug-DZVP-MOLOPT-GTH-q3
+  Be: aug-DZVP-MOLOPT-GTH-q4
+  B:  aug-SZV-MOLOPT-GTH-tier-1
+  C:  aug-DZVP-MOLOPT-GTH-q4
+  N:  aug-SZV-MOLOPT-GTH-tier-1
+  O:  aug-DZVP-MOLOPT-GTH-q6
+  F:  aug-DZVP-MOLOPT-GTH-q7
+  Ne: aug-DZVP-MOLOPT-GTH-q8
+  Na: aug-DZVP-MOLOPT-GTH-q9
+  Mg: aug-DZVP-MOLOPT-GTH-q10
+  Al: aug-DZVP-MOLOPT-GTH-q3
+  Si: aug-DZVP-MOLOPT-GTH-q4
+  P:  aug-DZVP-MOLOPT-GTH-q5
+  S:  aug-DZVP-MOLOPT-GTH-q6
+  Cl: aug-DZVP-MOLOPT-GTH-q7
+
+ri_basis_set:
+  H:  RI_aug-DZVP-MOLOPT-GTH-q1
+  B:  RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_009_s_p_d_f_g_h_i_3_2_0_0_0_0_0_error_1.1e-06
+  C:  RI_aug-DZVP-MOLOPT-GTH-q4
+  N:  RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_025_s_p_d_f_g_h_i_6_3_2_0_0_0_0_error_2.9e-06
+  O:  RI_aug-DZVP-MOLOPT-GTH-q6
+
+pseudopotential:
+  H:  GTH-PBE-q1
+  He: GTH-PBE-q2
+  Li: GTH-PBE-q3
+  Be: GTH-PBE-q4
+  B:  GTH-PBE-q3
+  C:  GTH-PBE-q4
+  N:  GTH-PBE-q5
+  O:  GTH-PBE-q6
+  F:  GTH-PBE-q7
+  Ne: GTH-PBE-q8
+  Na: GTH-PBE-q9
+  Mg: GTH-PBE-q10
+  Al: GTH-PBE-q3
+  Si: GTH-PBE-q4
+  P:  GTH-PBE-q5
+  S:  GTH-PBE-q6
+  Cl: GTH-PBE-q7

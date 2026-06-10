@@ -17,20 +17,44 @@ pip install -e .
 
 ## Configuration
 
-Create a `.env` file or set environment variables:
+Create a `.env` file or set environment variables.  All variables use the
+prefix ``AIIDA_GW_`` with nested keys separated by ``__``:
 
 | Variable | Default | Description |
 |---|---|---|
-| AIIDA_GW_CODE_LABEL | cp2k@localhost | Code label for CP2K |
-| AIIDA_GW_PROFILE | profile_name | AiiDA profile name |
-| AIIDA_GW_NUM_MACHINES | 1 | Number of nodes |
-| AIIDA_GW_NUM_MPIPROCS | 128 | MPI processes per node |
-| AIIDA_GW_WALLTIME | 43200 | Max wallclock seconds |
-| AIIDA_GW_CUTOFF | 800 | CP2K cutoff (Ry) |
-| AIIDA_GW_KPOINTS | 6,6,4 | K-point mesh |
-| AIIDA_GW_GW_KPOINTS | 6,6,4 | GW k-point mesh |
-| AIIDA_GW_VACUUM | 20 | Vacuum gap (Å) |
-| AIIDA_GW_SUPERCELL | 3,3,1 | Supercell size |
+| `AIIDA_GW_CODE_LABEL` | `cp2k@localhost` | Code label for CP2K |
+| `AIIDA_GW_PROFILE` | — | AiiDA profile name |
+| `AIIDA_GW_NUM_MACHINES` | `1` | Number of nodes |
+| `AIIDA_GW_NUM_MPIPROCS` | `8` | MPI processes per node |
+| `AIIDA_GW_WALLTIME` | `36000` | Max wallclock seconds |
+| `AIIDA_GW_CUTOFF` | `400` | CP2K cutoff (Ry) |
+| `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
+| `AIIDA_GW_KPOINTS` | `4,1,4` | K-point mesh |
+| `AIIDA_GW_GW_KPOINTS` | `6,1,6` | GW k-point mesh |
+| `AIIDA_GW_GW_KPOINTS_W` | — | GW KPOINTS_W (if different) |
+| `AIIDA_GW_VACUUM` | `20` | Vacuum gap (Å) |
+| `AIIDA_GW_SUPERCELL` | `3,3,1` | Supercell size |
+| `AIIDA_GW_ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` | Orbital basis set name |
+| `AIIDA_GW_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states` | Basis set file (cluster path) |
+| `AIIDA_GW_RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
+| `AIIDA_GW_POTENTIAL_FILE` | `POTENTIAL_UZH` | Potential file (cluster path) |
+| `AIIDA_GW_AUTO_RESOLVE_RI` | `False` | Auto-resolve RI basis from file |
+| `AIIDA_GW_RI_BASIS_ACCURACY_TARGET` | — | Accuracy target for RI selection |
+
+Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,
+or the current directory:
+
+```toml
+[gw]
+basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states"
+ri_basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
+potential_file = "/path/to/POTENTIAL_UZH"
+orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
+auto_resolve_ri = true
+kpoints_mesh = [6, 1, 6]
+vacuum = 20.0
+supercell = [3, 3, 1]
+```
 
 ## Usage
 
@@ -38,14 +62,17 @@ Create a `.env` file or set environment variables:
 # Show configuration
 aiida-gw config-show
 
-# Run a single-point calculation
+# Run a single-point calculation (SIRIUS mode)
 aiida-gw run --mode single_point --structure structure.cif --code cp2k@localhost
 
-# Run a relaxation
+# Run a relaxation (SIRIUS mode)
 aiida-gw run --mode relax --structure structure.cif --code cp2k@localhost
 
-# Run GW calculation
+# Run GW calculation (QS/GPW mode)
 aiida-gw run --mode gw --structure structure.cif --code cp2k@localhost --vacuum 20 --supercell 3,3,1
+
+# Run GW with explicit k-points
+aiida-gw run --mode gw --structure bn.cif --kpoints 6,1,6 --kpoints-w 6,1,6
 
 # Fetch structures from MC2D via OPTIMADE
 aiida-gw fetch --group mc2d_structures --max 10 --elements B,N
@@ -70,7 +97,8 @@ aiida-gw/
 │   │   └── cp2k/
 │   │       ├── __init__.py     # Exports CP2K_FILES_PATH
 │   │       ├── cp2k_parsers.py # AiiDA output parsers
-│   │       ├── parsers.py      # Parsing utilities
+│   │       ├── parsers.py      # CP2K output parsing utilities
+│   │       ├── data_reader.py  # CP2K data file reader (basis/potential/RI resolution)
 │   │       └── cp2k_files/     # Protocol YAMLs, basis sets, pseudopotentials
 │   ├── datasets/
 │   │   ├── mc2d_optimade.py    # OPTIMADE structure fetcher

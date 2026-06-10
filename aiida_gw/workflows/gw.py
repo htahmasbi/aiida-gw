@@ -23,7 +23,6 @@ class GwWorkChain(WorkChain):
         spec.input("structure")
         spec.input("code", valid_type=Code)
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_GW.yml"))
-        spec.input("gw_section", valid_type=Str, default=Str("gw"))
         spec.outline(
             cls.setup,
             cls.run_gw,
@@ -47,6 +46,7 @@ class GwWorkChain(WorkChain):
             code=self.inputs.code,
             protocol_name=self.inputs.protocol_name.value,
             kpoints_mesh=gw_config.kpoints_mesh,
+            kpoints_w_mesh=gw_config.kpoints_w_mesh,
         )
         future = self.submit(inputs)
         self.to_context(gw_calc=future)

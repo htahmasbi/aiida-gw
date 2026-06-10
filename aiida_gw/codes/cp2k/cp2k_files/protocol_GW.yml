@@ -1,90 +1,39 @@
 # GW protocol for 2D materials with CP2K
-# Uses SIRIUS as the DFT driver for the underlying SCF, then GW via CP2K's GW module
-basis_pseudo: SSSP_1.3.0_PBE_precision.json
-
-scf:
-  kpoints_distance: 0.3
-  GLOBAL:
-    PREFERRED_DIAG_LIBRARY: SCALAPACK
-    PRINT_LEVEL: MEDIUM
-  FORCE_EVAL:
-    METHOD: SIRIUS
-    STRESS_TENSOR: ANALYTICAL
-    PW_DFT:
-      CONTROL:
-        VERBOSITY: 1
-        MPI_GRID_DIMS: 1 1
-        SPGLIB_TOLERANCE: 1.0E-6
-      PARAMETERS:
-        ELECTRONIC_STRUCTURE_METHOD: pseudopotential
-        USE_SYMMETRY: TRUE
-        PW_CUTOFF: 0
-        GK_CUTOFF: 0
-        NUM_DFT_ITER: 500
-        SMEARING: FERMI_DIRAC
-        SMEARING_WIDTH: 0.0022
-        DENSITY_TOL: 1.0E-6
-        ENERGY_TOL: 1.0E-6
-      MIXER:
-        TYPE: ANDERSON
-        USE_HARTREE: True
-        BETA: 0.15
-      ITERATIVE_SOLVER:
-        SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-7
-    DFT:
-      XC:
-        XC_FUNCTIONAL:
-          GGA_X_PBE:
-            _: ''
-          GGA_C_PBE:
-            _: ''
-    SUBSYS:
-      CELL:
-        A: "[angstrom]"
-        B: "[angstrom]"
-        C: "[angstrom]"
+# Uses QUICKSTEP (GPW) with augmented basis sets and RI auxiliary basis
+basis_pseudo: aug-dzvp-pbe-gth.yml
 
 gw:
-  kpoints_distance: 0.3
   GLOBAL:
-    PREFERRED_DIAG_LIBRARY: SCALAPACK
+    RUN_TYPE: ENERGY
     PRINT_LEVEL: MEDIUM
   FORCE_EVAL:
-    METHOD: SIRIUS
-    STRESS_TENSOR: ANALYTICAL
-    PW_DFT:
-      CONTROL:
-        VERBOSITY: 1
-        MPI_GRID_DIMS: 1 1
-        SPGLIB_TOLERANCE: 1.0E-6
-      PARAMETERS:
-        ELECTRONIC_STRUCTURE_METHOD: pseudopotential
-        USE_SYMMETRY: TRUE
-        PW_CUTOFF: 0
-        GK_CUTOFF: 0
-        NUM_DFT_ITER: 500
-        SMEARING: FERMI_DIRAC
-        SMEARING_WIDTH: 0.0022
-        DENSITY_TOL: 1.0E-6
-        ENERGY_TOL: 1.0E-6
-      MIXER:
-        TYPE: ANDERSON
-        USE_HARTREE: True
-        BETA: 0.1
-      ITERATIVE_SOLVER:
-        SUBSPACE_SIZE: 2
-        MIN_TOLERANCE: 3.675E-7
+    METHOD: Quickstep
     DFT:
+      SORT_BASIS: EXP
+      CHARGE: 0
+      QS:
+        METHOD: GPW
+        EPS_DEFAULT: 1.0E-12
+        EPS_PGF_ORB: 1.0E-12
+      SCF:
+        SCF_GUESS: ATOMIC
+        MIXING:
+          METHOD: BROYDEN_MIXING
+          ALPHA: 0.2
+          BETA: 0.8
+          NBROYDEN: 10
       XC:
         XC_FUNCTIONAL:
-          GGA_X_PBE:
-            _: ''
-          GGA_C_PBE:
-            _: ''
+          _: PBE
+    PROPERTIES:
+      BANDSTRUCTURE:
+        DOS: {}
+        GW:
+          NUM_TIME_FREQ_POINTS: 10
+          MEMORY_PER_PROC: 600
+          EPS_FILTER: 1.0E-6
+          CUTOFF_RADIUS_RI: 5
+          REGULARIZATION_RI: 0.01
     SUBSYS:
       CELL:
-        A: "[angstrom]"
-        B: "[angstrom]"
-        C: "[angstrom]"
-      PERIODIC: XZ
+        PERIODIC: XZ

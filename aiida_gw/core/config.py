@@ -58,16 +58,6 @@ class Cp2kConfig(BaseModel):
         return v
 
 
-class GwScfConfig(BaseModel):
-    eps_default: float = Field(default=1.0e-12, gt=0)
-    eps_pgf_orb: float = Field(default=1.0e-12, gt=0)
-    eps_scf: float = Field(default=5.0e-7, gt=0)
-    max_scf: int = Field(default=500, ge=1)
-    mixing_alpha: float = Field(default=0.2)
-    mixing_beta: float = Field(default=0.8)
-    mixing_nbroyden: int = Field(default=10)
-
-
 class GwConfig(BaseModel):
     kpoints_mesh: list[int] = Field(default_factory=lambda: [6, 1, 6])
     kpoints_w_mesh: list[int] | None = None
@@ -75,7 +65,13 @@ class GwConfig(BaseModel):
     poisson_solver: str = Field(default="WAVELET")
     cutoff: int = Field(default=400, ge=0)
     rel_cutoff: int = Field(default=50, ge=0)
-    scf: GwScfConfig = Field(default_factory=GwScfConfig)
+    eps_default: float = Field(default=1.0e-12, gt=0)
+    eps_pgf_orb: float = Field(default=1.0e-12, gt=0)
+    eps_scf: float = Field(default=5.0e-7, gt=0)
+    max_scf: int = Field(default=500, ge=1)
+    mixing_alpha: float = Field(default=0.2)
+    mixing_beta: float = Field(default=0.8)
+    mixing_nbroyden: int = Field(default=10)
     num_time_freq: int = Field(default=10, ge=1)
     memory_per_proc: int = Field(default=600, ge=1)
     eps_filter: float = Field(default=1.0e-6, gt=0)
@@ -84,10 +80,27 @@ class GwConfig(BaseModel):
     vacuum: float = Field(default=20.0, ge=5.0)
     supercell: list[int] = Field(default_factory=lambda: [3, 3, 1])
     bs_npoints: int = Field(default=20, ge=1)
-    basis_set_file: str = "BASIS_MOLOPT"
-    ri_basis_set_file: str = "BASIS_MOLOPT"
-    potential_file: str = "GTH_POTENTIALS"
-    orb_basis: str = Field(default="SZV-MOLOPT-GTH")
+    basis_set_file: str = Field(
+        default="BASIS_GTH_MOLOPT_AUG_for_excited_states",
+        description="Path to augmented basis set file (on cluster)",
+    )
+    ri_basis_set_file: str = Field(
+        default="BASIS_GTH_MOLOPT_AUG_for_excited_states_RI",
+        description="Path to RI auxiliary basis set file (on cluster)",
+    )
+    potential_file: str = Field(
+        default="POTENTIAL_UZH",
+        description="Path to CP2K potential file (on cluster)",
+    )
+    orb_basis: str = Field(default="aug-SZV-MOLOPT-GTH-tier-1")
+    auto_resolve_ri: bool = Field(
+        default=False,
+        description="Auto-resolve RI basis sets from ri_basis_set_file",
+    )
+    ri_basis_accuracy_target: float | None = Field(
+        default=None,
+        description="Target accuracy for RI basis selection. None = largest error (cheapest)",
+    )
     ri_basis: str | None = None
     potential: str | None = None
 

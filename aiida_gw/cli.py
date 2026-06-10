@@ -58,6 +58,10 @@ def run(
         str | None,
         typer.Option("--kpoints", help="K-point mesh as kx,ky,kz"),
     ] = None,
+    kpoints_w: Annotated[
+        str | None,
+        typer.Option("--kpoints-w", help="GW k-point mesh as kx,ky,kz"),
+    ] = None,
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
