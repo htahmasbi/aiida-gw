@@ -70,7 +70,7 @@ def run(
     """Run a calculation workflow."""
     from aiida import load_profile
     from aiida.engine import submit
-    from aiida.orm import load_code, StructureData
+    from aiida.orm import load_code, Str, StructureData
     from aiida.plugins import DataFactory
 
     from aiida_gw.transformations.structures import prepare_2d_structure
