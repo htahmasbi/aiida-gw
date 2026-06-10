@@ -119,7 +119,7 @@ def run(
             from aiida.orm import Group
 
             group = Group.collection.get(label=optimade_group)
-            structures = group.nodes
+            structures = list(group.nodes)[:max_structures]
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData

@@ -129,8 +129,16 @@ def fetch_and_store_mc2d(
         modifier=modifier,
     )
 
+    existing_ids = set()
+    for node in group.nodes:
+        oid = node.base.extras.get("optimade_id", None)
+        if oid is not None:
+            existing_ids.add(oid)
+
     count = 0
     for item in data:
+        if item["id"] in existing_ids:
+            continue
         pymatgen_structure = item["structure"]
         try:
             node = StructureData(pymatgen=pymatgen_structure)
