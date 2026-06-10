@@ -1,12 +1,10 @@
-# Manual
+# aiida-gw
+![Python Version](https://img.shields.io/badge/python-≥%203.8-blue)
+![AiiDA Version](https://img.shields.io/badge/AiiDA-≥%202.0-orange)
 
-
-## About ##
 An AiiDA plugin to automate and manage Green's function (GW) workflows within the CP2K electronic structure package.
 
 ## Dependencies ##
-Python 3.6 or later is required.
-
 [aiida-core](https://github.com/aiidateam/aiida-core), [aiida-submission-controller](https://github.com/aiidateam/aiida-submission-controller), and [aiida-cp2k](https://github.com/aiidateam/aiida-cp2k) should be installed.
 
 
