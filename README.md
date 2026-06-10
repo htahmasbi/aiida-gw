@@ -2,34 +2,31 @@
 
 
 ## About ##
-aiida-datagen introduces an automated workflow for generting training data.
+An AiiDA plugin to automate and manage Green's function (GW) workflows within the CP2K electronic structure package.
 
 ## Dependencies ##
 Python 3.6 or later is required.
 
-The latest version of [FLAME](https://gitlab.com/flame-code/FLAME) compatible with Python 3 is required.
-
-[aiida-core](https://github.com/aiidateam/aiida-core), [aiida-submission-controller](https://github.com/aiidateam/aiida-submission-controller), and [aiida-cp2k](https://github.com/aiidateam/aiida-cp2k)/[aiida-vasp](https://github.com/aiida-vasp/aiida-vasp) should be installed.
-
+[aiida-core](https://github.com/aiidateam/aiida-core), [aiida-submission-controller](https://github.com/aiidateam/aiida-submission-controller), and [aiida-cp2k](https://github.com/aiidateam/aiida-cp2k) should be installed.
 
 
 ## Installation ##
 
-To install the aiida-datagen package directly from the cloned repository:
+To install the aiida-gw package directly from the cloned repository:
 
 ```
-git clone https://github.com/hmhoseini/aiida-datagen.git
+git clone https://github.com/htahmasbi/aiida-gw.git
    
-cd aiida-datagen
+cd aiida-gw
     
 pip install -e .
 ```
 
-The aiida-datagen directory should be added to PYTHONPATH.
+The aiida-gw directory should be added to PYTHONPATH.
 
 ## Usage ##
 
-The directory structure of AiiDA-datagen is as follows:
+The directory structure of AiiDA-gw is as follows:
 
 aiida-datagen <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── aiida_datagen <br>
@@ -115,21 +112,6 @@ The following parameters can be specified in **restart.yaml**:
 When the above-mentioned files are ready, the script can be executed by running **datagen.py** command.
 
 
-The structure of the *output* directory is as follows:
-
-output <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── cycle-1 <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── minimahopping <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── train <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;. <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;. <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;. <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── cycle-n <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── minimahopping <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── train <br>
-
-A detailed log file (**datagen.log**) will be written in the *output* directory. Folders and files inside *cycle-?* folders provide details of training process.
-
 ## Citation ##
 
 ## How to contribute ##
@@ -137,4 +119,4 @@ A detailed log file (**datagen.log**) will be written in the *output* directory.
 ## License ##
 MIT
 ## Contact ##
-mirhoseini@gmail.com
+h.tahmasb@gmail.com
