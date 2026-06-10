@@ -113,6 +113,7 @@ class ProjectConfig(BaseSettings):
     resource_preset: str = Field(default="default")
     cp2k: Cp2kConfig = Field(default_factory=Cp2kConfig)
     gw: GwConfig = Field(default_factory=GwConfig)
+    metadata_options: MetadataOptions = Field(default_factory=MetadataOptions)
 
 
 def load_config(config_path: str | Path | None = None) -> ProjectConfig:
