@@ -1,91 +1,100 @@
 # aiida-gw
+
 ![Python Version](https://img.shields.io/badge/python-≥%203.10-blue)
-![AiiDA Version](https://img.shields.io/badge/AiiDA-≥%202.0-orange)
+![AiiDA Version](https://img.shields.io/badge/AiiDA-≥%202.5-orange)
 
-An AiiDA plugin to automate and manage Green's function (GW) workflows within the CP2K electronic structure package.
-This project is a fork of [aiida-datagen](https://github.com/hmhoseini/aiida-datagen), refactored to focus on GW calculations using CP2K.
+AiiDA plugin for CP2K GW workflows targeting 2D materials.
 
-## Dependencies ##
-[aiida-core](https://github.com/aiidateam/aiida-core), [aiida-submission-controller](https://github.com/aiidateam/aiida-submission-controller), and [aiida-cp2k](https://github.com/aiidateam/aiida-cp2k) should be installed.
+Forked from [aiida-datagen](https://github.com/hmhoseini/aiida-datagen), refactored to focus on GW calculations with CP2K only.
 
-## Installation ##
+## Installation
 
-To install the aiida-gw package directly from the cloned repository:
-
-```
+```bash
 git clone https://github.com/htahmasbi/aiida-gw.git
-   
 cd aiida-gw
-    
 pip install -e .
 ```
 
-The aiida-gw directory should be added to PYTHONPATH.
+## Configuration
 
-## Usage ##
+Create a `.env` file or set environment variables:
 
-The directory structure of aiida-gw is as follows:
+| Variable | Default | Description |
+|---|---|---|
+| AIIDA_GW_CODE_LABEL | cp2k@localhost | Code label for CP2K |
+| AIIDA_GW_PROFILE | profile_name | AiiDA profile name |
+| AIIDA_GW_NUM_MACHINES | 1 | Number of nodes |
+| AIIDA_GW_NUM_MPIPROCS | 128 | MPI processes per node |
+| AIIDA_GW_WALLTIME | 43200 | Max wallclock seconds |
+| AIIDA_GW_CUTOFF | 800 | CP2K cutoff (Ry) |
+| AIIDA_GW_KPOINTS | 6,6,4 | K-point mesh |
+| AIIDA_GW_GW_KPOINTS | 6,6,4 | GW k-point mesh |
+| AIIDA_GW_VACUUM | 20 | Vacuum gap (Å) |
+| AIIDA_GW_SUPERCELL | 3,3,1 | Supercell size |
 
-aiida-gw <br>
-&nbsp;&nbsp;&nbsp;&nbsp;├── aiida_gw <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;├── codes <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;├── cp2k <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;└── cp2k_files <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;├── utils.py <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;└── pxtl.py <br>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;└── workflows <br>
-&nbsp;&nbsp;&nbsp;&nbsp;├── run_dir <br>
-&nbsp;&nbsp;&nbsp;&nbsp;└── utils <br>
+## Usage
 
-The default output directory is *run_dir* but **datagen.py** can be executed in any directory that contains the following files: <br>
-&nbsp;&nbsp; config.yaml <br>
-&nbsp;&nbsp; input.yaml <br>
-&nbsp;&nbsp; restart.yaml <br>
-It is necessary to modify these three files before running aiida-gw.
+```bash
+# Show configuration
+aiida-gw config-show
 
-The following values should be specified in the **config.yaml** file:
+# Run a single-point calculation
+aiida-gw run --mode single_point --structure structure.cif --code cp2k@localhost
 
-|Values                |Description|
-|-|-|
-|api_key|Materials Project API key|
-|DFT_code_string|Code label for DFT calculations. Available codes and their identifiers can be listed with ```verdi code list```|
-|The following parameters should be specified for all jobs:|
-|number_of_jobs|The maximum number of jobs that will be submitted for a specific job type.|
-|nodes|Number of nodes to be allocated for the job. See [slurm manual](https://slurm.schedmd.com/sbatch.html#OPT_nodes)|
-|ntasks|Number of tasks per node. See [slurm manual](https://slurm.schedmd.com/sbatch.html#OPT_ntasks-per-node)|
-|ncpu|Number of processors per task. See [slurm manual](https://slurm.schedmd.com/sbatch.html#OPT_cpus-per-task)|
-|time|Maximum time for a job (in seconds)|
-|exclusive|Whether the job can share nodes with other running jobs. See [slurm manual](https://slurm.schedmd.com/sbatch.html#OPT_exclusive)|
+# Run a relaxation
+aiida-gw run --mode relax --structure structure.cif --code cp2k@localhost
 
-The data that should be provided in **input.yaml** is as follows:
+# Run GW calculation
+aiida-gw run --mode gw --structure structure.cif --code cp2k@localhost --vacuum 20 --supercell 3,3,1
 
-|Key|Description|
-|-|-|
-|Chemical_formula|A list of chemical formula(s)|
-|bulk_number_of_atoms|Specifies number of atoms in bulk structures|
-|number_of_bulk_structures|Specifies number of structures sent for ab-initio calculations|
-|cluster_calculation|If cluster structures should be included in the training|
-|cluster_number_of_atoms|Number of atoms on cluster structures. Should be a subset of bulk_number_of_atoms|
-|vacuum_length|Minimum length of vacuum for each supercell containing a cluster|
-|random_structure_generator|Structure generator: PyXtal (default)|
-|min_distance_prefactor|Prefactor to control minimum distance between atoms in initial random structures|
-|ab_initio_code|SIRIUS_CP2K or CP2K_QS|
-|user_specified_CP2K_files|If True, then codes/cp2k/cp2k_files folder should be copied into the run directory. The user can modify CP2K keywords (protocol files and/or pseudopotentials).|
+# Fetch structures from MC2D via OPTIMADE
+aiida-gw fetch --group mc2d_structures --max 10 --elements B,N
 
-<br>
-The step from which aiida-gw (re)starts is specified in restart.yaml. aiida-gw keeps track of its steps. If a failure occurs and aiida-gw cannot advance, the user can restart aiida-gw from the last successfully accomplished step.
+# Run GW on OPTIMADE structures
+aiida-gw run --mode gw --optimade-group mc2d_structures --code cp2k@localhost
+```
 
-The following parameters can be specified in **restart.yaml**:
+## Project Structure
 
-|Key                |Description|
-|-|-|
-|re-start_from_step |Specifies the step the script will (re)start.<br>1: start aiida-gw <br>2: random bulk structure generation <br>3: ab-initio calculations|
-|stop_after_step|The script stops after the end of this step. -1 for non-stop run.|
+```
+aiida-gw/
+├── aiida_gw/
+│   ├── cli.py                  # Typer CLI entry point
+│   ├── core/
+│   │   ├── config.py           # Pydantic configuration
+│   │   ├── builders.py         # CP2K input builder (protocol-driven)
+│   │   ├── enums.py            # Calculation modes
+│   │   ├── exceptions.py       # Custom exceptions
+│   │   └── logging.py          # Python logging setup
+│   ├── codes/
+│   │   └── cp2k/
+│   │       ├── __init__.py     # Exports CP2K_FILES_PATH
+│   │       ├── cp2k_parsers.py # AiiDA output parsers
+│   │       ├── parsers.py      # Parsing utilities
+│   │       └── cp2k_files/     # Protocol YAMLs, basis sets, pseudopotentials
+│   ├── datasets/
+│   │   ├── mc2d_optimade.py    # OPTIMADE structure fetcher
+│   ├── transformations/
+│   │   └── structures.py       # 2D structure helpers (vacuum, rotation, supercell)
+│   └── workflows/
+│       ├── single_point.py     # SinglePointWorkChain
+│       ├── relaxation.py       # RelaxWorkChain
+│       ├── gw.py               # GwWorkChain
+│       └── archive/            # Original pipeline (step1/2/3, main, settings)
+├── setup.json
+└── README.md
+```
 
-When the above-mentioned files are ready, the script can be executed by running **datagen.py** command.
+## Workflows
 
-## License ##
+- **SinglePointWorkChain** — Single-point energy/force calculation using `Cp2kBaseWorkChain`
+- **RelaxWorkChain** — Geometry relaxation using `Cp2kBaseWorkChain`
+- **GwWorkChain** — GW calculation (SCF → GW) with structure preparation (vacuum, supercell)
+
+## License
+
 MIT
 
-## Contact ##
+## Contact
+
 h.tahmasb@gmail.com

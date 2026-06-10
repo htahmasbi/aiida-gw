@@ -1,7 +1,5 @@
 """
-aiida_gw
-
-script for training data generation
+aiida-gw: AiiDA GW workflows for 2D materials with CP2K.
 """
 
-__version__ = "0.0"
+__version__ = "0.1.0"

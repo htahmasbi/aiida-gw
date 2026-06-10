@@ -1,27 +1,35 @@
 {
     "author": "Hossein Mirhosseini",
     "author_email": "mirhoseini@gmail.com",
-    "description": "AiiDA GW workflows with CP2K",
+    "description": "AiiDA GW workflows for 2D materials with CP2K",
     "name": "aiida-gw",
     "url": "https://github.com/htahmasbi/aiida-gw",
-    "version": "0.0",
+    "version": "0.1.0",
     "license": "MIT license",
     "reentry_register": true,
     "python_requires": ">=3.10",
     "install_requires": [
         "aiida-core>=2.5.0",
         "aiida-cp2k>=0.4.0",
-        "aiida-submission-controller==0.1.2",
-        "mp-api",
-        "pyxtal",
         "pymatgen>=2023.10.0",
         "numpy",
-        "pyyaml"
+        "pyyaml",
+        "typer>=0.9.0",
+        "rich>=13.0.0",
+        "optimade-client"
     ],
     "entry_points": {
-	"aiida.parsers": [
-	    "cp2k_efs_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
+        "aiida.parsers": [
+            "cp2k_efs_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
             "cp2k_simple_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kSimpleParser"
-	]
+        ],
+        "aiida.workflows": [
+            "single_point = aiida_gw.workflows.single_point:SinglePointWorkChain",
+            "relaxation = aiida_gw.workflows.relaxation:RelaxWorkChain",
+            "gw = aiida_gw.workflows.gw:GwWorkChain"
+        ],
+        "console_scripts": [
+            "aiida-gw = aiida_gw.cli:app"
+        ]
     }
 }
