@@ -3,6 +3,7 @@
 ![AiiDA Version](https://img.shields.io/badge/AiiDA-≥%202.0-orange)
 
 An AiiDA plugin to automate and manage Green's function (GW) workflows within the CP2K electronic structure package.
+This project is a fork of [aiida-datagen](https://github.com/hmhoseini/aiida-datagen), heavily modified to focus on GW calculations using CP2K.
 
 ## Dependencies ##
 [aiida-core](https://github.com/aiidateam/aiida-core), [aiida-submission-controller](https://github.com/aiidateam/aiida-submission-controller), and [aiida-cp2k](https://github.com/aiidateam/aiida-cp2k) should be installed.
