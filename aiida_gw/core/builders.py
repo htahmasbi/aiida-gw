@@ -189,7 +189,7 @@ def _classify_2d_lattice(structure) -> str:
 
     import numpy as np
 
-    matrix = structure.lattice.matrix
+    matrix = np.array(structure.cell)
     a_len = float(np.linalg.norm(matrix[0]))
     b_len = float(np.linalg.norm(matrix[1]))
     cos_gamma = np.dot(matrix[0], matrix[1]) / (a_len * b_len)
