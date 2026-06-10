@@ -5,11 +5,6 @@ num_machines = 1
 num_mpiprocs_per_machine = 16
 max_wallclock_seconds = 86400
 
-[metadata_options]
-num_machines = 2
-num_mpiprocs_per_machine = 64
-max_wallclock_seconds = 86400
-
 [cp2k]
 cutoff = 400
 kpoints_mesh = [4, 1, 4]
