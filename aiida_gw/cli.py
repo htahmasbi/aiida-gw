@@ -62,6 +62,10 @@ def run(
         str | None,
         typer.Option("--kpoints-w", help="GW k-point mesh as kx,ky,kz"),
     ] = None,
+    elements: Annotated[
+        str | None,
+        typer.Option("--elements", help="Comma-separated elements for OPTIMADE filter (e.g. B,N)"),
+    ] = None,
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
@@ -103,13 +107,21 @@ def run(
         supercell_val = [int(x) for x in (supercell or ",".join(map(str, gw_config.supercell))).split(",")]
 
         if optimade_group:
-            from aiida_gw.datasets.mc2d_optimade import fetch_structures_from_optimade
+            from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
 
-            group = fetch_structures_from_optimade(
+            element_list = elements.split(",") if elements else None
+            fetch_and_store_mc2d(
                 group_label=optimade_group,
                 max_structures=max_structures,
+                elements=element_list,
             )
-            structures = list(group.nodes)
+
+            from aiida.orm import QueryBuilder
+            from aiida.orm.nodes.data.structure import StructureData
+
+            qb = QueryBuilder()
+            qb.append(StructureData, with_group=optimade_group, project="*")
+            structures = [res[0] for res in qb.all()]
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData
@@ -226,14 +238,14 @@ def fetch(
     load_profile()
 
     element_list = elements.split(",") if elements else None
-    from aiida_gw.datasets.mc2d_optimade import fetch_structures_from_optimade
+    from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
 
-    group = fetch_structures_from_optimade(
+    data = fetch_and_store_mc2d(
         group_label=group_label,
         max_structures=max_structures,
         elements=element_list,
     )
-    console.print(f"[green]Fetched structures into group '{group_label}' ({len(group.nodes)} nodes)[/green]")
+    console.print(f"[green]Fetched {len(data)} MC2D structures into group '{group_label}'[/green]")
 
 
 @app.callback()

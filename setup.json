@@ -16,7 +16,7 @@
         "pyyaml",
         "typer>=0.9.0",
         "rich>=13.0.0",
-        "optimade-client"
+        "requests"
     ],
     "entry_points": {
         "aiida.parsers": [
