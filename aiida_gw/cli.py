@@ -116,13 +116,10 @@ def run(
                 elements=element_list,
             )
 
-            from aiida.orm import QueryBuilder, Group
-            from aiida.orm.nodes.data.structure import StructureData
+            from aiida.orm import Group
 
             group = Group.collection.get(label=optimade_group)
-            qb = QueryBuilder()
-            qb.append(StructureData, with_group=group, project="*")
-            structures = [res[0] for res in qb.all()]
+            structures = group.nodes
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData
