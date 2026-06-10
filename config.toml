@@ -1,11 +1,11 @@
 code_label = "cp2k@localhost"
-num_machines = 1
-num_mpiprocs_per_machine = 16
+num_machines = 2
+num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
 
 [metadata_options]
-num_machines = 1
-num_mpiprocs_per_machine = 16
+num_machines = 2
+num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
 
 [cp2k]
@@ -13,8 +13,8 @@ cutoff = 400
 kpoints_mesh = [4, 1, 4]
 
 [gw]
-kpoints_mesh = [6, 1, 6]
-kpoints_w_mesh = [6, 1, 6]
+kpoints_mesh = [24, 1, 24]
+kpoints_w_mesh = [24, 1, 24]
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
@@ -31,7 +31,7 @@ mixing_alpha = 0.2
 mixing_beta = 0.8
 mixing_nbroyden = 10
 vacuum = 20.0
-supercell = [3, 3, 1]
+supercell = [2, 2, 1]
 bs_npoints = 20
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
