@@ -1,7 +1,7 @@
 from aiida.engine import BaseRestartWorkChain, while_
 from aiida.orm import Int, Str, Dict, Code
 from aiida.plugins import CalculationFactory
-from aiida_datagen.workflows import settings
+from aiida_gw.workflows import settings
 
 def get_options():
     """Return scheduler options"""

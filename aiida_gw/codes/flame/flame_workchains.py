@@ -7,7 +7,7 @@ from aiida.orm import Group, Dict, Str, Int, Code
 from aiida.plugins import CalculationFactory
 from aiida.engine import WorkChain
 from pymatgen.core.composition import Composition
-import aiida_datagen.workflows.settings as settings
+import aiida_gw.workflows.settings as settings
 
 def dict_merge(dct, merge_dct):
     """ Taken from https://gist.github.com/angstwad/

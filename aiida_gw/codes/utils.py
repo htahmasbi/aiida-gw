@@ -7,7 +7,7 @@ from pymatgen.core.composition import Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from mp_api.client import MPRester
 from aiida.orm import Group, Dict
-from aiida_datagen.workflows.settings import inputs, output_dir, api_key
+from aiida_gw.workflows.settings import inputs, output_dir, api_key
 
 def get_pertured_failed_structures(cycle_number):
     """ Perturb fialed crystal structures.

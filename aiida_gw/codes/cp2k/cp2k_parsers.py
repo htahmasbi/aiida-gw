@@ -4,7 +4,7 @@ from aiida.engine import ExitCode
 from aiida.common import NotExistent
 from aiida.orm import Dict
 from aiida.plugins import DataFactory
-from aiida_datagen.codes.cp2k.parsers import (
+from aiida_gw.codes.cp2k.parsers import (
     read_structure,
     parse_cp2k_output_simple,
     read_coordinates,

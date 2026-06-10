@@ -7,9 +7,9 @@ from pymatgen.core.structure import Structure
 from pymatgen.core.composition import Composition
 from aiida.orm import Group, List, Dict, load_node, QueryBuilder, WorkChainNode, CalcJobNode
 from aiida.plugins import DataFactory
-from aiida_datagen.codes.utils import get_element_list, get_structures_from_mpdb, get_reference_structures, get_time, store_calculation_nodes
-from aiida_datagen.workflows.core import log_write, previous_run_exist_check, report
-from aiida_datagen.workflows.settings import inputs, output_dir, groups, steps_status, job_script
+from aiida_gw.codes.utils import get_element_list, get_structures_from_mpdb, get_reference_structures, get_time, store_calculation_nodes
+from aiida_gw.workflows.core import log_write, previous_run_exist_check, report
+from aiida_gw.workflows.settings import inputs, output_dir, groups, steps_status, job_script
 
 def store_step1_results(vpas_db):
     """ Store results
@@ -214,7 +214,7 @@ def step_1():
             if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
                 # add structures to the parent group
                 add_structures_to_parent_group([])
-                from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController
+                from aiida_gw.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController
                 log_write(f'Reference calculations with {inputs["ab_initio_code"]}'+'\n')
                 controller = CP2KSubmissionController(
                     parent_group_label='pg_step1',
@@ -224,7 +224,7 @@ def step_1():
             elif inputs['ab_initio_code']=='VASP':
                 # add structures to the parent group
                 add_structures_to_parent_group(reference_structures)
-                from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController
+                from aiida_gw.codes.vasp.vasp_launch_calculations import VASPSubmissionController
                 log_write('Reference calculations with VASP'+'\n')
                 controller = VASPSubmissionController(
                     parent_group_label='pg_step1',

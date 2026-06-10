@@ -1,7 +1,7 @@
 from aiida.plugins import DataFactory
 from aiida.orm import Str, Int
 from aiida_submission_controller import BaseSubmissionController
-from aiida_datagen.codes.mattergen.mattergen_workchains import MatterGenBaseWorkChain
+from aiida_gw.codes.mattergen.mattergen_workchains import MatterGenBaseWorkChain
 
 StructureData = DataFactory('structure')
 

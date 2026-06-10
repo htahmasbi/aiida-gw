@@ -2,8 +2,8 @@ import numpy as np
 from random import randint, uniform
 from pyxtal.crystal import random_crystal
 from pymatgen.core.structure import Structure
-from aiida_datagen.codes.utils import is_structure_valid
-from aiida_datagen.workflows.settings import inputs
+from aiida_gw.codes.utils import is_structure_valid
+from aiida_gw.workflows.settings import inputs
 
 class random_crystal_3d(random_crystal):
     def set_volume(self):

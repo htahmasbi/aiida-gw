@@ -4,12 +4,12 @@ from time import sleep
 from collections import defaultdict
 from pymatgen.core.composition import Composition
 from aiida.orm import Group, Dict
-from aiida_datagen.codes.utils import get_allowed_n_atom_for_compositions, get_time, store_calculation_nodes, is_structure_valid
-from aiida_datagen.codes.flame.flame_launch_calculations import GenSymCrysSubmissionController
-from aiida_datagen.codes.mattergen.mattergen_launch_calculations import MatterGenSubmissionController
-from aiida_datagen.workflows.core import log_write, previous_run_exist_check, group_is_empty_check
-from aiida_datagen.workflows.settings import inputs, job_script, steps_status
-from aiida_datagen.codes.flame.core import conf2pymatgenstructure
+from aiida_gw.codes.utils import get_allowed_n_atom_for_compositions, get_time, store_calculation_nodes, is_structure_valid
+from aiida_gw.codes.flame.flame_launch_calculations import GenSymCrysSubmissionController
+from aiida_gw.codes.mattergen.mattergen_launch_calculations import MatterGenSubmissionController
+from aiida_gw.workflows.core import log_write, previous_run_exist_check, group_is_empty_check
+from aiida_gw.workflows.settings import inputs, job_script, steps_status
+from aiida_gw.codes.flame.core import conf2pymatgenstructure
 
 def collect_random_structures(outfile):
     random_bulk_structures = []
@@ -34,7 +34,7 @@ def store_step2_results(results_dict):
         log_write(f'{len(results_dict[a_key])} random bulk structures with {a_key} atoms are generated'+'\n')
 
 def step2_pyxtal(composition_list):
-    from aiida_datagen.codes.pxtl import generate_random_bulk
+    from aiida_gw.codes.pxtl import generate_random_bulk
     results_dict = defaultdict(list)
     vpas = []
     known_structures_group = Group.collection.get(label='known_structures')

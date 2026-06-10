@@ -1,7 +1,7 @@
 import os
 import json
 from pymatgen.core.structure import Structure
-import aiida_datagen.workflows.settings as settings
+import aiida_gw.workflows.settings as settings
 
 def conf2pymatgenstructure(confs):
     pymatgen_structures = []

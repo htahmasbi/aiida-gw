@@ -10,9 +10,9 @@ from pymatgen.core.structure import Structure, Molecule
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from aiida.plugins import DataFactory
 from aiida.orm import List, Group, load_node, QueryBuilder, WorkChainNode, CalcJobNode
-from aiida_datagen.codes.utils import get_time, get_reference_structures, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
-from aiida_datagen.workflows.core import log_write, previous_run_exist_check, group_is_empty_check, report
-from aiida_datagen.workflows.settings import inputs, steps_status, job_script, run_dir, output_dir
+from aiida_gw.codes.utils import get_time, get_reference_structures, get_allowed_n_atom_for_compositions, is_structure_valid, store_calculation_nodes
+from aiida_gw.workflows.core import log_write, previous_run_exist_check, group_is_empty_check, report
+from aiida_gw.workflows.settings import inputs, steps_status, job_script, run_dir, output_dir
 from utils.export_data import add_input_node, add_author_data, add_protocol, add_known_structures, add_calculation_nodes, add_nodes
 from utils.extract import get_author_data, get_input_data, collect_data, get_protocol, plot_1, plot_2, plot_3
 
@@ -481,7 +481,7 @@ def step_3():
         sys.exit()
     # submit jobs
     if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
-        from aiida_datagen.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController, CP2KSPSubmissionController
+        from aiida_gw.codes.cp2k.cp2k_launch_calculations import CP2KSubmissionController, CP2KSPSubmissionController
         log_write(f'Ab-initio calculations with {inputs["ab_initio_code"]}'+'\n')
         if 'singlepoint' in inputs['calculation_type']:
             controller = CP2KSPSubmissionController(
@@ -496,7 +496,7 @@ def step_3():
                max_concurrent=job_script['geopt']['number_of_jobs'],
                QSorSIRIUS=inputs['ab_initio_code'])
     elif inputs['ab_initio_code']=='VASP':
-        from aiida_datagen.codes.vasp.vasp_launch_calculations import VASPSubmissionController, VASPSPSubmissionController
+        from aiida_gw.codes.vasp.vasp_launch_calculations import VASPSubmissionController, VASPSPSubmissionController
         log_write('Ab-initio calculations with VASP'+'\n')
         if 'scratch' in inputs['calculation_type'] or 'finetuning' in inputs['calculation_type']:
             controller = VASPSubmissionController(

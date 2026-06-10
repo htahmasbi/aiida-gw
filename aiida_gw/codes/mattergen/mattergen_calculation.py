@@ -2,7 +2,7 @@ import os
 from aiida.engine import CalcJob
 from aiida.orm import Dict
 from aiida.common.datastructures import CalcInfo, CodeInfo
-from aiida_datagen.workflows import settings
+from aiida_gw.workflows import settings
 
 class MatterGenCalculation(CalcJob):
     """AiiDA plugin for MatterGen."""

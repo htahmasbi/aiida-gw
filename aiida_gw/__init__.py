@@ -1,5 +1,5 @@
 """
-aiida_datagen
+aiida_gw
 
 script for training data generation
 """

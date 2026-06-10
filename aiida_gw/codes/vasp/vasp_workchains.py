@@ -4,7 +4,7 @@ import yaml
 from aiida.plugins import WorkflowFactory, DataFactory
 from aiida.engine import WorkChain
 from aiida.orm import Int, Str, List, Dict, Code, Bool, SinglefileData, load_group
-import aiida_datagen.workflows.settings as settings
+import aiida_gw.workflows.settings as settings
 
 results_step1_group = load_group(label='results_step1')
 results_step3_group = load_group(label='results_step3')

@@ -1,6 +1,6 @@
 from aiida.orm import Str
 from aiida_submission_controller import FromGroupSubmissionController
-from aiida_datagen.codes.vasp.vasp_workchains import (
+from aiida_gw.codes.vasp.vasp_workchains import (
     DimerGeOptWorkChain,
     RefGeOptWorkChain,
     Scheme1GeOptWorkChain,

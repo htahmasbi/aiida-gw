@@ -14,18 +14,18 @@
     ],
     "entry_points": {
 	"aiida.calculations": [
-	    "flame = aiida_datagen.codes.flame.flame_calculations:FlameCalculation",
-            "mattergen = aiida_datagen.codes.mattergen.mattergen_calculation:MatterGenCalculation"
+	    "flame = aiida_gw.codes.flame.flame_calculations:FlameCalculation",
+            "mattergen = aiida_gw.codes.mattergen.mattergen_calculation:MatterGenCalculation"
 
 	],
 	"aiida.parsers": [
-	    "cp2k_efs_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
-            "cp2k_simple_parser = aiida_datagen.codes.cp2k.cp2k_parsers:Cp2kSimpleParser",
-            "datagen_gensymcrys_parser = aiida_datagen.codes.flame.flame_parsers: GenSymCrysParser",
- 	    "mattergen_parser = aiida_datagen.codes.mattergen.mattergen_parser:MatterGenParser"
+	    "cp2k_efs_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
+            "cp2k_simple_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kSimpleParser",
+            "datagen_gensymcrys_parser = aiida_gw.codes.flame.flame_parsers: GenSymCrysParser",
+ 	    "mattergen_parser = aiida_gw.codes.mattergen.mattergen_parser:MatterGenParser"
 	],
 	"aiida.workflows": [
-            "mattergen.base = aiida_datagen.codes.mattergen.mattergen_workchains:MatterGenBaseWorkChain"
+            "mattergen.base = aiida_gw.codes.mattergen.mattergen_workchains:MatterGenBaseWorkChain"
 	]
     }
 }

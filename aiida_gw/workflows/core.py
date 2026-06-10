@@ -1,5 +1,5 @@
 import sys
-from aiida_datagen.workflows.settings import groups, log_file
+from aiida_gw.workflows.settings import groups, log_file
 from aiida.orm import Group, QueryBuilder, WorkChainNode, CalcJobNode
 
 def log_write(txt):

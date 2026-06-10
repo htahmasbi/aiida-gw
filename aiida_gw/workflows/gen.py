@@ -1,7 +1,7 @@
 from aiida.orm import Int, Str, List, Dict
 from aiida.plugins import WorkflowFactory
 from aiida.engine import WorkChain
-from aiida_datagen.workflows import settings
+from aiida_gw.workflows import settings
 
 def get_code(model_key):
     """

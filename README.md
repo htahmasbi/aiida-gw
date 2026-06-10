@@ -28,7 +28,7 @@ The aiida-gw directory should be added to PYTHONPATH.
 The directory structure of AiiDA-gw is as follows:
 
 aiida-datagen <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── aiida_datagen <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── aiida_gw <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── codes <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── cp2k <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── cp2k_files <br>

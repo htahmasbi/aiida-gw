@@ -2,7 +2,7 @@ import os
 import yaml
 import argparse
 from aiida.orm import Dict, Group, load_node
-from aiida_datagen.workflows.settings import run_dir, datagen_directory
+from aiida_gw.workflows.settings import run_dir, datagen_directory
 from aiida.manage.configuration import load_profile
 
 load_profile()
