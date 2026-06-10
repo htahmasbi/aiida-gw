@@ -61,41 +61,6 @@ def collect_node_data(group_label, code):
     pw_cutoff = None
     xc_functional = None
     pps = {}
-    if 'VASP' in code:
-        for a_node in calcjob_nodes:
-            if a_node.exit_status != 0:
-                continue
-            misc_node = a_node.base.links.get_outgoing(link_label_filter='misc').all_nodes()[0]
-            if not misc_node.dict.run_status['electronic_converged']:
-                continue
-            if not 'VaspCalculation' in a_node.process_label:
-                print('wrong code label')
-                sys.exit(-30)
-            input_parameters = a_node.inputs.parameters
-
-            if not code_version_1:
-                code_version_1 = a_node.outputs.misc.get('version')
-            else:
-                if a_node.outputs.misc.get('version') != code_version_1:
-                    print('wrong code version')
-                    sys.exit(-31)
-            if not pps:
-                for a_key in a_node.inputs.potential.keys():
-                    pps.update({a_key: f"{a_node.inputs.potential[a_key].base.attributes.get('title')} {a_node.inputs.potential[a_key].base.attributes.get('sha512')}"})
-            else:
-                for a_key in a_node.inputs.potential.keys():
-                    if not f"{a_node.inputs.potential[a_key].base.attributes.get('title')} {a_node.inputs.potential[a_key].base.attributes.get('sha512')}" in pps.values():
-                        print('wrong potential')
-                        sys.exit(-32)
-            labels.append(a_node.label)
-            trajectory_node = a_node.base.links.get_outgoing(link_label_filter='trajectory').all_nodes()[0]
-            cells.append(trajectory_node.get_array('cells'))
-            positions.append(trajectory_node.get_array('positions'))
-            structure_node = a_node.base.links.get_outgoing(link_label_filter='structure').all_nodes()[0]
-            species.append(structure_node.get_site_kindnames())
-            energies_node = a_node.base.links.get_outgoing(link_label_filter='energies').all_nodes()[0]
-            energies.append(energies_node.get_array('energy_extrapolated_electronic'))
-            forces.append(trajectory_node.get_array('forces'))
     if 'SIRIUS' in code or 'QS' in code:
         for a_node in calcjob_nodes:
             if a_node.exit_status != 0:

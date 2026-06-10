@@ -35,14 +35,7 @@ if restart['stop_after_step'] >= 0:
 with open(os.path.join(this_directory, 'groups.yaml'), 'r', encoding='utf8') as fhandle:
     groups = yaml.safe_load(fhandle)
 
-FLAME_input_files_path = os.path.join(run_dir,'flame_files')\
-                        if inputs['user_specified_FLAME_files']\
-                        else os.path.join(datagen_directory,'codes/flame','flame_files')
 CP2K_input_files_path = os.path.join(run_dir,'cp2k_files')\
                         if inputs['user_specified_CP2K_files']\
                         else os.path.join(datagen_directory,'codes/cp2k','cp2k_files')
-VASP_input_files_path = os.path.join(run_dir,'vasp_files')\
-                        if inputs['user_specified_VASP_files']\
-                        else os.path.join(datagen_directory,'codes/vasp','vasp_files')
-mattergen_files_path = os.path.join(datagen_directory, 'codes/mattergen', 'mattergen_files')
 

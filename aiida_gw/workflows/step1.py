@@ -40,17 +40,6 @@ def store_step1_results(vpas_db):
     for a_node in calcjob_nodes:
         if not a_node.is_finished_ok:
             continue
-        if 'VASP' in inputs['ab_initio_code']:
-            if not a_node.outputs.misc.dict.run_status['electronic_converged']:
-                continue
-            coords = []
-            species = []
-            lattice = a_node.outputs.structure.cell
-            for a_site in a_node.outputs.structure.sites:
-                species.append(a_site.kind_name)
-                coords.append(a_site.position)
-            pymatgen_structure = Structure(lattice, species, coords, to_unit_cell=True, coords_are_cartesian=True)
-            epot = float(a_node.outputs.energies.get_array('energy_extrapolated_electronic')[-1])
         if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
             output_parameters = a_node.base.links.get_outgoing(link_label_filter='output_parameters').all_nodes()[0]
             motion_step = output_parameters['motion_step_info']
@@ -221,15 +210,6 @@ def step_1():
                     group_label='wf_step1',
                     max_concurrent=job_script['geopt']['number_of_jobs'],
                     QSorSIRIUS=inputs['ab_initio_code'])
-            elif inputs['ab_initio_code']=='VASP':
-                # add structures to the parent group
-                add_structures_to_parent_group(reference_structures)
-                from aiida_gw.codes.vasp.vasp_launch_calculations import VASPSubmissionController
-                log_write('Reference calculations with VASP'+'\n')
-                controller = VASPSubmissionController(
-                    parent_group_label='pg_step1',
-                    group_label='wf_step1',
-                    max_concurrent=job_script['geopt']['number_of_jobs'])
             else:
                 log_write('>>> ERROR: no ab_initio code is provided <<<'+'\n')
                 sys.exit()

@@ -29,17 +29,6 @@ def add_protocol(inputs):
     CP2K_input_files_path = os.path.join(run_dir,'cp2k_files')\
                             if inputs['user_specified_CP2K_files']\
                             else os.path.join(datagen_directory,'codes/cp2k','cp2k_files')
-    VASP_input_files_path = os.path.join(run_dir,'vasp_files')\
-                            if inputs['user_specified_VASP_files']\
-                            else os.path.join(datagen_directory,'codes/vasp','vasp_files')
-    if 'VASP' in inputs['ab_initio_code']:
-        with open(os.path.join(VASP_input_files_path,'protocol.yaml'), 'r', encoding='utf8') as fhandle:
-            vasp_protocol = yaml.safe_load(fhandle)
-        single_point_protocol = vasp_protocol['single_point']    
-        a_node = Dict(single_point_protocol)
-        a_node.label = 'protocol'
-        store = a_node.store()
-        return store.pk
     if 'SIRIUS' in inputs['ab_initio_code']:
         with open(os.path.join(CP2K_input_files_path,'protocol_SIRIUS.yml'), 'r', encoding='utf8') as fhandle:
             cp2k_protocol = yaml.safe_load(fhandle)

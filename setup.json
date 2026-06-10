@@ -1,31 +1,27 @@
 {
     "author": "Hossein Mirhosseini",
     "author_email": "mirhoseini@gmail.com",
-    "description": "AiiDA Plugin for training data generation",
-    "license": "",
-    "name": "aiida-datagen",
-    "url": "https://github.com/hmhoseini/aiida-datagen",
+    "description": "AiiDA GW workflows with CP2K",
+    "name": "aiida-gw",
+    "url": "https://github.com/htahmasbi/aiida-gw",
     "version": "0.0",
     "license": "MIT license",
     "reentry_register": true,
-    "python_requires": ">=3.6",
+    "python_requires": ">=3.10",
     "install_requires": [
-        "aiida-submission-controller==0.1.2", "mp-api", "pyxtal"
+        "aiida-core>=2.5.0",
+        "aiida-cp2k>=0.4.0",
+        "aiida-submission-controller==0.1.2",
+        "mp-api",
+        "pyxtal",
+        "pymatgen>=2023.10.0",
+        "numpy",
+        "pyyaml"
     ],
     "entry_points": {
-	"aiida.calculations": [
-	    "flame = aiida_gw.codes.flame.flame_calculations:FlameCalculation",
-            "mattergen = aiida_gw.codes.mattergen.mattergen_calculation:MatterGenCalculation"
-
-	],
 	"aiida.parsers": [
 	    "cp2k_efs_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kEFSParser",
-            "cp2k_simple_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kSimpleParser",
-            "datagen_gensymcrys_parser = aiida_gw.codes.flame.flame_parsers: GenSymCrysParser",
- 	    "mattergen_parser = aiida_gw.codes.mattergen.mattergen_parser:MatterGenParser"
-	],
-	"aiida.workflows": [
-            "mattergen.base = aiida_gw.codes.mattergen.mattergen_workchains:MatterGenBaseWorkChain"
+            "cp2k_simple_parser = aiida_gw.codes.cp2k.cp2k_parsers:Cp2kSimpleParser"
 	]
     }
 }

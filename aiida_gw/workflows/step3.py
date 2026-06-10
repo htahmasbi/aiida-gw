@@ -138,14 +138,6 @@ def store_step3_results():
     builder.append(WorkChainNode, with_group='results_group', tag='wf_nodes')
     builder.append(CalcJobNode, with_incoming='wf_nodes', project='*')
     calcjob_nodes = builder.all(flat=True)
-    if 'VASP' in inputs['ab_initio_code']:
-        for a_node in calcjob_nodes:
-            if a_node.exit_status != 0:
-                continue
-            misc_node = a_node.base.links.get_outgoing(link_label_filter='misc').all_nodes()[0]
-            if not misc_node.dict.run_status['electronic_converged']:
-                continue
-            calculation_nodes.append(a_node.pk)
     if 'SIRIUS' in inputs['ab_initio_code'] or 'QS' in inputs['ab_initio_code']:
         for a_node in calcjob_nodes:
             if a_node.exit_status != 0:
@@ -307,65 +299,6 @@ def add_structures_to_parent_group_singlepoint():
             bmstrct_node.base.extras.set('job', 'molecule-sp'+str(i)+'_'+str(nat)+'-atoms')
             pg_singlepoint_group.add_nodes(bmstrct_node)
 
-def add_structures_to_parent_group_mattergen():
-    """ add structures to parent groups
-    """
-    pg_step3_group = Group.collection.get(label='pg_step3')
-    StructureData = DataFactory('structure')
-    random_structures_group = Group.collection.get(label='random_structures')
-    random_bulk_structures = []
-    for a_node in random_structures_group.nodes:
-        r_b_s = a_node['structures']
-        for a_struct in r_b_s:
-            valid = True
-            pmg_structure = Structure.from_dict(a_struct)
-            comp = pmg_structure.composition
-            for n in comp.get_el_amt_dict().values():
-                if n < 2:
-                    valid = False
-                    break
-            if valid and len(pmg_structure) > 10:
-                random_bulk_structures.append(a_struct)
-
-    indices_schm1_geopt = []
-    indices_schm2_geopt = []
-
-    indices = list(range(len(random_bulk_structures)))
-    n_struct_schm1_geopt = int(0.5 * inputs['number_of_bulk_structures'])
-    n_struct_schm2_geopt = inputs['number_of_bulk_structures'] - n_struct_schm1_geopt
-
-    if len(indices) >= n_struct_schm1_geopt:
-        indices_schm1_geopt = sample(indices, n_struct_schm1_geopt)
-    else:
-        log_write('>>> WARNING: not enough structures for optimization with scheme 1 <<<'+'\n')
-        sys.exit()
-
-    for rem in indices_schm1_geopt:
-        indices.remove(rem)
-
-    if len(indices) >= n_struct_schm2_geopt:
-        indices_schm2_geopt = sample(indices, n_struct_schm2_geopt)
-    else:
-        log_write(' >>> WARNING: not enough structures for optimization with scheme 2 <<<'+'\n')
-        sys.exit()
-
-    for rem in indices_schm2_geopt:
-        indices.remove(rem)
-
-    for i, indx in enumerate(indices_schm1_geopt):
-        a_structure = Structure.from_dict(random_bulk_structures[indx])
-        s1strct_node = StructureData(pymatgen=a_structure).store()
-        s1strct_node.label = 'scheme1'
-        s1strct_node.base.extras.set('job', 'scheme1-'+str(i+1))
-        pg_step3_group.add_nodes(s1strct_node)
-
-    for i, indx in enumerate(indices_schm2_geopt):
-        a_structure = Structure.from_dict(random_bulk_structures[indx])
-        s2strct_node = StructureData(pymatgen=a_structure).store()
-        s2strct_node.label = 'scheme2'
-        s2strct_node.base.extras.set('job', 'scheme2-'+str(i+1))
-        pg_step3_group.add_nodes(s2strct_node)
-
 def add_structures_to_parent_group():
     """ add structures to parent groups
     """
@@ -470,8 +403,6 @@ def step_3():
     if 'scratch' in inputs['calculation_type']:
         if inputs['Chemical_formula']:
             add_structures_to_parent_group()
-        if inputs['Chemical_system']:
-            add_structures_to_parent_group_mattergen()
     elif 'singlepoint' in inputs['calculation_type']:
         add_structures_to_parent_group_singlepoint()
     elif 'finetuning' in inputs['calculation_type']:
@@ -495,24 +426,6 @@ def step_3():
                 group_label='wf_step3',
                max_concurrent=job_script['geopt']['number_of_jobs'],
                QSorSIRIUS=inputs['ab_initio_code'])
-    elif inputs['ab_initio_code']=='VASP':
-        from aiida_gw.codes.vasp.vasp_launch_calculations import VASPSubmissionController, VASPSPSubmissionController
-        log_write('Ab-initio calculations with VASP'+'\n')
-        if 'scratch' in inputs['calculation_type'] or 'finetuning' in inputs['calculation_type']:
-            controller = VASPSubmissionController(
-                parent_group_label='pg_step3',
-                group_label='wf_step3',
-                max_concurrent=job_script['geopt']['number_of_jobs'])
-        if 'singlepoint' in inputs['calculation_type']:
-            controller = VASPSPSubmissionController(
-                parent_group_label='pg_singlepoint',
-                group_label='wf_step3',
-                max_concurrent=job_script['geopt']['number_of_jobs'])
-        else:
-            controller = VASPSubmissionController(
-                parent_group_label='pg_step3',
-                group_label='wf_step3',
-                max_concurrent=job_script['geopt']['number_of_jobs'])
     else:
         log_write('>>> ERROR: no ab_initio code is provided <<<'+'\n')
         sys.exit()

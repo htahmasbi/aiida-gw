@@ -1,6 +1,5 @@
 # chemical formula of the system(s) of interest
 Chemical_formula: [] # more than one formula can be provided (list)
-Chemical_system: [Bi-Cu-Li] # list of chemical systems (only with MatterGen)
 
 # type of calculations: from_scratch, singlepoint, and finetuning
 calculation_type: from_scratch
@@ -14,13 +13,11 @@ cluster_calculation: False
 cluster_number_of_atoms: [] # number of atoms (nat) for clusters (list).
 vacuum_length: 5 # vacuum length for ab-initio cluster calculations (Angstrom)
 
-# random structures generator (FLAME, PyXtal, MatterGen (in combination with Chemical_system))
-random_structure_generator: MatterGen
+# random structures generator (PyXtal only)
+random_structure_generator: PyXtal
 # to control the minimum distance between atoms in initial random structures
 min_distance_prefactor: 0.90 # default value is 90%. That is, 0.90 * the distance between dimer atoms or 0.90 * (0.85 * sum of the covalent radii))
 
-# ab-initio code (SIRIUS_CP2K, VASP, CP2K_QS)
+# ab-initio code (SIRIUS_CP2K, CP2K_QS)
 ab_initio_code: SIRIUS_CP2K
 user_specified_CP2K_files: False #  if True, then copy codes/cp2k/cp2k_files into your run directory
-user_specified_VASP_files: False #  if True, then copy codes/vasp/vasp_files into your run directory
-user_specified_FLAME_files: False # if True, then copy codes/flame/flame_files into your run directory
