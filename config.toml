@@ -1,0 +1,40 @@
+code_label = "cp2k@localhost"
+num_machines = 1
+num_mpiprocs_per_machine = 16
+max_wallclock_seconds = 86400
+
+[metadata_options]
+num_machines = 1
+num_mpiprocs_per_machine = 16
+max_wallclock_seconds = 86400
+
+[cp2k]
+cutoff = 400
+kpoints_mesh = [4, 1, 4]
+
+[gw]
+kpoints_mesh = [6, 1, 6]
+kpoints_w_mesh = [6, 1, 6]
+cutoff = 400
+rel_cutoff = 50
+periodic = "XZ"
+num_time_freq = 10
+memory_per_proc = 600
+eps_filter = 1.0e-6
+cutoff_radius_ri = 5
+regularization_ri = 0.01
+eps_default = 1.0e-12
+eps_pgf_orb = 1.0e-12
+eps_scf = 5.0e-7
+max_scf = 500
+mixing_alpha = 0.2
+mixing_beta = 0.8
+mixing_nbroyden = 10
+vacuum = 20.0
+supercell = [3, 3, 1]
+bs_npoints = 20
+orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
+basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
+ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
+potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
+auto_resolve_ri = true
