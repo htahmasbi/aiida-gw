@@ -70,7 +70,7 @@ def run(
     """Run a calculation workflow."""
     from aiida import load_profile
     from aiida.engine import submit
-    from aiida.orm import load_code, Str, StructureData
+    from aiida.orm import List, load_code, Str, StructureData
     from aiida.plugins import DataFactory
 
     from aiida_gw.transformations.structures import prepare_2d_structure
@@ -94,6 +94,10 @@ def run(
     kpoints_mesh = None
     if kpoints:
         kpoints_mesh = [int(x) for x in kpoints.split(",")]
+
+    kpoints_w_mesh = None
+    if kpoints_w:
+        kpoints_w_mesh = [int(x) for x in kpoints_w.split(",")]
 
     metadata = config.metadata_options.to_dict()
 
@@ -149,6 +153,10 @@ def run(
                 builder.structure = prepared_node
                 builder.code = code
                 builder.protocol_name = Str("protocol_GW.yml")
+                if kpoints_mesh:
+                    builder.kpoints_mesh = List(list=kpoints_mesh)
+                if kpoints_w_mesh:
+                    builder.kpoints_w_mesh = List(list=kpoints_w_mesh)
 
                 node = submit(builder)
                 pk_list.append(node.pk)
@@ -171,6 +179,8 @@ def run(
         builder = SinglePointWorkChain.get_builder()
         builder.structure = structure
         builder.code = code
+        if kpoints_mesh:
+            builder.kpoints_mesh = List(list=kpoints_mesh)
 
         node = submit(builder)
         console.print(f"[green]Submitted[/green] SinglePointWorkChain<{node.pk}>")
@@ -190,6 +200,8 @@ def run(
         builder = RelaxWorkChain.get_builder()
         builder.structure = structure
         builder.code = code
+        if kpoints_mesh:
+            builder.kpoints_mesh = List(list=kpoints_mesh)
 
         node = submit(builder)
         console.print(f"[green]Submitted[/green] RelaxWorkChain<{node.pk}>")

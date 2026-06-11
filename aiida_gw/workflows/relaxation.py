@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain
-from aiida.orm import Bool, Code, Dict, Str
+from aiida.orm import Bool, Code, Dict, List, Str
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import get_config
@@ -25,6 +25,7 @@ class RelaxWorkChain(WorkChain):
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_SIRIUS.yml"))
         spec.input("section", valid_type=Str, default=Str("opt1vc"))
         spec.input("cell_opt", valid_type=Bool, default=Bool(True))
+        spec.input("kpoints_mesh", valid_type=List, required=False)
         spec.outline(
             cls.setup,
             cls.run_relax,
@@ -43,6 +44,11 @@ class RelaxWorkChain(WorkChain):
     def run_relax(self):
         from aiida_gw.core.builders import Cp2kBuilder
 
+        kpoints_mesh = (
+            self.inputs.kpoints_mesh.get_list()
+            if "kpoints_mesh" in self.inputs
+            else self.ctx.config.cp2k.kpoints_mesh
+        )
         builder = Cp2kBuilder(self.ctx.config)
         section = "opt1vc" if self.inputs.cell_opt.value else "opt1"
         inputs = builder.build_scf_inputs(
@@ -50,7 +56,7 @@ class RelaxWorkChain(WorkChain):
             code=self.inputs.code,
             protocol_section=section,
             protocol_name=self.inputs.protocol_name.value,
-            kpoints_mesh=self.ctx.config.cp2k.kpoints_mesh,
+            kpoints_mesh=kpoints_mesh,
         )
         future = self.submit(inputs)
         self.to_context(relax_calc=future)
@@ -62,6 +68,11 @@ class RelaxWorkChain(WorkChain):
     def run_scf(self):
         from aiida_gw.core.builders import Cp2kBuilder
 
+        kpoints_mesh = (
+            self.inputs.kpoints_mesh.get_list()
+            if "kpoints_mesh" in self.inputs
+            else self.ctx.config.cp2k.kpoints_mesh
+        )
         relaxed_structure = self.ctx.relax_calc.outputs.output_structure
         builder = Cp2kBuilder(self.ctx.config)
         inputs = builder.build_scf_inputs(
@@ -69,7 +80,7 @@ class RelaxWorkChain(WorkChain):
             code=self.inputs.code,
             protocol_section="single_point",
             protocol_name=self.inputs.protocol_name.value,
-            kpoints_mesh=self.ctx.config.cp2k.kpoints_mesh,
+            kpoints_mesh=kpoints_mesh,
         )
         future = self.submit(inputs)
         self.to_context(scf_calc=future)

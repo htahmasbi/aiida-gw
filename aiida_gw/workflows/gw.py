@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain
-from aiida.orm import Code, Dict, Int, Str
+from aiida.orm import Code, Dict, Int, List, Str
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import get_config
@@ -23,6 +23,8 @@ class GwWorkChain(WorkChain):
         spec.input("structure")
         spec.input("code", valid_type=Code)
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_GW.yml"))
+        spec.input("kpoints_mesh", valid_type=List, required=False)
+        spec.input("kpoints_w_mesh", valid_type=List, required=False)
         spec.outline(
             cls.setup,
             cls.run_gw,
@@ -41,12 +43,23 @@ class GwWorkChain(WorkChain):
         builder = Cp2kBuilder(self.ctx.config)
         gw_config = self.ctx.config.gw
 
+        kmesh = (
+            self.inputs.kpoints_mesh.get_list()
+            if "kpoints_mesh" in self.inputs
+            else gw_config.kpoints_mesh
+        )
+        kwmesh = (
+            self.inputs.kpoints_w_mesh.get_list()
+            if "kpoints_w_mesh" in self.inputs
+            else gw_config.kpoints_w_mesh
+        )
+
         inputs = builder.build_gw_inputs(
             structure=self.inputs.structure,
             code=self.inputs.code,
             protocol_name=self.inputs.protocol_name.value,
-            kpoints_mesh=gw_config.kpoints_mesh,
-            kpoints_w_mesh=gw_config.kpoints_w_mesh,
+            kpoints_mesh=kmesh,
+            kpoints_w_mesh=kwmesh,
         )
         future = self.submit(inputs)
         self.to_context(gw_calc=future)

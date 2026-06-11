@@ -18,6 +18,17 @@ StructureData = DataFactory("core.structure")
 Cp2kBaseWorkChain = WorkflowFactory("cp2k.base")
 
 
+def get_kpoints(kpoints_distance: float | None, structure: StructureData) -> KpointsData | None:
+    """Compute KpointsData from a target k-point distance using the structure cell."""
+    if kpoints_distance is None:
+        return None
+    KpointsData = DataFactory("array.kpoints")
+    mesh = KpointsData()
+    mesh.set_cell_from_structure(structure)
+    mesh.set_kpoints_mesh_from_density(distance=kpoints_distance)
+    return mesh
+
+
 def get_cp2k_files_path() -> Path:
     """Return the path to the CP2K files directory."""
     return Path(__file__).parent.parent / "codes" / "cp2k" / "cp2k_files"
@@ -113,10 +124,10 @@ def get_kinds_section_sirius(structure, atom_data: dict) -> dict:
         if symbol in seen:
             continue
         seen.add(symbol)
-        filename = Path(atom_data[symbol]["filename"]).stem + ".json"
+        upf_stem = Path(atom_data[symbol]["filename"]).stem
         kind = {
             "_": symbol,
-            "POTENTIAL": f"UPF {filename}",
+            "POTENTIAL": f"UPF {upf_stem}.json",
         }
         kinds.append(kind)
     return {"FORCE_EVAL": {"SUBSYS": {"KIND": kinds}}}
@@ -145,8 +156,8 @@ def get_file_section_sirius(structure, atom_data: dict) -> dict:
         if symbol in seen:
             continue
         seen.add(symbol)
-        filename = atom_data[symbol]["filename"]
-        path = cp2k_files / Path(filename).stem + ".json"
+        fname = atom_data[symbol]["filename"]
+        path = cp2k_files / f"{Path(fname).stem}.json"
         if path.exists():
             with open(path, "rb") as fh:
                 files[symbol] = SinglefileData(file=fh)
@@ -258,15 +269,21 @@ class Cp2kBuilder:
         builder = Cp2kBaseWorkChain.get_builder()
         builder.cp2k.structure = structure
 
-        # K-points (set via KpointsData for the main DFT mesh)
-        if kpoints_mesh and kpoints_mesh != [1, 1, 1]:
-            kp = KpointsData()
-            kp.set_kpoints_mesh(kpoints_mesh)
-            builder.cp2k.kpoints = kp
+        # K-points: use kpoints_distance from protocol, fall back to kpoints_mesh param
+        kpoints_distance = params.pop("kpoints_distance", None)
+        kp_obj = get_kpoints(kpoints_distance, structure)
+        if kp_obj is None and kpoints_mesh and kpoints_mesh != [1, 1, 1]:
+            kp_obj = KpointsData()
+            kp_obj.set_kpoints_mesh(kpoints_mesh)
+        if kp_obj is not None:
+            builder.cp2k.kpoints = kp_obj
+            mesh, _ = kp_obj.get_kpoints_mesh()
+        else:
+            mesh = None
 
         # --- Method-specific handling ---
         if "SIRIUS" in method.upper():
-            # SIRIUS path (existing behavior)
+            # SIRIUS path
             params.setdefault("FORCE_EVAL", {})
             dft = params["FORCE_EVAL"].setdefault("DFT", {})
             dft.setdefault("XC", {}).setdefault("XC_FUNCTIONAL", {"_": "PBE"})
@@ -276,7 +293,13 @@ class Cp2kBuilder:
                 builder.cp2k.file = get_file_section_sirius(structure, atom_data)
 
                 if "PW_DFT" in params.get("FORCE_EVAL", {}):
-                    pw = params["FORCE_EVAL"]["PW_DFT"]["PARAMETERS"]
+                    pw_dft = params["FORCE_EVAL"]["PW_DFT"]
+                    pw_params = pw_dft.setdefault("PARAMETERS", {})
+                    pw_control = pw_dft.setdefault("CONTROL", {})
+                    pw_control["MPI_GRID_DIMS"] = f"1 {self.config.metadata_options.num_mpiprocs_per_machine}"
+                    if mesh and mesh != (1, 1, 1):
+                        pw_params["NGRIDK"] = f"{mesh[0]} {mesh[1]} {mesh[2]}"
+
                     gk = [6]
                     pw_list = [12]
                     ase = structure.get_ase()
@@ -285,8 +308,8 @@ class Cp2kBuilder:
                             gk.append(round(0.5 + atom_data[symbol]["cutoff_wfc"] ** 0.5))
                             pw_list.append(round(atom_data[symbol]["cutoff_rho"] ** 0.5))
                             pw_list.append(2 * max(gk))
-                    pw["PW_CUTOFF"] = max(pw_list)
-                    pw["GK_CUTOFF"] = max(gk)
+                    pw_params["PW_CUTOFF"] = max(pw_list)
+                    pw_params["GK_CUTOFF"] = max(gk)
 
         else:
             # QS/GPW path — used for GW and standard Quickstep calculations
@@ -406,7 +429,6 @@ class Cp2kBuilder:
     ) -> dict:
         """Build inputs for a CP2K GW calculation."""
         gw_config = self.config.gw
-        kpoints_mesh = kpoints_mesh or gw_config.kpoints_mesh
 
         builder = self.build_scf_inputs(
             structure=structure,
@@ -419,7 +441,18 @@ class Cp2kBuilder:
 
         # Add GW-specific KPOINTS_W and bandstructure path
         params = builder.cp2k.parameters.get_dict()
-        kpoints_w = kpoints_w_mesh or gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
+        kpoints_w_distance = params.pop("kpoints_w_distance", None)
+        if kpoints_w_mesh is not None:
+            kpoints_w = kpoints_w_mesh
+        elif kpoints_w_distance is not None:
+            kw_kp = get_kpoints(kpoints_w_distance, structure)
+            if kw_kp is not None:
+                kpoints_w, _ = kw_kp.get_kpoints_mesh()
+                kpoints_w = list(kpoints_w)
+            else:
+                kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
+        else:
+            kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
 
         bs_path = params.setdefault("FORCE_EVAL", {}).setdefault("PROPERTIES", {}).setdefault("BANDSTRUCTURE", {})
         gw_sec = bs_path.setdefault("GW", {})

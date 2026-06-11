@@ -3,6 +3,8 @@
 basis_pseudo: aug-dzvp-pbe-gth.yml
 
 gw:
+  kpoints_distance: 0.3
+  kpoints_w_distance: 0.3
   GLOBAL:
     RUN_TYPE: ENERGY
     PRINT_LEVEL: MEDIUM
