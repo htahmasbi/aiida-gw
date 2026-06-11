@@ -102,13 +102,14 @@ def get_kinds_section_qs(
             "BASIS_SET ORB": atom_data["basis_set"][symbol],
             "POTENTIAL": atom_data["pseudopotential"][symbol],
         }
-        ri = atom_data.get("ri_basis_set", {}).get(symbol)
+        # Priority: auto-resolve (when enabled) > hardcoded ri_basis_set in YAML
+        ri = None
+        if gw_config and gw_config.auto_resolve_ri:
+            ri = _resolve_ri_for_element(symbol, gw_config)
+        if ri is None:
+            ri = atom_data.get("ri_basis_set", {}).get(symbol)
         if ri:
             kind["BASIS_SET RI_AUX"] = ri
-        elif gw_config and gw_config.auto_resolve_ri:
-            resolved = _resolve_ri_for_element(symbol, gw_config)
-            if resolved:
-                kind["BASIS_SET RI_AUX"] = resolved
         kinds.append(kind)
     return {"FORCE_EVAL": {"SUBSYS": {"KIND": kinds}}}
 
