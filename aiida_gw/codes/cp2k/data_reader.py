@@ -35,7 +35,7 @@ class BasisEntry:
 
     def __post_init__(self) -> None:
         if self.accuracy is None:
-            self.accuracy = _extract_accuracy(self.comment) or _extract_accuracy(self.name)
+            self.accuracy = _extract_accuracy(self.name) or _extract_accuracy(self.comment)
 
 
 def parse_cp2k_data_file(file: str | Path | IO) -> dict[str, list[BasisEntry]]:
