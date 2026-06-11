@@ -176,7 +176,16 @@ def resolve_orbital_basis_name(
 def resolve_potential_name(
     potential_file: str | Path,
     element: str,
+    pattern: str | None = "GTH-",
 ) -> str | None:
-    """Return the potential name for *element* from a CP2K POTENTIAL file."""
+    """Return the potential name for *element* from a CP2K POTENTIAL file.
+
+    When *pattern* is given (default ``"GTH-"``), only names containing
+    it are considered — this avoids picking an all-electron entry when
+    a pseudopotential is wanted.
+    """
     entries = list_basis_entries(potential_file, element)
-    return entries[0].name if entries else None
+    names = [e.name for e in entries]
+    if pattern:
+        names = [n for n in names if pattern in n]
+    return names[0] if names else None
