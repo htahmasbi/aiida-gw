@@ -160,6 +160,23 @@ def get_file_section_qs() -> dict:
     return files
 
 
+def _force_periodic_mesh(kp_obj: KpointsData, periodic: str) -> None:
+    """Force k-point mesh to 1 in non-periodic directions (vacuum)."""
+    kmesh = list(kp_obj.get_kpoints_mesh()[0])
+    changed = False
+    if "X" not in periodic and kmesh[0] != 1:
+        kmesh[0] = 1
+        changed = True
+    if "Y" not in periodic and kmesh[1] != 1:
+        kmesh[1] = 1
+        changed = True
+    if "Z" not in periodic and kmesh[2] != 1:
+        kmesh[2] = 1
+        changed = True
+    if changed:
+        kp_obj.set_kpoints_mesh(kmesh)
+
+
 def get_cutoff_sirius(atom_data: dict, structure, relax_factor: float | None = None) -> tuple[int, int]:
     """Compute PW_CUTOFF and GK_CUTOFF from SIRIUS pseudopotential data.
 
@@ -360,6 +377,14 @@ class Cp2kBuilder:
         builder = Cp2kBaseWorkChain.get_builder()
         builder.cp2k.structure = structure
 
+        # Determine periodic directions from protocol (default XYZ)
+        periodic = (
+            params.get("FORCE_EVAL", {})
+            .get("SUBSYS", {})
+            .get("CELL", {})
+            .get("PERIODIC", "XYZ")
+        )
+
         # K-points priority: CLI kpoints_mesh > explicit kpoints_distance > protocol kpoints_distance
         kp_obj = None
         if kpoints_mesh and kpoints_mesh != [1, 1, 1]:
@@ -372,6 +397,8 @@ class Cp2kBuilder:
                 params.pop("kpoints_distance", None)
             kp_obj = get_kpoints(kpoints_distance, structure)
         if kp_obj is not None:
+            # Force non-periodic directions to mesh=1 (vacuum direction)
+            _force_periodic_mesh(kp_obj, periodic)
             builder.cp2k.kpoints = kp_obj
             mesh, _ = kp_obj.get_kpoints_mesh()
         else:
@@ -544,6 +571,15 @@ class Cp2kBuilder:
         # Add GW-specific KPOINTS_W and bandstructure path
         # Priority: CLI kpoints_w_mesh > config kpoints_w_distance > protocol kpoints_w_distance
         params = builder.cp2k.parameters.get_dict()
+
+        # Determine periodic directions (already set in the params from protocol)
+        periodic = (
+            params.get("FORCE_EVAL", {})
+            .get("SUBSYS", {})
+            .get("CELL", {})
+            .get("PERIODIC", "XYZ")
+        )
+
         if kpoints_w_mesh is not None:
             kpoints_w = kpoints_w_mesh
         else:
@@ -554,6 +590,7 @@ class Cp2kBuilder:
             if kpoints_w_distance is not None:
                 kw_kp = get_kpoints(kpoints_w_distance, structure)
                 if kw_kp is not None:
+                    _force_periodic_mesh(kw_kp, periodic)
                     kpoints_w, _ = kw_kp.get_kpoints_mesh()
                     kpoints_w = list(kpoints_w)
                 else:
