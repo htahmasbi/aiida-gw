@@ -111,13 +111,24 @@ def fetch_and_store_mc2d(
     max_structures: int = 10,
     elements: list[str] | None = None,
     modifier: Callable[[Structure], Structure] | None = None,
+    optimade_filter: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch MC2D structures, store in an AiiDA group, return data list."""
+    """Fetch MC2D structures, store in an AiiDA group, return data list.
+
+    Args:
+        group_label: AiiDA group label.
+        max_structures: Maximum number of structures to fetch.
+        elements: Filter by elements (e.g. ["B","N"]). Ignored if *optimade_filter* is set.
+        modifier: Optional function applied to each pymatgen Structure.
+        optimade_filter: Raw OPTIMADE filter string. Overrides *elements* when provided.
+    """
     from aiida.orm import Group, StructureData
 
     group, _ = Group.collection.get_or_create(group_label)
 
-    if elements:
+    if optimade_filter:
+        pass  # use as-is
+    elif elements:
         quoted = '","'.join(elements)
         optimade_filter = f'elements HAS ALL "{quoted}" AND nelements={len(elements)}'
     else:

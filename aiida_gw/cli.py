@@ -66,6 +66,10 @@ def run(
         str | None,
         typer.Option("--elements", help="Comma-separated elements for OPTIMADE filter (e.g. B,N)"),
     ] = None,
+    optimade_filter: Annotated[
+        str | None,
+        typer.Option("--filter", help="Raw OPTIMADE filter string (overrides --elements)"),
+    ] = None,
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
@@ -118,6 +122,7 @@ def run(
                 group_label=optimade_group,
                 max_structures=max_structures,
                 elements=element_list,
+                optimade_filter=optimade_filter,
             )
 
             from aiida.orm import Group
@@ -241,6 +246,10 @@ def fetch(
     group_label: Annotated[str, typer.Option("--group", help="Group label for storing structures")] = "mc2d_structures",
     max_structures: Annotated[int, typer.Option("--max", help="Maximum number of structures")] = 10,
     elements: Annotated[str | None, typer.Option("--elements", help="Comma-separated element list (e.g. B,N)")] = None,
+    optimade_filter: Annotated[
+        str | None,
+        typer.Option("--filter", help="Raw OPTIMADE filter string (overrides --elements)"),
+    ] = None,
 ) -> None:
     """Fetch 2D structures from MC2D database via OPTIMADE."""
     from aiida import load_profile
@@ -254,6 +263,7 @@ def fetch(
         group_label=group_label,
         max_structures=max_structures,
         elements=element_list,
+        optimade_filter=optimade_filter,
     )
     console.print(f"[green]Fetched {len(data)} MC2D structures into group '{group_label}'[/green]")
 
