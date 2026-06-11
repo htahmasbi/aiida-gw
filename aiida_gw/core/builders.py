@@ -239,15 +239,22 @@ _INPLANE_PATHS: dict[str, list[tuple[str, float, float, float]]] = {
 
 
 def _classify_2d_lattice(structure) -> str:
-    """Classify the 2D in-plane Bravais lattice from lattice vectors."""
+    """Classify the 2D in-plane Bravais lattice from lattice vectors.
+
+    The structure is expected in XZ-plane orientation (Y = vacuum) as produced
+    by :func:`rotate_xy_to_xz`. The in-plane vectors are ``A`` (cell[0]) and
+    ``C`` (cell[2]); ``B`` (cell[1]) is the vacuum direction and is ignored.
+    """
     import math
 
     import numpy as np
 
     matrix = np.array(structure.cell)
-    a_len = float(np.linalg.norm(matrix[0]))
-    b_len = float(np.linalg.norm(matrix[1]))
-    cos_gamma = np.dot(matrix[0], matrix[1]) / (a_len * b_len)
+    a_vec = matrix[0]
+    b_vec = matrix[2]  # C is the second in-plane vector (B is vacuum)
+    a_len = float(np.linalg.norm(a_vec))
+    b_len = float(np.linalg.norm(b_vec))
+    cos_gamma = np.dot(a_vec, b_vec) / (a_len * b_len)
     cos_gamma = max(-1.0, min(1.0, cos_gamma))
     gamma = math.degrees(math.acos(cos_gamma))
     ratio = min(a_len, b_len) / max(a_len, b_len)
