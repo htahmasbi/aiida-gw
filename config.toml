@@ -7,12 +7,9 @@ max_wallclock_seconds = 86400
 
 [cp2k]
 cutoff = 400
-kpoints_mesh = [4, 1, 4]
 kpoints_distance = 0.3
 
 [gw]
-kpoints_mesh = [24, 1, 24]
-kpoints_w_mesh = [24, 1, 24]
 kpoints_distance = 0.3
 kpoints_w_distance = 0.3
 cutoff = 400

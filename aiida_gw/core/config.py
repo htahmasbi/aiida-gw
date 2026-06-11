@@ -41,7 +41,10 @@ class Cp2kScfConfig(BaseModel):
 class Cp2kConfig(BaseModel):
     cutoff: int = Field(default=400, ge=0)
     rel_cutoff: int = Field(default=50, ge=0)
-    kpoints_mesh: list[int] = Field(default_factory=lambda: [4, 1, 4])
+    kpoints_mesh: list[int] | None = Field(
+        default=None,
+        description="Explicit k-point mesh (e.g. [4,1,4]). When set, overrides kpoints_distance.",
+    )
     kpoints_distance: float | None = Field(
         default=None,
         description="Target k-point mesh density (1/Å). Overrides protocol kpoints_distance.",
@@ -54,7 +57,9 @@ class Cp2kConfig(BaseModel):
 
     @field_validator("kpoints_mesh")
     @classmethod
-    def validate_kpoints_mesh(cls, v: list[int]) -> list[int]:
+    def validate_kpoints_mesh(cls, v: list[int] | None) -> list[int] | None:
+        if v is None:
+            return v
         if len(v) != 3:
             raise ValueError("kpoints_mesh must have exactly 3 elements")
         if any(x <= 0 for x in v):
@@ -63,8 +68,14 @@ class Cp2kConfig(BaseModel):
 
 
 class GwConfig(BaseModel):
-    kpoints_mesh: list[int] = Field(default_factory=lambda: [6, 1, 6])
-    kpoints_w_mesh: list[int] | None = None
+    kpoints_mesh: list[int] | None = Field(
+        default=None,
+        description="Explicit k-point mesh for GW DFT (e.g. [6,1,6]). When set, overrides kpoints_distance.",
+    )
+    kpoints_w_mesh: list[int] | None = Field(
+        default=None,
+        description="Explicit k-point mesh for GW correction (KPOINTS_W). When set, overrides kpoints_w_distance.",
+    )
     kpoints_distance: float | None = Field(
         default=None,
         description="Target k-point mesh density (1/Å) for GW DFT. Overrides protocol kpoints_distance.",
