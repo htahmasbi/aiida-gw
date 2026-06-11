@@ -239,19 +239,23 @@ _INPLANE_PATHS: dict[str, list[tuple[str, float, float, float]]] = {
 
 
 def _classify_2d_lattice(structure) -> str:
-    """Classify the 2D in-plane Bravais lattice from lattice vectors.
+    """Classify 2D Bravais lattice from a prepared structure.
 
-    The structure is expected in XZ-plane orientation (Y = vacuum) as produced
-    by :func:`rotate_xy_to_xz`. The in-plane vectors are ``A`` (cell[0]) and
-    ``C`` (cell[2]); ``B`` (cell[1]) is the vacuum direction and is ignored.
+    Assumes XZ orientation (Y = vacuum). Uses cell[0] (A) and cell[2] (C)
+    as in-plane vectors; cell[1] (B) is the vacuum direction.
     """
+    import numpy as np
+
+    matrix = np.array(structure.cell)
+    return _classify_from_vectors(matrix[0], matrix[2])
+
+
+def _classify_from_vectors(a_vec, b_vec) -> str:
+    """Angle/ratio heuristic for 2D Bravais lattice classification."""
     import math
 
     import numpy as np
 
-    matrix = np.array(structure.cell)
-    a_vec = matrix[0]
-    b_vec = matrix[2]  # C is the second in-plane vector (B is vacuum)
     a_len = float(np.linalg.norm(a_vec))
     b_len = float(np.linalg.norm(b_vec))
     cos_gamma = np.dot(a_vec, b_vec) / (a_len * b_len)
@@ -270,9 +274,44 @@ def _classify_2d_lattice(structure) -> str:
     return "oblique"
 
 
-def get_bandstructure_path(structure) -> list[str]:
-    """Generate CP2K SPECIAL_POINT lines from the 2D in-plane Bravais lattice."""
-    lattice = _classify_2d_lattice(structure)
+def classify_from_spacegroup(pmg_structure) -> str:
+    """Classify 2D Bravais lattice using pymatgen's SpacegroupAnalyzer.
+
+    Analyzes the *original* 3D structure (before vacuum/supercell) to determine
+    the crystal system and maps it to one of our path types.
+    """
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+
+    try:
+        analyzer = SpacegroupAnalyzer(pmg_structure, symprec=0.2)
+        crystal_system = analyzer.get_crystal_system()
+    except Exception:
+        return _classify_from_vectors(
+            np.array(pmg_structure.lattice.matrix[0]),
+            np.array(pmg_structure.lattice.matrix[1]),
+        )
+
+    mapping = {
+        "hexagonal": "hexagonal",
+        "trigonal": "hexagonal",
+        "tetragonal": "square",
+        "orthorhombic": "rectangular",
+        "monoclinic": "oblique",
+        "triclinic": "oblique",
+    }
+    return mapping.get(crystal_system, "oblique")
+
+
+def get_bandstructure_path(structure, original_pmg_structure=None) -> list[str]:
+    """Generate CP2K SPECIAL_POINT lines from the 2D in-plane Bravais lattice.
+
+    Uses *original_pmg_structure* when available (SpacegroupAnalyzer),
+    otherwise falls back to the angle/ratio heuristic on *structure*.
+    """
+    if original_pmg_structure is not None:
+        lattice = classify_from_spacegroup(original_pmg_structure)
+    else:
+        lattice = _classify_2d_lattice(structure)
     path = _INPLANE_PATHS.get(lattice, _INPLANE_PATHS["oblique"])
     return [
         f"{label}  {k0:f}  {k2:f}  {k1:f}"
@@ -481,8 +520,15 @@ class Cp2kBuilder:
         kpoints_distance: float | None = None,
         kpoints_w_distance: float | None = None,
         metadata_options: dict | None = None,
+        bandstructure_path: list[str] | None = None,
     ) -> dict:
-        """Build inputs for a CP2K GW calculation."""
+        """Build inputs for a CP2K GW calculation.
+
+        Args:
+            bandstructure_path: Pre-computed SPECIAL_POINT lines from the
+                *original* structure (before vacuum/supercell). When given,
+                this is used instead of auto-detecting from *structure*.
+        """
         gw_config = self.config.gw
 
         builder = self.build_scf_inputs(
@@ -519,12 +565,15 @@ class Cp2kBuilder:
         gw_sec = bs_path.setdefault("GW", {})
         gw_sec["KPOINTS_W"] = " ".join(str(k) for k in kpoints_w)
 
-        # Generate bandstructure path
+        # Generate bandstructure path (use pre-computed or auto-detect)
         bs_path.setdefault("DOS", {})
         bs_path.setdefault("BANDSTRUCTURE_PATH", {})
         bs_path["BANDSTRUCTURE_PATH"].setdefault("NPOINTS", gw_config.bs_npoints)
         bs_path["BANDSTRUCTURE_PATH"].setdefault("UNITS", "B_VECTOR")
-        bs_path["BANDSTRUCTURE_PATH"].setdefault("SPECIAL_POINT", get_bandstructure_path(structure))
+        if bandstructure_path is not None:
+            bs_path["BANDSTRUCTURE_PATH"]["SPECIAL_POINT"] = bandstructure_path
+        else:
+            bs_path["BANDSTRUCTURE_PATH"].setdefault("SPECIAL_POINT", get_bandstructure_path(structure))
 
         # Set GW-specific numerical params from config
         gw_sec.setdefault("NUM_TIME_FREQ_POINTS", gw_config.num_time_freq)

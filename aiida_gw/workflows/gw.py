@@ -25,6 +25,7 @@ class GwWorkChain(WorkChain):
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_GW.yml"))
         spec.input("kpoints_mesh", valid_type=List, required=False)
         spec.input("kpoints_w_mesh", valid_type=List, required=False)
+        spec.input("bandstructure_path", valid_type=List, required=False)
         spec.outline(
             cls.setup,
             cls.run_gw,
@@ -54,6 +55,12 @@ class GwWorkChain(WorkChain):
             else gw_config.kpoints_w_mesh
         )
 
+        bs_path = (
+            self.inputs.bandstructure_path.get_list()
+            if "bandstructure_path" in self.inputs
+            else None
+        )
+
         inputs = builder.build_gw_inputs(
             structure=self.inputs.structure,
             code=self.inputs.code,
@@ -62,6 +69,7 @@ class GwWorkChain(WorkChain):
             kpoints_w_mesh=kwmesh,
             kpoints_distance=gw_config.kpoints_distance,
             kpoints_w_distance=gw_config.kpoints_w_distance,
+            bandstructure_path=bs_path,
         )
         future = self.submit(inputs)
         self.to_context(gw_calc=future)

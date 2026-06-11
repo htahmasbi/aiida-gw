@@ -141,11 +141,13 @@ def run(
                 raise typer.Exit(1)
 
         if structures:
+            from aiida_gw.core.builders import get_bandstructure_path
+
             pk_list = []
             for i, struct in enumerate(structures):
-                pymatgen = struct.get_pymatgen()
+                original_pmg = struct.get_pymatgen()
                 prepared = prepare_2d_structure(
-                    pymatgen,
+                    original_pmg,
                     vacuum=vacuum_val,
                     supercell=supercell_val,
                 )
@@ -162,6 +164,14 @@ def run(
                     builder.kpoints_mesh = List(list=kpoints_mesh)
                 if kpoints_w_mesh:
                     builder.kpoints_w_mesh = List(list=kpoints_w_mesh)
+
+                # Compute bandstructure path from the ORIGINAL structure
+                # (before vacuum/supercell) using pymatgen SpacegroupAnalyzer
+                bs_path = get_bandstructure_path(
+                    prepared_node,
+                    original_pmg_structure=original_pmg,
+                )
+                builder.bandstructure_path = List(list=bs_path)
 
                 node = submit(builder)
                 pk_list.append(node.pk)
