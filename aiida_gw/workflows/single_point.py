@@ -47,10 +47,11 @@ class SinglePointWorkChain(WorkChain):
         from aiida_gw.core.builders import Cp2kBuilder
 
         builder = Cp2kBuilder(self.ctx.config)
+        cp2k_cfg = self.ctx.config.cp2k
         kpoints_mesh = (
             self.inputs.kpoints_mesh.get_list()
             if "kpoints_mesh" in self.inputs
-            else self.ctx.config.cp2k.kpoints_mesh
+            else cp2k_cfg.kpoints_mesh
         )
 
         inputs = builder.build_scf_inputs(
@@ -59,6 +60,7 @@ class SinglePointWorkChain(WorkChain):
             protocol_section=self.inputs.section.value,
             protocol_name=self.inputs.protocol_name.value,
             kpoints_mesh=kpoints_mesh,
+            kpoints_distance=cp2k_cfg.kpoints_distance,
         )
         if self.inputs.metadata_options:
             inputs.cp2k.metadata.options = self.inputs.metadata_options.get_dict()

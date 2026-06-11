@@ -60,6 +60,8 @@ class GwWorkChain(WorkChain):
             protocol_name=self.inputs.protocol_name.value,
             kpoints_mesh=kmesh,
             kpoints_w_mesh=kwmesh,
+            kpoints_distance=gw_config.kpoints_distance,
+            kpoints_w_distance=gw_config.kpoints_w_distance,
         )
         future = self.submit(inputs)
         self.to_context(gw_calc=future)

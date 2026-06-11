@@ -42,6 +42,10 @@ class Cp2kConfig(BaseModel):
     cutoff: int = Field(default=400, ge=0)
     rel_cutoff: int = Field(default=50, ge=0)
     kpoints_mesh: list[int] = Field(default_factory=lambda: [4, 1, 4])
+    kpoints_distance: float | None = Field(
+        default=None,
+        description="Target k-point mesh density (1/Å). Overrides protocol kpoints_distance.",
+    )
     basis_set_file: str = "BASIS_MOLOPT"
     potential_file: str = "GTH_POTENTIALS"
     basis_set_mapping: dict[str, str] = Field(default_factory=dict)
@@ -61,6 +65,14 @@ class Cp2kConfig(BaseModel):
 class GwConfig(BaseModel):
     kpoints_mesh: list[int] = Field(default_factory=lambda: [6, 1, 6])
     kpoints_w_mesh: list[int] | None = None
+    kpoints_distance: float | None = Field(
+        default=None,
+        description="Target k-point mesh density (1/Å) for GW DFT. Overrides protocol kpoints_distance.",
+    )
+    kpoints_w_distance: float | None = Field(
+        default=None,
+        description="Target k-point mesh density (1/Å) for GW correction (KPOINTS_W). Overrides protocol kpoints_w_distance.",
+    )
     periodic: str = Field(default="XZ")
     poisson_solver: str = Field(default="WAVELET")
     cutoff: int = Field(default=400, ge=0)

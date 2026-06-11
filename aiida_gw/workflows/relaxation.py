@@ -44,10 +44,11 @@ class RelaxWorkChain(WorkChain):
     def run_relax(self):
         from aiida_gw.core.builders import Cp2kBuilder
 
+        cp2k_cfg = self.ctx.config.cp2k
         kpoints_mesh = (
             self.inputs.kpoints_mesh.get_list()
             if "kpoints_mesh" in self.inputs
-            else self.ctx.config.cp2k.kpoints_mesh
+            else cp2k_cfg.kpoints_mesh
         )
         builder = Cp2kBuilder(self.ctx.config)
         section = "opt1vc" if self.inputs.cell_opt.value else "opt1"
@@ -57,6 +58,7 @@ class RelaxWorkChain(WorkChain):
             protocol_section=section,
             protocol_name=self.inputs.protocol_name.value,
             kpoints_mesh=kpoints_mesh,
+            kpoints_distance=cp2k_cfg.kpoints_distance,
         )
         future = self.submit(inputs)
         self.to_context(relax_calc=future)
@@ -68,10 +70,11 @@ class RelaxWorkChain(WorkChain):
     def run_scf(self):
         from aiida_gw.core.builders import Cp2kBuilder
 
+        cp2k_cfg = self.ctx.config.cp2k
         kpoints_mesh = (
             self.inputs.kpoints_mesh.get_list()
             if "kpoints_mesh" in self.inputs
-            else self.ctx.config.cp2k.kpoints_mesh
+            else cp2k_cfg.kpoints_mesh
         )
         relaxed_structure = self.ctx.relax_calc.outputs.output_structure
         builder = Cp2kBuilder(self.ctx.config)
@@ -81,6 +84,7 @@ class RelaxWorkChain(WorkChain):
             protocol_section="single_point",
             protocol_name=self.inputs.protocol_name.value,
             kpoints_mesh=kpoints_mesh,
+            kpoints_distance=cp2k_cfg.kpoints_distance,
         )
         future = self.submit(inputs)
         self.to_context(scf_calc=future)

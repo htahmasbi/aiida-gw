@@ -242,6 +242,7 @@ class Cp2kBuilder:
         protocol_section: str = "scf",
         protocol_name: str = "protocol_SIRIUS.yml",
         kpoints_mesh: list[int] | None = None,
+        kpoints_distance: float | None = None,
         metadata_options: dict | None = None,
     ) -> dict:
         """Build inputs for a CP2K calculation (SCF or other)."""
@@ -269,12 +270,17 @@ class Cp2kBuilder:
         builder = Cp2kBaseWorkChain.get_builder()
         builder.cp2k.structure = structure
 
-        # K-points: use kpoints_distance from protocol, fall back to kpoints_mesh param
-        kpoints_distance = params.pop("kpoints_distance", None)
-        kp_obj = get_kpoints(kpoints_distance, structure)
-        if kp_obj is None and kpoints_mesh and kpoints_mesh != [1, 1, 1]:
+        # K-points priority: CLI kpoints_mesh > explicit kpoints_distance > protocol kpoints_distance
+        kp_obj = None
+        if kpoints_mesh and kpoints_mesh != [1, 1, 1]:
             kp_obj = KpointsData()
             kp_obj.set_kpoints_mesh(kpoints_mesh)
+        else:
+            if kpoints_distance is None:
+                kpoints_distance = params.pop("kpoints_distance", None)
+            else:
+                params.pop("kpoints_distance", None)
+            kp_obj = get_kpoints(kpoints_distance, structure)
         if kp_obj is not None:
             builder.cp2k.kpoints = kp_obj
             mesh, _ = kp_obj.get_kpoints_mesh()
@@ -425,6 +431,8 @@ class Cp2kBuilder:
         protocol_name: str = "protocol_GW.yml",
         kpoints_mesh: list[int] | None = None,
         kpoints_w_mesh: list[int] | None = None,
+        kpoints_distance: float | None = None,
+        kpoints_w_distance: float | None = None,
         metadata_options: dict | None = None,
     ) -> dict:
         """Build inputs for a CP2K GW calculation."""
@@ -436,23 +444,29 @@ class Cp2kBuilder:
             protocol_section="gw",
             protocol_name=protocol_name,
             kpoints_mesh=kpoints_mesh,
+            kpoints_distance=kpoints_distance,
             metadata_options=metadata_options,
         )
 
         # Add GW-specific KPOINTS_W and bandstructure path
+        # Priority: CLI kpoints_w_mesh > config kpoints_w_distance > protocol kpoints_w_distance
         params = builder.cp2k.parameters.get_dict()
-        kpoints_w_distance = params.pop("kpoints_w_distance", None)
         if kpoints_w_mesh is not None:
             kpoints_w = kpoints_w_mesh
-        elif kpoints_w_distance is not None:
-            kw_kp = get_kpoints(kpoints_w_distance, structure)
-            if kw_kp is not None:
-                kpoints_w, _ = kw_kp.get_kpoints_mesh()
-                kpoints_w = list(kpoints_w)
+        else:
+            if kpoints_w_distance is None:
+                kpoints_w_distance = params.pop("kpoints_w_distance", None)
+            else:
+                params.pop("kpoints_w_distance", None)
+            if kpoints_w_distance is not None:
+                kw_kp = get_kpoints(kpoints_w_distance, structure)
+                if kw_kp is not None:
+                    kpoints_w, _ = kw_kp.get_kpoints_mesh()
+                    kpoints_w = list(kpoints_w)
+                else:
+                    kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
             else:
                 kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
-        else:
-            kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
 
         bs_path = params.setdefault("FORCE_EVAL", {}).setdefault("PROPERTIES", {}).setdefault("BANDSTRUCTURE", {})
         gw_sec = bs_path.setdefault("GW", {})
