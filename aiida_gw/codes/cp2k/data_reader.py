@@ -173,6 +173,15 @@ def resolve_orbital_basis_name(
     return entries[0].name if entries else None
 
 
+_Q_RE = re.compile(r"-q(\d+)")
+
+
+def _q_number(name: str) -> int:
+    """Extract the number of valence electrons from a GTH potential *name*."""
+    m = _Q_RE.search(name)
+    return int(m.group(1)) if m else 0
+
+
 def resolve_potential_name(
     potential_file: str | Path,
     element: str,
@@ -183,9 +192,17 @@ def resolve_potential_name(
     When *pattern* is given (default ``"GTH-"``), only names containing
     it are considered — this avoids picking an all-electron entry when
     a pseudopotential is wanted.
+
+    When multiple entries match (e.g. ``GTH-PBE-q1`` and ``GTH-PBE-q9``
+    for Na), the one with the **largest** q-number (most valence
+    electrons) is selected, which is generally preferred for GW.
     """
     entries = list_basis_entries(potential_file, element)
     names = [e.name for e in entries]
     if pattern:
         names = [n for n in names if pattern in n]
-    return names[0] if names else None
+    if not names:
+        return None
+    if len(names) == 1:
+        return names[0]
+    return max(names, key=_q_number)
