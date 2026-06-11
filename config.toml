@@ -35,3 +35,4 @@ basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AU
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
 auto_resolve_ri = true
+ri_basis_accuracy_target = 1e-5
