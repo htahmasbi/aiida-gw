@@ -97,17 +97,21 @@ def get_kinds_section_qs(
         if symbol in seen:
             continue
         seen.add(symbol)
+        if gw_config and gw_config.auto_resolve_ri:
+            # Resolve all three from configured files
+            orb = _resolve_orbital_for_element(symbol, gw_config) or atom_data["basis_set"][symbol]
+            pot = _resolve_potential_for_element(symbol, gw_config) or atom_data["pseudopotential"][symbol]
+            ri = _resolve_ri_for_element(symbol, gw_config) or atom_data.get("ri_basis_set", {}).get(symbol)
+        else:
+            orb = atom_data["basis_set"][symbol]
+            pot = atom_data["pseudopotential"][symbol]
+            ri = atom_data.get("ri_basis_set", {}).get(symbol)
+
         kind: dict[str, str] = {
             "_": symbol,
-            "BASIS_SET ORB": atom_data["basis_set"][symbol],
-            "POTENTIAL": atom_data["pseudopotential"][symbol],
+            "BASIS_SET ORB": orb,
+            "POTENTIAL": pot,
         }
-        # Priority: auto-resolve (when enabled) > hardcoded ri_basis_set in YAML
-        ri = None
-        if gw_config and gw_config.auto_resolve_ri:
-            ri = _resolve_ri_for_element(symbol, gw_config)
-        if ri is None:
-            ri = atom_data.get("ri_basis_set", {}).get(symbol)
         if ri:
             kind["BASIS_SET RI_AUX"] = ri
         kinds.append(kind)
@@ -127,6 +131,32 @@ def _resolve_ri_for_element(symbol: str, gw_config) -> str | None:
         )
     except Exception as exc:
         logger.warning(f"Could not auto-resolve RI basis for {symbol}: {exc}")
+        return None
+
+
+def _resolve_orbital_for_element(symbol: str, gw_config) -> str | None:
+    """Auto-resolve orbital basis name for *symbol* from the configured basis file."""
+    try:
+        from aiida_gw.codes.cp2k.data_reader import resolve_orbital_basis_name
+
+        return resolve_orbital_basis_name(
+            gw_config.basis_set_file,
+            symbol,
+            orb_basis=gw_config.orb_basis,
+        )
+    except Exception as exc:
+        logger.warning(f"Could not auto-resolve orbital basis for {symbol}: {exc}")
+        return None
+
+
+def _resolve_potential_for_element(symbol: str, gw_config) -> str | None:
+    """Auto-resolve potential name for *symbol* from the configured potential file."""
+    try:
+        from aiida_gw.codes.cp2k.data_reader import resolve_potential_name
+
+        return resolve_potential_name(gw_config.potential_file, symbol)
+    except Exception as exc:
+        logger.warning(f"Could not auto-resolve potential for {symbol}: {exc}")
         return None
 
 

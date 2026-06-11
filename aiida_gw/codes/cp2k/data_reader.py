@@ -163,6 +163,22 @@ def resolve_ri_basis_name(
     return entries[0].name
 
 
+def resolve_orbital_basis_name(
+    basis_file: str | Path,
+    element: str,
+    orb_basis: str | None = None,
+) -> str | None:
+    """Return the orbital basis set name for *element* from a CP2K basis file.
+
+    When *orb_basis* is given, picks the first entry whose name contains it
+    (e.g. ``"aug-SZV-MOLOPT-GTH-tier-1"``). Otherwise returns the first entry.
+    """
+    entries = list_basis_entries(basis_file, element)
+    if orb_basis:
+        entries = [e for e in entries if orb_basis in e.name]
+    return entries[0].name if entries else None
+
+
 def resolve_potential_name(
     potential_file: str | Path,
     element: str,
