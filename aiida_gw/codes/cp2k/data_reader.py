@@ -10,6 +10,7 @@ from typing import IO
 _ACCURACY_RE = re.compile(
     r"(?:relative\s+accuracy\s+of\s+RI-MP2|error)[:\s_]+([\d.eE+-]+)"
 )
+_HEADER_RE = re.compile(r"^([A-Z][a-z]?)\s+(\S+)")
 
 
 def _extract_accuracy(text: str) -> float | None:
@@ -35,88 +36,64 @@ class BasisEntry:
 
     def __post_init__(self) -> None:
         if self.accuracy is None:
-            self.accuracy = _extract_accuracy(self.name) or _extract_accuracy(self.comment)
+            self.accuracy = _extract_accuracy(self.comment) or _extract_accuracy(self.name)
 
 
 def parse_cp2k_data_file(file: str | Path | IO) -> dict[str, list[BasisEntry]]:
-    """Parse a CP2K basis set / potential / RI data file.
+    """Parse a CP2K data file into ``element → [BasisEntry, ...]``.
 
-    Returns a mapping ``element → [BasisEntry, ...]`` in file order.
+    Format::
+
+        # comment with accuracy
+        Element  BasisName
+          <data lines>
     """
-    if isinstance(file, (str, Path)):
+    if isinstance(file, IO):
+        lines = file.readlines()
+    else:
         with open(file) as fh:
             lines = fh.readlines()
-    else:
-        lines = file.readlines()
 
     entries: dict[str, list[BasisEntry]] = {}
     current_element: str | None = None
+    current_name: str | None = None
     current_header: str | None = None
-    current_comment: str = ""
-    pending_name: str | None = None
-    pending_numbers: list[str] = []
+    prev_comment: list[str] = []
+    next_comment: list[str] = []
 
-    for raw in lines:
-        line = raw.rstrip("\n")
-        stripped = line.strip()
-
-        # Comment line — may contain accuracy metadata
-        if stripped.startswith("#"):
-            if current_element is None:
-                # Could be "Element: N" or "Basis set for N"
-                el_match = re.search(
-                    r"(?:Element|element|atom|Atom)\s*(?::|#)\s*([A-Z][a-z]?)",
-                    stripped,
+    def _save() -> None:
+        if current_element is not None and current_name is not None:
+            comment = " ".join(prev_comment).strip()
+            entries.setdefault(current_element, []).append(
+                BasisEntry(
+                    name=current_name,
+                    header=current_header or "",
+                    comment=comment,
                 )
-                if el_match:
-                    current_element = el_match.group(1)
-            current_comment = line
-            continue
+            )
 
+    for line in lines:
+        stripped = line.strip()
         if not stripped:
             continue
 
-        # First non-comment line after an element: should be the basis name
-        if pending_name is None:
-            pending_name = stripped
-            pending_numbers = []
+        if stripped.startswith("#"):
+            comment_text = stripped.lstrip("#").strip()
+            if comment_text:
+                next_comment.append(comment_text)
             continue
 
-        # Lines with numbers (shell data)
-        if re.match(r"^\s*\d+", stripped):
-            pending_numbers.append(stripped)
-            continue
+        m = _HEADER_RE.match(stripped)
+        if m:
+            _save()
+            prev_comment = next_comment
+            next_comment = []
+            current_element = m.group(1)
+            current_name = m.group(2)
+            current_header = stripped
 
-        # If we got here without matching, we may have missed a name.
-        # Flush pending entry first, then treat as new name.
-        if pending_name is not None:
-            _flush_entry(entries, current_element, pending_name, current_header, current_comment)
-            current_comment = ""
-            pending_name = None
-            pending_numbers = []
-
-        pending_name = stripped
-        pending_numbers = []
-
-    # Flush last entry
-    if pending_name is not None:
-        _flush_entry(entries, current_element, pending_name, current_header, current_comment)
-
+    _save()
     return entries
-
-
-def _flush_entry(
-    entries: dict[str, list[BasisEntry]],
-    element: str | None,
-    name: str,
-    header: str | None,
-    comment: str,
-) -> None:
-    """Add a basis entry to the dictionary."""
-    if element is not None:
-        entries.setdefault(element, []).append(
-            BasisEntry(name=name, header=header or "", comment=comment)
-        )
 
 
 def list_basis_entries(
@@ -136,9 +113,13 @@ def resolve_ri_basis_name(
 ) -> str | None:
     """Return the RI auxiliary basis name for *element*.
 
-    When *accuracy_target* is ``None``, picks the entry with the **smallest**
-    accuracy value (i.e., the most accurate basis). When set, picks the
-    cheapest basis whose accuracy still meets the target.
+    When *orb_basis* is given (e.g. ``"aug-SZV-MOLOPT-GTH-tier-1"``),
+    only entries whose name contains ``RI_{orb_basis}`` are considered,
+    ensuring consistency with the ORB basis set.
+
+    When *accuracy_target* is given (e.g. ``1e-5``), picks the cheapest
+    basis set whose accuracy still meets the target (largest accuracy
+    value ≥ *target*).  Otherwise the first matching entry is returned.
     """
     entries = list_basis_entries(ri_basis_file, element)
 
@@ -148,19 +129,32 @@ def resolve_ri_basis_name(
 
     if not entries:
         return None
-
-    # Pick the entry with the target accuracy
-    candidates = [e for e in entries if e.accuracy is not None]
-    if candidates:
-        if accuracy_target is not None:
-            within = [e for e in candidates if e.accuracy >= accuracy_target]
-            if within:
-                return max(within, key=lambda e: e.accuracy).name
-            return min(candidates, key=lambda e: e.accuracy).name
-        # No target → pick the most accurate (smallest error)
-        return min(candidates, key=lambda e: e.accuracy).name
-
+    if accuracy_target is not None:
+        return _select_basis_by_accuracy(entries, accuracy_target)
     return entries[0].name
+
+
+def _select_basis_by_accuracy(
+    entries: list[BasisEntry], target: float
+) -> str | None:
+    """Pick the entry with the largest accuracy value ≥ *target*.
+
+    This selects the cheapest basis that still meets the target
+    (largest accuracy value ≥ *target*).  If no entry meets the
+    target, falls back to the best accuracy overall (smallest
+    value).  If no entry has accuracy metadata, returns the first.
+    """
+    if not entries:
+        return None
+    candidates = [e for e in entries if e.accuracy is not None]
+    if not candidates:
+        return entries[0].name
+
+    within = [e for e in candidates if e.accuracy >= target]
+    if within:
+        return max(within, key=lambda e: e.accuracy).name
+
+    return min(candidates, key=lambda e: e.accuracy).name
 
 
 def resolve_orbital_basis_name(
