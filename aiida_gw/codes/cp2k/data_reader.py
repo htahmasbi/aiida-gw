@@ -10,7 +10,7 @@ from typing import IO
 _ACCURACY_RE = re.compile(
     r"(?:relative\s+accuracy\s+of\s+RI-MP2|error)[:\s_]+([\d.eE+-]+)"
 )
-_HEADER_RE = re.compile(r"^([A-Z][a-z]?)\s+(\S+)")
+_HEADER_RE = re.compile(r"^([A-Z][a-z]?)\s+(.+)")
 
 
 def _extract_accuracy(text: str) -> float | None:
