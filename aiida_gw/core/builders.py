@@ -52,6 +52,21 @@ def load_atom_data(basis_pseudo: str) -> dict:
         return json.load(f) if basis_pseudo.endswith(".json") else yaml.safe_load(f)
 
 
+def _is_cp2k_key(key: str) -> bool:
+    """Check if *key* is valid in a CP2K input section (uppercase, ``_``, or ``###``-prefixed)."""
+    return key.isupper() or key == "_" or key.startswith("###")
+
+
+def _strip_invalid_keys(d: dict) -> None:
+    """Recursively remove keys invalid for the CP2K input generator."""
+    for k in list(d.keys()):
+        v = d[k]
+        if isinstance(v, dict):
+            _strip_invalid_keys(v)
+        if not _is_cp2k_key(k):
+            del d[k]
+
+
 def dict_merge(base: dict, merge: dict) -> dict:
     """Recursively merge merge into base."""
     for k, v in merge.items():
@@ -409,6 +424,9 @@ class Cp2kBuilder:
         if periodic is None:
             cell["PERIODIC"] = "XYZ"
 
+        # Strip any keys invalid for the CP2K input generator
+        _strip_invalid_keys(params)
+
         # Build the final parameters dict
         builder.cp2k.parameters = Dict(dict=params)
         builder.cp2k.code = code
@@ -508,5 +526,6 @@ class Cp2kBuilder:
         gw_sec.setdefault("CUTOFF_RADIUS_RI", gw_config.cutoff_radius_ri)
         gw_sec.setdefault("REGULARIZATION_RI", gw_config.regularization_ri)
 
+        _strip_invalid_keys(params)
         builder.cp2k.parameters = Dict(dict=params)
         return builder
