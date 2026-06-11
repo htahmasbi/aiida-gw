@@ -85,9 +85,10 @@ def get_kinds_section_qs(
     """Build &KIND section for QUICKSTEP.
 
     Uses ``basis_set`` + ``pseudopotential`` from *atom_data* for ORB/POTENTIAL.
-    RI_AUX is either read from *atom_data* (``ri_basis_set``) or auto-resolved
-    from the configured RI basis file when *gw_config* is given and
-    ``auto_resolve_ri`` is ``True``.
+    When *gw_config* is given and ``auto_resolve_ri`` is ``True``, all three
+    (orbital, RI auxiliary, potential) are resolved from the configured files.
+    Otherwise the orbital basis and potential come from *atom_data* and RI is
+    omitted.
     """
     kinds = []
     ase = structure.get_ase()
@@ -98,14 +99,13 @@ def get_kinds_section_qs(
             continue
         seen.add(symbol)
         if gw_config and gw_config.auto_resolve_ri:
-            # Resolve all three from configured files
             orb = _resolve_orbital_for_element(symbol, gw_config) or atom_data["basis_set"][symbol]
             pot = _resolve_potential_for_element(symbol, gw_config) or atom_data["pseudopotential"][symbol]
-            ri = _resolve_ri_for_element(symbol, gw_config) or atom_data.get("ri_basis_set", {}).get(symbol)
+            ri = _resolve_ri_for_element(symbol, gw_config)
         else:
             orb = atom_data["basis_set"][symbol]
             pot = atom_data["pseudopotential"][symbol]
-            ri = atom_data.get("ri_basis_set", {}).get(symbol)
+            ri = None
 
         kind: dict[str, str] = {
             "_": symbol,

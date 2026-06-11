@@ -136,9 +136,9 @@ def resolve_ri_basis_name(
 ) -> str | None:
     """Return the RI auxiliary basis name for *element*.
 
-    When *accuracy_target* is ``None``, picks the entry with the **largest**
-    accuracy value (i.e., the cheapest / largest-error basis). When set,
-    picks the cheapest basis whose accuracy still meets the target.
+    When *accuracy_target* is ``None``, picks the entry with the **smallest**
+    accuracy value (i.e., the most accurate basis). When set, picks the
+    cheapest basis whose accuracy still meets the target.
     """
     entries = list_basis_entries(ri_basis_file, element)
 
@@ -149,7 +149,7 @@ def resolve_ri_basis_name(
     if not entries:
         return None
 
-    # Pick the entry with the largest accuracy (cheapest, largest error)
+    # Pick the entry with the target accuracy
     candidates = [e for e in entries if e.accuracy is not None]
     if candidates:
         if accuracy_target is not None:
@@ -157,8 +157,8 @@ def resolve_ri_basis_name(
             if within:
                 return max(within, key=lambda e: e.accuracy).name
             return min(candidates, key=lambda e: e.accuracy).name
-        # No target → pick the cheapest (largest error)
-        return max(candidates, key=lambda e: e.accuracy).name
+        # No target → pick the most accurate (smallest error)
+        return min(candidates, key=lambda e: e.accuracy).name
 
     return entries[0].name
 

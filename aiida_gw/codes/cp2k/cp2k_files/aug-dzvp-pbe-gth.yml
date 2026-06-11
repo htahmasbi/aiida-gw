@@ -1,5 +1,5 @@
 # Augmented DZVP basis sets for GW with CP2K
-# Maps elements to orbital basis, RI auxiliary basis, and GTH-PBE pseudopotentials
+# Maps elements to orbital basis and GTH-PBE pseudopotentials (RI auxiliary resolved from file)
 basis_set:
   H:  aug-DZVP-MOLOPT-GTH-q1
   He: aug-DZVP-MOLOPT-GTH-q2
@@ -18,13 +18,6 @@ basis_set:
   P:  aug-DZVP-MOLOPT-GTH-q5
   S:  aug-DZVP-MOLOPT-GTH-q6
   Cl: aug-DZVP-MOLOPT-GTH-q7
-
-ri_basis_set:
-  H:  RI_aug-DZVP-MOLOPT-GTH-q1
-  B:  RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_009_s_p_d_f_g_h_i_3_2_0_0_0_0_0_error_1.1e-06
-  C:  RI_aug-DZVP-MOLOPT-GTH-q4
-  N:  RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_025_s_p_d_f_g_h_i_6_3_2_0_0_0_0_error_2.9e-06
-  O:  RI_aug-DZVP-MOLOPT-GTH-q6
 
 pseudopotential:
   H:  GTH-PBE-q1
