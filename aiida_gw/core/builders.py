@@ -145,6 +145,35 @@ def get_file_section_qs() -> dict:
     return files
 
 
+def get_cutoff_sirius(atom_data: dict, structure, relax_factor: float | None = None) -> tuple[int, int]:
+    """Compute PW_CUTOFF and GK_CUTOFF from SIRIUS pseudopotential data.
+
+    Args:
+        atom_data: Dict with element keys containing cutoff_wfc and cutoff_rho.
+        structure: StructureData to extract element symbols.
+        relax_factor: Optional scale factor for relaxation runs (e.g. 0.8).
+
+    Returns:
+        (pw_cutoff, gk_cutoff)
+    """
+    gk = [6]
+    pw = [12]
+    ase = structure.get_ase()
+    for symbol in set(ase.get_chemical_symbols()):
+        if symbol in atom_data:
+            gk.append(round(0.5 + atom_data[symbol]["cutoff_wfc"] ** 0.5))
+            pw.append(round(atom_data[symbol]["cutoff_rho"] ** 0.5))
+            pw.append(2 * max(gk))
+    pw_cutoff = max(pw)
+    gk_cutoff = max(gk)
+    if relax_factor is not None:
+        pw_cutoff = round(pw_cutoff * relax_factor)
+        gk_cutoff = round(gk_cutoff * relax_factor)
+        if pw_cutoff < 2 * gk_cutoff:
+            pw_cutoff = 2 * gk_cutoff
+    return pw_cutoff, gk_cutoff
+
+
 def get_file_section_sirius(structure, atom_data: dict) -> dict:
     """Get pseudopotential files for SIRIUS."""
     cp2k_files = get_cp2k_files_path() / "pseudopotentials"
@@ -306,16 +335,9 @@ class Cp2kBuilder:
                     if mesh and mesh != (1, 1, 1):
                         pw_params["NGRIDK"] = f"{mesh[0]} {mesh[1]} {mesh[2]}"
 
-                    gk = [6]
-                    pw_list = [12]
-                    ase = structure.get_ase()
-                    for symbol in set(ase.get_chemical_symbols()):
-                        if symbol in atom_data:
-                            gk.append(round(0.5 + atom_data[symbol]["cutoff_wfc"] ** 0.5))
-                            pw_list.append(round(atom_data[symbol]["cutoff_rho"] ** 0.5))
-                            pw_list.append(2 * max(gk))
-                    pw_params["PW_CUTOFF"] = max(pw_list)
-                    pw_params["GK_CUTOFF"] = max(gk)
+                    pw_cutoff, gk_cutoff = get_cutoff_sirius(atom_data, structure)
+                    pw_params["PW_CUTOFF"] = pw_cutoff
+                    pw_params["GK_CUTOFF"] = gk_cutoff
 
         else:
             # QS/GPW path — used for GW and standard Quickstep calculations
