@@ -300,7 +300,7 @@ def classify_from_spacegroup(pmg_structure) -> str:
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
     try:
-        analyzer = SpacegroupAnalyzer(pmg_structure, symprec=0.2)
+        analyzer = SpacegroupAnalyzer(pmg_structure, symprec=0.05)
         crystal_system = analyzer.get_crystal_system()
     except Exception:
         return _classify_from_vectors(

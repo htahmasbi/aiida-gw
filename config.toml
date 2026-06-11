@@ -1,8 +1,8 @@
 code_label = "cp2k@localhost"
 
 [metadata_options]
-num_machines = 1
-num_mpiprocs_per_machine = 16
+num_machines = 2
+num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
 
 [cp2k]
@@ -10,8 +10,8 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.3
-kpoints_w_distance = 0.3
+kpoints_distance = 0.08
+kpoints_w_distance = 0.08
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
