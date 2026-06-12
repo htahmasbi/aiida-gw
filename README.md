@@ -2,6 +2,7 @@
 
 ![Python Version](https://img.shields.io/badge/python-≥%203.10-blue)
 ![AiiDA Version](https://img.shields.io/badge/AiiDA-≥%202.5-orange)
+[![CI](https://github.com/htahmasbi/aiida-gw/actions/workflows/ci.yml/badge.svg)](https://github.com/htahmasbi/aiida-gw/actions/workflows/ci.yml)
 
 AiiDA plugin for CP2K GW workflows targeting 2D materials.
 
