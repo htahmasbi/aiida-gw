@@ -154,7 +154,7 @@ def _select_basis_by_accuracy(
     if within:
         return max(within, key=lambda e: e.accuracy).name
 
-    return min(candidates, key=lambda e: e.accuracy).name
+    return min(candidates, key=lambda e: abs(e.accuracy - target)).name
 
 
 def resolve_orbital_basis_name(
