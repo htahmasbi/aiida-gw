@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -128,7 +129,8 @@ def _resolve_ri_for_element(symbol: str, gw_config) -> str | None:
             orb_basis=gw_config.orb_basis,
         )
     except Exception as exc:
-        logger.warning(f"Could not auto-resolve RI basis for {symbol}: {exc}")
+        logger.error(f"Could not auto-resolve RI basis for {symbol}: {exc}")
+        print(f"Error: Could not auto-resolve RI basis for {symbol}: {exc}", file=sys.stderr)
         return None
 
 
@@ -143,7 +145,8 @@ def _resolve_orbital_for_element(symbol: str, gw_config) -> str | None:
             orb_basis=gw_config.orb_basis,
         )
     except Exception as exc:
-        logger.warning(f"Could not auto-resolve orbital basis for {symbol}: {exc}")
+        logger.error(f"Could not auto-resolve orbital basis for {symbol}: {exc}")
+        print(f"Error: Could not auto-resolve orbital basis for {symbol}: {exc}", file=sys.stderr)
         return None
 
 
@@ -154,7 +157,8 @@ def _resolve_potential_for_element(symbol: str, gw_config) -> str | None:
 
         return resolve_potential_name(gw_config.potential_file, symbol)
     except Exception as exc:
-        logger.warning(f"Could not auto-resolve potential for {symbol}: {exc}")
+        logger.error(f"Could not auto-resolve potential for {symbol}: {exc}")
+        print(f"Error: Could not auto-resolve potential for {symbol}: {exc}", file=sys.stderr)
         return None
 
 
