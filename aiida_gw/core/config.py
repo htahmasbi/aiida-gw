@@ -118,7 +118,7 @@ class GwConfig(BaseModel):
     orb_basis: str = Field(default="aug-SZV-MOLOPT-GTH-tier-1")
     resolve_from_files: bool = Field(
         default=True,
-        description="Auto-resolve RI basis sets from ri_basis_set_file",
+        description="Resolve orbital/potential/RI from data files instead of YAML atom_data",
     )
     ri_basis_accuracy_target: float | None = Field(
         default=None,

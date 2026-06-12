@@ -106,47 +106,6 @@ def parse_cp2k_data_file(file: str | Path | IO) -> dict[str, list[BasisEntry]]:
         return _parse_lines(file.readlines())
     return _parse_cached(file)
 
-    entries: dict[str, list[BasisEntry]] = {}
-    current_element: str | None = None
-    current_name: str | None = None
-    current_header: str | None = None
-    prev_comment: list[str] = []
-    next_comment: list[str] = []
-
-    def _save() -> None:
-        if current_element is not None and current_name is not None:
-            comment = " ".join(prev_comment).strip()
-            entries.setdefault(current_element, []).append(
-                BasisEntry(
-                    name=current_name,
-                    header=current_header or "",
-                    comment=comment,
-                )
-            )
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        if stripped.startswith("#"):
-            comment_text = stripped.lstrip("#").strip()
-            if comment_text:
-                next_comment.append(comment_text)
-            continue
-
-        m = _HEADER_RE.match(stripped)
-        if m:
-            _save()
-            prev_comment = next_comment
-            next_comment = []
-            current_element = m.group(1)
-            current_name = m.group(2)
-            current_header = stripped
-
-    _save()
-    return entries
-
 
 def list_basis_entries(
     file: str | Path,
