@@ -157,6 +157,11 @@ def _select_basis_by_accuracy(
     return min(candidates, key=lambda e: abs(e.accuracy - target)).name
 
 
+def _first_token(name: str) -> str:
+    """Return the first token of *name* (CP2K ignores aliases after the first)."""
+    return name.split()[0]
+
+
 def resolve_orbital_basis_name(
     basis_file: str | Path,
     element: str,
@@ -170,7 +175,7 @@ def resolve_orbital_basis_name(
     entries = list_basis_entries(basis_file, element)
     if orb_basis:
         entries = [e for e in entries if orb_basis in e.name]
-    return entries[0].name if entries else None
+    return _first_token(entries[0].name) if entries else None
 
 
 _Q_RE = re.compile(r"-q(\d+)")
@@ -198,7 +203,7 @@ def resolve_potential_name(
     electrons) is selected, which is generally preferred for GW.
     """
     entries = list_basis_entries(potential_file, element)
-    names = [e.name for e in entries]
+    names = [_first_token(e.name) for e in entries]
     if pattern:
         names = [n for n in names if pattern in n]
     if not names:
