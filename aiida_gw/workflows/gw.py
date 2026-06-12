@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain
-from aiida.orm import Code, Dict, Int, List, Str
+from aiida.orm import Code, Dict, Float, Int, List, Str
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import get_config
@@ -26,6 +26,7 @@ class GwWorkChain(WorkChain):
         spec.input("kpoints_mesh", valid_type=List, required=False)
         spec.input("kpoints_w_mesh", valid_type=List, required=False)
         spec.input("bandstructure_path", valid_type=List, required=False)
+        spec.input("ri_basis_accuracy_target", valid_type=Float, required=False)
         spec.outline(
             cls.setup,
             cls.run_gw,

@@ -74,7 +74,7 @@ def run(
     """Run a calculation workflow."""
     from aiida import load_profile
     from aiida.engine import submit
-    from aiida.orm import List, load_code, Str, StructureData
+    from aiida.orm import Float, List, load_code, Str, StructureData
     from aiida.plugins import DataFactory
 
     from aiida_gw.transformations.structures import prepare_2d_structure
@@ -164,6 +164,8 @@ def run(
                     builder.kpoints_mesh = List(list=kpoints_mesh)
                 if kpoints_w_mesh:
                     builder.kpoints_w_mesh = List(list=kpoints_w_mesh)
+                if gw_config.ri_basis_accuracy_target is not None:
+                    builder.ri_basis_accuracy_target = Float(gw_config.ri_basis_accuracy_target)
 
                 # Compute bandstructure path from the ORIGINAL structure
                 # (before vacuum/supercell) using pymatgen SpacegroupAnalyzer
