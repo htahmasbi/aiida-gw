@@ -86,7 +86,7 @@ def get_kinds_section_qs(
 
     Uses ``basis_set`` + ``pseudopotential`` from *atom_data* for ORB/POTENTIAL.
     RI auxiliary is always resolved from the configured RI basis file when
-    *gw_config* is available. When ``auto_resolve_ri`` is also ``True``, the
+    *gw_config* is available. When ``resolve_from_files`` is also ``True``, the
     orbital basis and potential are resolved from their configured files too.
     """
     kinds = []
@@ -97,7 +97,7 @@ def get_kinds_section_qs(
         if symbol in seen:
             continue
         seen.add(symbol)
-        if gw_config and gw_config.auto_resolve_ri:
+        if gw_config and gw_config.resolve_from_files:
             orb = _resolve_orbital_for_element(symbol, gw_config) or atom_data["basis_set"][symbol]
             pot = _resolve_potential_for_element(symbol, gw_config) or atom_data["pseudopotential"][symbol]
         else:

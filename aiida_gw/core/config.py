@@ -116,7 +116,7 @@ class GwConfig(BaseModel):
         description="Path to CP2K potential file (on cluster)",
     )
     orb_basis: str = Field(default="aug-SZV-MOLOPT-GTH-tier-1")
-    auto_resolve_ri: bool = Field(
+    resolve_from_files: bool = Field(
         default=False,
         description="Auto-resolve RI basis sets from ri_basis_set_file",
     )
