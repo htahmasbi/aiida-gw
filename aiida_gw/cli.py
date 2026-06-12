@@ -35,9 +35,9 @@ def run(
         str | None,
         typer.Option("--structure", "-s", help="Structure file (cif/POSCAR)"),
     ] = None,
-    optimade_group: Annotated[
+    group: Annotated[
         str | None,
-        typer.Option("--optimade-group", help="Fetch structures from OPTIMADE into group"),
+        typer.Option("--group", help="AiiDA group with structures (fetched from OPTIMADE or stored locally)"),
     ] = None,
     max_structures: Annotated[
         int,
@@ -106,20 +106,20 @@ def run(
     metadata = config.metadata_options.to_dict()
 
     if mode == CalculationMode.GW:
-        if not structure_file and not optimade_group:
-            console.print("[red]Error:[/red] Provide --structure or --optimade-group for GW mode")
+        if not structure_file and not group:
+            console.print("[red]Error:[/red] Provide --structure or --group for GW mode")
             raise typer.Exit(1)
 
         gw_config = config.gw
         vacuum_val = vacuum or gw_config.vacuum
         supercell_val = [int(x) for x in (supercell or ",".join(map(str, gw_config.supercell))).split(",")]
 
-        if optimade_group:
+        if group:
             from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
 
             element_list = elements.split(",") if elements else None
             fetch_and_store_mc2d(
-                group_label=optimade_group,
+                group_label=group,
                 max_structures=max_structures,
                 elements=element_list,
                 optimade_filter=optimade_filter,
@@ -127,7 +127,7 @@ def run(
 
             from aiida.orm import Group
 
-            group = Group.collection.get(label=optimade_group)
+            group = Group.collection.get(label=group)
             structures = list(group.nodes)[:max_structures]
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         else:

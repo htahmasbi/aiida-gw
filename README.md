@@ -79,7 +79,7 @@ aiida-gw run --mode gw --structure bn.cif --kpoints 6,1,6 --kpoints-w 6,1,6
 aiida-gw fetch --group mc2d_structures --max 10 --elements B,N
 
 # Run GW on OPTIMADE structures
-aiida-gw run --mode gw --optimade-group mc2d_structures --code cp2k@localhost
+aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost
 ```
 
 ## Project Structure
