@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,8 +40,61 @@ class BasisEntry:
             self.accuracy = _extract_accuracy(self.comment) or _extract_accuracy(self.name)
 
 
+def _parse_lines(lines: list[str]) -> dict[str, list[BasisEntry]]:
+    """Parse CP2K data file lines into ``element → [BasisEntry, ...]``."""
+    entries: dict[str, list[BasisEntry]] = {}
+    current_element: str | None = None
+    current_name: str | None = None
+    current_header: str | None = None
+    prev_comment: list[str] = []
+    next_comment: list[str] = []
+
+    def _save() -> None:
+        if current_element is not None and current_name is not None:
+            comment = " ".join(prev_comment).strip()
+            entries.setdefault(current_element, []).append(
+                BasisEntry(
+                    name=current_name,
+                    header=current_header or "",
+                    comment=comment,
+                )
+            )
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("#"):
+            comment_text = stripped.lstrip("#").strip()
+            if comment_text:
+                next_comment.append(comment_text)
+            continue
+
+        m = _HEADER_RE.match(stripped)
+        if m:
+            _save()
+            prev_comment = next_comment
+            next_comment = []
+            current_element = m.group(1)
+            current_name = m.group(2)
+            current_header = stripped
+
+    _save()
+    return entries
+
+
+@functools.lru_cache(maxsize=128)
+def _parse_cached(file: str | Path) -> dict[str, list[BasisEntry]]:
+    """Cached version of parse_cp2k_data_file for file paths."""
+    with open(file) as fh:
+        return _parse_lines(fh.readlines())
+
+
 def parse_cp2k_data_file(file: str | Path | IO) -> dict[str, list[BasisEntry]]:
     """Parse a CP2K data file into ``element → [BasisEntry, ...]``.
+
+    Results for file paths (str/Path) are cached. IO objects are not cached.
 
     Format::
 
@@ -49,10 +103,8 @@ def parse_cp2k_data_file(file: str | Path | IO) -> dict[str, list[BasisEntry]]:
           <data lines>
     """
     if isinstance(file, IO):
-        lines = file.readlines()
-    else:
-        with open(file) as fh:
-            lines = fh.readlines()
+        return _parse_lines(file.readlines())
+    return _parse_cached(file)
 
     entries: dict[str, list[BasisEntry]] = {}
     current_element: str | None = None
