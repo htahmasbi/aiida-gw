@@ -117,9 +117,9 @@ def resolve_ri_basis_name(
     only entries whose name contains ``RI_{orb_basis}`` are considered,
     ensuring consistency with the ORB basis set.
 
-    When *accuracy_target* is given (e.g. ``1e-5``), picks the cheapest
-    basis set whose accuracy still meets the target (largest accuracy
-    value ≥ *target*).  Otherwise the first matching entry is returned.
+    When *accuracy_target* is given (e.g. ``1e-5``), picks the entry
+    whose accuracy is closest to *target*.  When ``None``, picks the
+    entry with the smallest error (most accurate).
     """
     entries = list_basis_entries(ri_basis_file, element)
 
@@ -131,29 +131,21 @@ def resolve_ri_basis_name(
         return None
     if accuracy_target is not None:
         return _select_basis_by_accuracy(entries, accuracy_target)
+    candidates = [e for e in entries if e.accuracy is not None]
+    if candidates:
+        return min(candidates, key=lambda e: e.accuracy).name
     return entries[0].name
 
 
 def _select_basis_by_accuracy(
     entries: list[BasisEntry], target: float
 ) -> str | None:
-    """Pick the entry with the largest accuracy value ≥ *target*.
-
-    This selects the cheapest basis that still meets the target
-    (largest accuracy value ≥ *target*).  If no entry meets the
-    target, falls back to the entry with accuracy closest to the
-    target.  If no entry has accuracy metadata, returns the first.
-    """
+    """Pick the entry whose accuracy is closest to *target*."""
     if not entries:
         return None
     candidates = [e for e in entries if e.accuracy is not None]
     if not candidates:
         return entries[0].name
-
-    within = [e for e in candidates if e.accuracy >= target]
-    if within:
-        return max(within, key=lambda e: e.accuracy).name
-
     return min(candidates, key=lambda e: abs(e.accuracy - target)).name
 
 

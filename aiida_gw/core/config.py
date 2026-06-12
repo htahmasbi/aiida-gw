@@ -122,7 +122,7 @@ class GwConfig(BaseModel):
     )
     ri_basis_accuracy_target: float | None = Field(
         default=None,
-        description="Target accuracy for RI basis selection. None = largest error (cheapest)",
+        description="Target accuracy for RI basis selection. Picks entry closest to this error. None = most accurate (smallest error)",
     )
     ri_basis: str | None = None
     potential: str | None = None
