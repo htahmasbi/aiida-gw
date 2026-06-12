@@ -39,7 +39,7 @@ prefix ``AIIDA_GW_`` with nested keys separated by ``__``:
 | `AIIDA_GW_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states` | Basis set file (cluster path) |
 | `AIIDA_GW_RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
 | `AIIDA_GW_POTENTIAL_FILE` | `POTENTIAL_UZH` | Potential file (cluster path) |
-| `AIIDA_GW_AUTO_RESOLVE_RI` | `False` | Auto-resolve RI basis from file |
+| `AIIDA_GW_RESOLVE_FROM_FILES` | `True` | Auto-resolve RI basis from file |
 | `AIIDA_GW_RI_BASIS_ACCURACY_TARGET` | — | Accuracy target for RI selection |
 
 Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,

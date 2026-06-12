@@ -117,7 +117,7 @@ class GwConfig(BaseModel):
     )
     orb_basis: str = Field(default="aug-SZV-MOLOPT-GTH-tier-1")
     resolve_from_files: bool = Field(
-        default=False,
+        default=True,
         description="Auto-resolve RI basis sets from ri_basis_set_file",
     )
     ri_basis_accuracy_target: float | None = Field(
