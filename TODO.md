@@ -15,3 +15,4 @@
 ## Remaining
 
 - [ ] **2. Add `element_settings` override** — explicitly pin potential/RI/orbital per element in config
+- [ ] **11. Test Fetch Json files** - DO some test runs and do calculations using these json files.
