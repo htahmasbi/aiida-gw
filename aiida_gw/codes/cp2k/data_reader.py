@@ -141,8 +141,8 @@ def _select_basis_by_accuracy(
 
     This selects the cheapest basis that still meets the target
     (largest accuracy value ≥ *target*).  If no entry meets the
-    target, falls back to the best accuracy overall (smallest
-    value).  If no entry has accuracy metadata, returns the first.
+    target, falls back to the entry with accuracy closest to the
+    target.  If no entry has accuracy metadata, returns the first.
     """
     if not entries:
         return None
