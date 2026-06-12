@@ -280,6 +280,19 @@ def fetch(
     console.print(f"[green]Fetched {len(data)} MC2D structures into group '{group_label}'[/green]")
 
 
+@app.command()
+def fetch_json(
+    output_dir: Annotated[str, typer.Option("--output", "-o", help="Output directory")] = ".",
+    max_structures: Annotated[int | None, typer.Option("--max", help="Maximum number of structures")] = None,
+) -> None:
+    """Fetch all MC2D structures and save as JSON files grouped by element count."""
+    from aiida_gw.datasets.mc2d_optimade import save_mc2d_by_nelements
+
+    paths = save_mc2d_by_nelements(output_dir=output_dir, max_structures=max_structures)
+    for n, path in sorted(paths.items()):
+        console.print(f"[green]{n} element(s):[/green] {path}")
+
+
 @app.callback()
 def main(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose output")] = False,

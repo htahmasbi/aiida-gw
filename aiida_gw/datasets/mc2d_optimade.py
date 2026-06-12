@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from typing import Any, Callable
 
 import requests
@@ -165,3 +167,62 @@ def fetch_and_store_mc2d(
 
     logger.info(f"Fetched {count} MC2D structures into group '{group_label}'")
     return data
+
+
+def fetch_all_mc2d(max_structures: int | None = None) -> list[dict[str, Any]]:
+    """Fetch all 2D structures from MC2D OPTIMADE.
+
+    Args:
+        max_structures: Optional cap on total structures.
+
+    Returns:
+        List of dicts with keys: id, formula, nelements, elements, structure (dict), entry.
+    """
+    raw = fetch_mc2d_structures(max_structures=max_structures)
+    results = []
+    for item in raw:
+        attrs = item["entry"]["attributes"]
+        results.append({
+            "id": item["id"],
+            "formula": item["formula"],
+            "nelements": attrs.get("nelements"),
+            "elements": attrs.get("elements"),
+            "nsites": item.get("nsites"),
+            "structure": item["structure"].as_dict(),
+        })
+    return results
+
+
+def save_mc2d_by_nelements(
+    output_dir: str | Path = ".",
+    max_structures: int | None = None,
+) -> dict[int, str]:
+    """Fetch all MC2D structures and save them into ``mc2d_{N}elements.json`` per element count.
+
+    Args:
+        output_dir: Directory to write JSON files into.
+        max_structures: Optional cap on total structures.
+
+    Returns:
+        Mapping of ``nelements → file path``.
+    """
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    data = fetch_all_mc2d(max_structures=max_structures)
+
+    by_nelements: dict[int, list[dict]] = {}
+    for item in data:
+        n = item["nelements"]
+        by_nelements.setdefault(n, []).append(item)
+
+    paths: dict[int, str] = {}
+    for n, entries in sorted(by_nelements.items()):
+        filename = f"mc2d_{n}elements.json"
+        filepath = out / filename
+        with open(filepath, "w") as f:
+            json.dump(entries, f, indent=2)
+        logger.info(f"Saved {len(entries)} structures to {filepath}")
+        paths[n] = str(filepath)
+
+    return paths
