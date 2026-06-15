@@ -31,12 +31,12 @@ class TestMetadataOptions:
         d = opts.to_dict()
         assert d["resources"]["num_machines"] == 2
         assert d["resources"]["num_mpiprocs_per_machine"] == 64
-        assert d["resources"]["max_memory_kb"] == 38400 * 1024
+        assert d["custom_scheduler_commands"] == "#SBATCH --mem=38400M\n"
 
     def test_to_dict_memory_none(self):
         opts = MetadataOptions()
         d = opts.to_dict()
-        assert "max_memory_kb" not in d["resources"]
+        assert "custom_scheduler_commands" not in d
 
 
 class TestCp2kConfig:

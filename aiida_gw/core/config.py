@@ -21,21 +21,21 @@ class MetadataOptions(BaseModel):
     memory_per_machine_mb: int | None = Field(
         default=None,
         ge=1,
-        description="Memory per node in MB. When set, passed to the scheduler as max_memory_kb.",
+        description="Memory per node in MB. When set, passed to the scheduler via custom_scheduler_commands (--mem).",
     )
 
     def to_dict(self) -> dict:
-        resources: dict[str, Any] = {
-            "num_machines": self.num_machines,
-            "num_mpiprocs_per_machine": self.num_mpiprocs_per_machine,
-        }
-        if self.memory_per_machine_mb is not None:
-            resources["max_memory_kb"] = self.memory_per_machine_mb * 1024
-        return {
-            "resources": resources,
+        result: dict[str, Any] = {
+            "resources": {
+                "num_machines": self.num_machines,
+                "num_mpiprocs_per_machine": self.num_mpiprocs_per_machine,
+            },
             "max_wallclock_seconds": self.max_wallclock_seconds,
             "withmpi": self.withmpi,
         }
+        if self.memory_per_machine_mb is not None:
+            result["custom_scheduler_commands"] = f"#SBATCH --mem={self.memory_per_machine_mb}M\n"
+        return result
 
 
 class Cp2kScfConfig(BaseModel):
