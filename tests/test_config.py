@@ -31,9 +31,20 @@ class TestMetadataOptions:
         d = opts.to_dict()
         assert d["resources"]["num_machines"] == 2
         assert d["resources"]["num_mpiprocs_per_machine"] == 64
-        assert d["custom_scheduler_commands"] == "#SBATCH --mem=38400M\n"
+        assert "#SBATCH --mem=38400M" in d["custom_scheduler_commands"]
 
-    def test_to_dict_memory_none(self):
+    def test_to_dict_with_partition(self):
+        opts = MetadataOptions(partition="cpu-genoa")
+        d = opts.to_dict()
+        assert d["custom_scheduler_commands"] == "#SBATCH --partition=cpu-genoa\n"
+
+    def test_to_dict_memory_and_partition(self):
+        opts = MetadataOptions(memory_per_machine_mb=38400, partition="cpu-genoa")
+        d = opts.to_dict()
+        assert "#SBATCH --mem=38400M" in d["custom_scheduler_commands"]
+        assert "#SBATCH --partition=cpu-genoa" in d["custom_scheduler_commands"]
+
+    def test_to_dict_no_scheduler_commands(self):
         opts = MetadataOptions()
         d = opts.to_dict()
         assert "custom_scheduler_commands" not in d

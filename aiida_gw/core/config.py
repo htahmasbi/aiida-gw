@@ -23,6 +23,10 @@ class MetadataOptions(BaseModel):
         ge=1,
         description="Memory per node in MB. When set, passed to the scheduler via custom_scheduler_commands (--mem).",
     )
+    partition: str | None = Field(
+        default=None,
+        description="SLURM partition (queue). When set, passed as #SBATCH --partition=.",
+    )
 
     def to_dict(self) -> dict:
         result: dict[str, Any] = {
@@ -33,8 +37,13 @@ class MetadataOptions(BaseModel):
             "max_wallclock_seconds": self.max_wallclock_seconds,
             "withmpi": self.withmpi,
         }
+        scheduler_lines = []
         if self.memory_per_machine_mb is not None:
-            result["custom_scheduler_commands"] = f"#SBATCH --mem={self.memory_per_machine_mb}M\n"
+            scheduler_lines.append(f"#SBATCH --mem={self.memory_per_machine_mb}M")
+        if self.partition:
+            scheduler_lines.append(f"#SBATCH --partition={self.partition}")
+        if scheduler_lines:
+            result["custom_scheduler_commands"] = "\n".join(scheduler_lines) + "\n"
         return result
 
 
