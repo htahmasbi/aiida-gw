@@ -22,12 +22,14 @@ Create a `.env` file or set environment variables.  All variables use the
 prefix ``AIIDA_GW_`` with nested keys separated by ``__``:
 
 | Variable | Default | Description |
-|---|---|---|
+|---|---|---|---|
 | `AIIDA_GW_CODE_LABEL` | `cp2k@localhost` | Code label for CP2K |
 | `AIIDA_GW_PROFILE` | — | AiiDA profile name |
 | `AIIDA_GW_NUM_MACHINES` | `1` | Number of nodes |
 | `AIIDA_GW_NUM_MPIPROCS` | `8` | MPI processes per node |
 | `AIIDA_GW_WALLTIME` | `36000` | Max wallclock seconds |
+| `AIIDA_GW_METADATA_OPTIONS__MEMORY_PER_MACHINE_MB` | — | Memory per node in MB (→ `#SBATCH --mem`) |
+| `AIIDA_GW_METADATA_OPTIONS__PARTITION` | — | SLURM partition (→ `#SBATCH --partition`) |
 | `AIIDA_GW_CUTOFF` | `400` | CP2K cutoff (Ry) |
 | `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
 | `AIIDA_GW_KPOINTS` | `4,1,4` | K-point mesh |
@@ -46,6 +48,13 @@ Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aii
 or the current directory:
 
 ```toml
+[metadata_options]
+num_machines = 2
+num_mpiprocs_per_machine = 64
+max_wallclock_seconds = 86400
+memory_per_machine_mb = 38400
+partition = "cpu-genoa"
+
 [gw]
 basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
@@ -75,11 +84,18 @@ aiida-gw run --mode gw --structure structure.cif --code cp2k@localhost --vacuum 
 # Run GW with explicit k-points
 aiida-gw run --mode gw --structure bn.cif --kpoints 6,1,6 --kpoints-w 6,1,6
 
-# Fetch structures from MC2D via OPTIMADE
+# Fetch structures from MC2D via OPTIMADE (with element exclusion)
 aiida-gw fetch --group mc2d_structures --max 10 --elements B,N
+aiida-gw fetch --group gw_ready --max 50 --exclude-elements La,Ce,Pr,Nd,Pm,Sm,Eu,Gd,Tb,Dy,Ho,Er,Tm,Yb,Lu
 
-# Run GW on OPTIMADE structures
+# Save all MC2D structures grouped by element count into JSON files
+aiida-gw fetch-json --output ./structures
+
+# Run GW on OPTIMADE structures (auto-detects unsupported elements from data files)
 aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost
+
+# Run GW with explicit element exclusion
+aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost --exclude-elements La,Ce,Pr
 ```
 
 ## Project Structure
