@@ -24,6 +24,20 @@ class TestMetadataOptions:
             "withmpi": False,
         }
 
+    def test_to_dict_with_memory(self):
+        opts = MetadataOptions(
+            num_machines=2, num_mpiprocs_per_machine=64, memory_per_machine_mb=38400
+        )
+        d = opts.to_dict()
+        assert d["resources"]["num_machines"] == 2
+        assert d["resources"]["num_mpiprocs_per_machine"] == 64
+        assert d["resources"]["max_memory_kb"] == 38400 * 1024
+
+    def test_to_dict_memory_none(self):
+        opts = MetadataOptions()
+        d = opts.to_dict()
+        assert "max_memory_kb" not in d["resources"]
+
 
 class TestCp2kConfig:
     def test_kpoints_mesh_valid(self):

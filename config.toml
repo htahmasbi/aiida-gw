@@ -4,6 +4,7 @@ code_label = "cp2k@localhost"
 num_machines = 2
 num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
+memory_per_machine_mb = 38400
 
 [cp2k]
 cutoff = 400

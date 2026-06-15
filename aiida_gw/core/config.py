@@ -18,13 +18,21 @@ class MetadataOptions(BaseModel):
     num_mpiprocs_per_machine: int = Field(default=8, ge=1)
     max_wallclock_seconds: int = Field(default=36000, ge=60)
     withmpi: bool = True
+    memory_per_machine_mb: int | None = Field(
+        default=None,
+        ge=1,
+        description="Memory per node in MB. When set, passed to the scheduler as max_memory_kb.",
+    )
 
     def to_dict(self) -> dict:
+        resources: dict[str, Any] = {
+            "num_machines": self.num_machines,
+            "num_mpiprocs_per_machine": self.num_mpiprocs_per_machine,
+        }
+        if self.memory_per_machine_mb is not None:
+            resources["max_memory_kb"] = self.memory_per_machine_mb * 1024
         return {
-            "resources": {
-                "num_machines": self.num_machines,
-                "num_mpiprocs_per_machine": self.num_mpiprocs_per_machine,
-            },
+            "resources": resources,
             "max_wallclock_seconds": self.max_wallclock_seconds,
             "withmpi": self.withmpi,
         }

@@ -548,14 +548,7 @@ class Cp2kBuilder:
         if metadata_options:
             builder.cp2k.metadata.options = metadata_options
         else:
-            builder.cp2k.metadata.options = {
-                "resources": {
-                    "num_machines": self.config.metadata_options.num_machines,
-                    "num_mpiprocs_per_machine": self.config.metadata_options.num_mpiprocs_per_machine,
-                },
-                "max_wallclock_seconds": self.config.metadata_options.max_wallclock_seconds,
-                "withmpi": True,
-            }
+            builder.cp2k.metadata.options = self.config.metadata_options.to_dict()
 
         parser_name = (
             "cp2k_simple_parser"
