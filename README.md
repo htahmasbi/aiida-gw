@@ -28,7 +28,7 @@ prefix ``AIIDA_GW_`` with nested keys separated by ``__``:
 | `AIIDA_GW_NUM_MACHINES` | `1` | Number of nodes |
 | `AIIDA_GW_NUM_MPIPROCS` | `8` | MPI processes per node |
 | `AIIDA_GW_WALLTIME` | `36000` | Max wallclock seconds |
-| `AIIDA_GW_METADATA_OPTIONS__MEMORY_PER_MACHINE_MB` | — | Memory per node in MB (→ `#SBATCH --mem`) |
+| `AIIDA_GW_METADATA_OPTIONS__MEMORY_PER_MACHINE` | — | Memory per node, e.g. `600G` or `38400M` (→ `#SBATCH --mem`) |
 | `AIIDA_GW_METADATA_OPTIONS__PARTITION` | — | SLURM partition (→ `#SBATCH --partition`) |
 | `AIIDA_GW_CUTOFF` | `400` | CP2K cutoff (Ry) |
 | `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
@@ -52,7 +52,7 @@ or the current directory:
 num_machines = 2
 num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
-memory_per_machine_mb = 38400
+memory_per_machine = "600G"
 partition = "cpu-genoa"
 
 [gw]

@@ -18,10 +18,9 @@ class MetadataOptions(BaseModel):
     num_mpiprocs_per_machine: int = Field(default=8, ge=1)
     max_wallclock_seconds: int = Field(default=36000, ge=60)
     withmpi: bool = True
-    memory_per_machine_mb: int | None = Field(
+    memory_per_machine: str | None = Field(
         default=None,
-        ge=1,
-        description="Memory per node in MB. When set, passed to the scheduler via custom_scheduler_commands (--mem).",
+        description="Memory per node (e.g. \"600G\" or \"38400M\"). Passed to the scheduler as #SBATCH --mem=.",
     )
     partition: str | None = Field(
         default=None,
@@ -38,8 +37,8 @@ class MetadataOptions(BaseModel):
             "withmpi": self.withmpi,
         }
         scheduler_lines = []
-        if self.memory_per_machine_mb is not None:
-            scheduler_lines.append(f"#SBATCH --mem={self.memory_per_machine_mb}M")
+        if self.memory_per_machine is not None:
+            scheduler_lines.append(f"#SBATCH --mem={self.memory_per_machine}")
         if self.partition:
             scheduler_lines.append(f"#SBATCH --partition={self.partition}")
         if scheduler_lines:
