@@ -108,12 +108,43 @@ def fetch_mc2d_structures(
     return results
 
 
+def _get_structure_elements(item: dict[str, Any]) -> set[str]:
+    """Extract element set from a structure item."""
+    attrs = item.get("entry", {}).get("attributes", {})
+    if "elements" in attrs:
+        return set(attrs["elements"])
+    struct = item.get("structure")
+    if hasattr(struct, "composition"):
+        return {str(e) for e in struct.composition.elements}
+    if hasattr(struct, "species"):
+        return set(struct.species)
+    return set()
+
+
+def _structure_has_unsupported_elements(
+    item: dict[str, Any],
+    exclude_elements: set[str] | None,
+    supported_elements: set[str] | None,
+) -> bool:
+    """Check if structure contains excluded or unsupported elements."""
+    elements = _get_structure_elements(item)
+    if not elements:
+        return False
+    if exclude_elements and (elements & exclude_elements):
+        return True
+    if supported_elements and not (elements <= supported_elements):
+        return True
+    return False
+
+
 def fetch_and_store_mc2d(
     group_label: str = "mc2d_structures",
     max_structures: int = 10,
     elements: list[str] | None = None,
     modifier: Callable[[Structure], Structure] | None = None,
     optimade_filter: str | None = None,
+    exclude_elements: set[str] | None = None,
+    supported_elements: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch MC2D structures, store in an AiiDA group, return data list.
 
@@ -123,6 +154,9 @@ def fetch_and_store_mc2d(
         elements: Filter by elements (e.g. ["B","N"]). Ignored if *optimade_filter* is set.
         modifier: Optional function applied to each pymatgen Structure.
         optimade_filter: Raw OPTIMADE filter string. Overrides *elements* when provided.
+        exclude_elements: Set of elements to exclude; structures containing any are skipped.
+        supported_elements: Whitelist; structures with elements outside this set are skipped.
+            When given, auto-detects unsupported elements.
     """
     from aiida.orm import Group, StructureData
 
@@ -152,6 +186,8 @@ def fetch_and_store_mc2d(
     for item in data:
         if item["id"] in existing_ids:
             continue
+        if _structure_has_unsupported_elements(item, exclude_elements, supported_elements):
+            continue
         pymatgen_structure = item["structure"]
         try:
             node = StructureData(pymatgen=pymatgen_structure)
@@ -169,11 +205,17 @@ def fetch_and_store_mc2d(
     return data
 
 
-def fetch_all_mc2d(max_structures: int | None = None) -> list[dict[str, Any]]:
+def fetch_all_mc2d(
+    max_structures: int | None = None,
+    exclude_elements: set[str] | None = None,
+    supported_elements: set[str] | None = None,
+) -> list[dict[str, Any]]:
     """Fetch all 2D structures from MC2D OPTIMADE.
 
     Args:
         max_structures: Optional cap on total structures.
+        exclude_elements: Set of elements to exclude; structures containing any are skipped.
+        supported_elements: Whitelist; structures with elements outside this set are skipped.
 
     Returns:
         List of dicts with keys: id, formula, nelements, elements, structure (dict), entry.
@@ -181,6 +223,8 @@ def fetch_all_mc2d(max_structures: int | None = None) -> list[dict[str, Any]]:
     raw = fetch_mc2d_structures(max_structures=max_structures)
     results = []
     for item in raw:
+        if _structure_has_unsupported_elements(item, exclude_elements, supported_elements):
+            continue
         attrs = item["entry"]["attributes"]
         results.append({
             "id": item["id"],
@@ -196,12 +240,16 @@ def fetch_all_mc2d(max_structures: int | None = None) -> list[dict[str, Any]]:
 def save_mc2d_by_nelements(
     output_dir: str | Path = ".",
     max_structures: int | None = None,
+    exclude_elements: set[str] | None = None,
+    supported_elements: set[str] | None = None,
 ) -> dict[int, str]:
     """Fetch all MC2D structures and save them into ``mc2d_{N}elements.json`` per element count.
 
     Args:
         output_dir: Directory to write JSON files into.
         max_structures: Optional cap on total structures.
+        exclude_elements: Set of elements to exclude; structures containing any are skipped.
+        supported_elements: Whitelist; structures with elements outside this set are skipped.
 
     Returns:
         Mapping of ``nelements → file path``.
@@ -209,7 +257,11 @@ def save_mc2d_by_nelements(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    data = fetch_all_mc2d(max_structures=max_structures)
+    data = fetch_all_mc2d(
+        max_structures=max_structures,
+        exclude_elements=exclude_elements,
+        supported_elements=supported_elements,
+    )
 
     by_nelements: dict[int, list[dict]] = {}
     for item in data:

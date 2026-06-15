@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from aiida_gw.core.config import get_config, load_config
+from aiida_gw.core.config import ProjectConfig, get_config, load_config
 from aiida_gw.core.enums import CalculationMode
 from aiida_gw.core.logging import get_logger, setup_logging
 
@@ -19,6 +19,46 @@ app = typer.Typer(
 
 console = Console()
 logger = get_logger("cli")
+
+
+def _parse_exclude_elements(exclude_str: str | None) -> set[str] | None:
+    """Parse ``--exclude-elements`` into a set, or return ``None``."""
+    if exclude_str:
+        return set(e.strip() for e in exclude_str.split(",") if e.strip())
+    return None
+
+
+def _detect_supported_elements(config: ProjectConfig) -> set[str] | None:
+    """Auto-detect elements with full basis/potential/RI support from data files."""
+    if not config.gw.resolve_from_files:
+        return None
+    try:
+        from aiida_gw.codes.cp2k.data_reader import get_supported_elements
+
+        supported = get_supported_elements(
+            config.gw.basis_set_file,
+            config.gw.ri_basis_set_file,
+            config.gw.potential_file,
+        )
+        if supported:
+            logger.info(f"Auto-detected {len(supported)} supported elements from data files")
+            return supported
+    except Exception as exc:
+        logger.warning(f"Could not auto-detect supported elements: {exc}")
+    return None
+
+
+def _has_unsupported_elements(
+    struct_elements: set[str],
+    exclude_elements: set[str] | None,
+    supported_elements: set[str] | None,
+) -> bool:
+    """Check if *struct_elements* contains excluded or unsupported elements."""
+    if exclude_elements and (struct_elements & exclude_elements):
+        return True
+    if supported_elements and not (struct_elements <= supported_elements):
+        return True
+    return False
 
 
 @app.command()
@@ -70,6 +110,10 @@ def run(
         str | None,
         typer.Option("--filter", help="Raw OPTIMADE filter string (overrides --elements)"),
     ] = None,
+    exclude_elements: Annotated[
+        str | None,
+        typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
+    ] = None,
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
@@ -118,17 +162,31 @@ def run(
             from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
 
             element_list = elements.split(",") if elements else None
+            user_excl = _parse_exclude_elements(exclude_elements)
+            supported = _detect_supported_elements(config) if user_excl is None else None
             fetch_and_store_mc2d(
                 group_label=group,
                 max_structures=max_structures,
                 elements=element_list,
                 optimade_filter=optimade_filter,
+                exclude_elements=user_excl,
+                supported_elements=supported,
             )
 
             from aiida.orm import Group
 
-            group = Group.collection.get(label=group)
-            structures = list(group.nodes)[:max_structures]
+            group_node = Group.collection.get(label=group)
+            structures = list(group_node.nodes)[:max_structures]
+            if user_excl or supported:
+                filtered = []
+                for s in structures:
+                    comp = s.get_pymatgen().composition
+                    elems = {str(e) for e in comp.elements}
+                    if _has_unsupported_elements(elems, user_excl, supported):
+                        logger.info(f"Skipping structure {s.pk} ({s.label}) — unsupported elements: {elems}")
+                    else:
+                        filtered.append(s)
+                structures = filtered
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData
@@ -262,6 +320,10 @@ def fetch(
         str | None,
         typer.Option("--filter", help="Raw OPTIMADE filter string (overrides --elements)"),
     ] = None,
+    exclude_elements: Annotated[
+        str | None,
+        typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
+    ] = None,
 ) -> None:
     """Fetch 2D structures from MC2D database via OPTIMADE."""
     from aiida import load_profile
@@ -271,11 +333,17 @@ def fetch(
     element_list = elements.split(",") if elements else None
     from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
 
+    config = get_config()
+    user_excl = _parse_exclude_elements(exclude_elements)
+    supported = _detect_supported_elements(config) if user_excl is None else None
+
     data = fetch_and_store_mc2d(
         group_label=group_label,
         max_structures=max_structures,
         elements=element_list,
         optimade_filter=optimade_filter,
+        exclude_elements=user_excl,
+        supported_elements=supported,
     )
     console.print(f"[green]Fetched {len(data)} MC2D structures into group '{group_label}'[/green]")
 
@@ -284,11 +352,24 @@ def fetch(
 def fetch_json(
     output_dir: Annotated[str, typer.Option("--output", "-o", help="Output directory")] = ".",
     max_structures: Annotated[int | None, typer.Option("--max", help="Maximum number of structures")] = None,
+    exclude_elements: Annotated[
+        str | None,
+        typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
+    ] = None,
 ) -> None:
     """Fetch all MC2D structures and save as JSON files grouped by element count."""
     from aiida_gw.datasets.mc2d_optimade import save_mc2d_by_nelements
 
-    paths = save_mc2d_by_nelements(output_dir=output_dir, max_structures=max_structures)
+    config = get_config()
+    user_excl = _parse_exclude_elements(exclude_elements)
+    supported = _detect_supported_elements(config) if user_excl is None else None
+
+    paths = save_mc2d_by_nelements(
+        output_dir=output_dir,
+        max_structures=max_structures,
+        exclude_elements=user_excl,
+        supported_elements=supported,
+    )
     for n, path in sorted(paths.items()):
         console.print(f"[green]{n} element(s):[/green] {path}")
 

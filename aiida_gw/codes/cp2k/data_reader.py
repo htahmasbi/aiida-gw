@@ -190,6 +190,18 @@ def _q_number(name: str) -> int:
     return int(m.group(1)) if m else 0
 
 
+def get_supported_elements(
+    basis_set_file: str | Path,
+    ri_basis_set_file: str | Path,
+    potential_file: str | Path,
+) -> set[str]:
+    """Return the set of elements that have entries in all three data files."""
+    basis_elems = set(parse_cp2k_data_file(basis_set_file).keys())
+    ri_elems = set(parse_cp2k_data_file(ri_basis_set_file).keys())
+    pot_elems = set(parse_cp2k_data_file(potential_file).keys())
+    return basis_elems & ri_elems & pot_elems
+
+
 def resolve_potential_name(
     potential_file: str | Path,
     element: str,
