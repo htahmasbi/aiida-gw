@@ -440,7 +440,9 @@ def main(
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Suppress output")] = False,
 ) -> None:
     """AiiDA GW workflows for CP2K on 2D materials."""
+    global console
     if quiet:
+        console = Console(quiet=True)
         logging.getLogger("aiida_gw").setLevel(logging.WARNING)
     elif verbose:
         logging.getLogger("aiida_gw").setLevel(logging.DEBUG)
