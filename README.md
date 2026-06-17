@@ -22,7 +22,7 @@ Create a `.env` file or set environment variables.  All variables use the
 prefix ``AIIDA_GW_`` with nested keys separated by ``__``:
 
 | Variable | Default | Description |
-|---|---|---|---|
+|---|---|---|
 | `AIIDA_GW_CODE_LABEL` | `cp2k@localhost` | Code label for CP2K |
 | `AIIDA_GW_PROFILE` | — | AiiDA profile name |
 | `AIIDA_GW_NUM_MACHINES` | `1` | Number of nodes |
