@@ -510,6 +510,11 @@ class Cp2kBuilder:
             mixing.setdefault("BETA", self.config.gw.mixing_beta)
             mixing.setdefault("NBROYDEN", self.config.gw.mixing_nbroyden)
 
+            # POISSON section — use config values, fall back to protocol
+            poisson = dft.setdefault("POISSON", {})
+            poisson.setdefault("PERIODIC", self.config.gw.periodic)
+            poisson.setdefault("POISSON_SOLVER", self.config.gw.poisson_solver)
+
             # Generate KIND sections from atom_data (includes RI_AUX if available)
             if atom_data:
                 dict_merge(params, get_kinds_section_qs(structure, atom_data, gw_config=self.config.gw))
