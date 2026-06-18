@@ -12,8 +12,8 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.1
-kpoints_w_distance = 0.1
+kpoints_distance = 0.05
+kpoints_w_distance = 0.05
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
@@ -30,7 +30,7 @@ mixing_alpha = 0.2
 mixing_beta = 0.8
 mixing_nbroyden = 10
 vacuum = 20.0
-supercell = [3, 3, 1]
+supercell = [2, 2, 1]
 bs_npoints = 20
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"

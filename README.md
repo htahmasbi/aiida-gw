@@ -35,9 +35,9 @@ Create a `.env` file or set environment variables. All variables use the prefix 
 | `AIIDA_GW_CUTOFF` | `400` | CP2K plane-wave cutoff (Ry) |
 | `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
 | `AIIDA_GW_VACUUM` | `20` | Vacuum gap (Å) |
-| `AIIDA_GW_SUPERCELL` | `3,3,1` | Supercell dimensions ($x, y, z$) |
-| `AIIDA_GW_KPOINTS` | `4,1,4` | Ground-state K-point mesh |
-| `AIIDA_GW_GW_KPOINTS` | `6,1,6` | GW step K-point mesh |
+| `AIIDA_GW_SUPERCELL` | `2,2,1` | Supercell dimensions ($x, y, z$) |
+| `AIIDA_GW_KPOINTS` | `12,1,12` | Ground-state K-point mesh |
+| `AIIDA_GW_GW_KPOINTS` | `12,1,12` | GW step K-point mesh |
 | `AIIDA_GW_GW_KPOINTS_W` | *Optional* | GW `KPOINTS_W` mesh (if different from `GW_KPOINTS`) |
 | **Files & Basis Sets** | | |
 | `AIIDA_GW_RESOLVE_FROM_FILES` | `True` | Automatically resolve orbital/potential/RI from data files |
