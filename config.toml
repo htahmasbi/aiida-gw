@@ -4,7 +4,7 @@ code_label = "cp2k@localhost"
 num_machines = 2
 num_mpiprocs_per_machine = 128
 max_wallclock_seconds = 86400
-memory_per_machine = "600G"
+memory_per_machine = "1000G"
 partition = "cpu-genoa"
 
 [cp2k]
@@ -12,8 +12,8 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.06
-kpoints_w_distance = 0.06
+kpoints_distance = 0.1
+kpoints_w_distance = 0.1
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
@@ -30,11 +30,11 @@ mixing_alpha = 0.2
 mixing_beta = 0.8
 mixing_nbroyden = 10
 vacuum = 20.0
-supercell = [2, 2, 1]
+supercell = [3, 3, 1]
 bs_npoints = 20
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
 resolve_from_files = true
-ri_basis_accuracy_target = 1e-6
+ri_basis_accuracy_target = 1e-5

@@ -24,6 +24,9 @@ gw:
           ALPHA: 0.2
           BETA: 0.8
           NBROYDEN: 10
+      POISSON:
+        PERIODIC: XZ
+        POISSON_SOLVER: WAVELET  
       XC:
         XC_FUNCTIONAL:
           _: PBE
