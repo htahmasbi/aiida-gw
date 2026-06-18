@@ -37,7 +37,10 @@ class BasisEntry:
 
     def __post_init__(self) -> None:
         if self.accuracy is None:
-            self.accuracy = _extract_accuracy(self.comment) or _extract_accuracy(self.name)
+            acc = _extract_accuracy(self.comment)
+            if acc is None:
+                acc = _extract_accuracy(self.name)
+            self.accuracy = acc
 
 
 def _parse_lines(lines: list[str]) -> dict[str, list[BasisEntry]]:

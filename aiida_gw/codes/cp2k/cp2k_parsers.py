@@ -1,3 +1,5 @@
+import numpy as np
+
 from ase import Atoms
 from aiida_cp2k.parsers import Cp2kBaseParser
 from aiida.engine import ExitCode
@@ -116,6 +118,18 @@ class Cp2kEFSParser(Cp2kBaseParser):
             if 'aiida-s_p_stress_tensor-1_0.stress_tensor' in self.retrieved.list_object_names():
                 stress_tensor = read_s_p_stress_tensor(self.retrieved.get_object_content('aiida-s_p_stress_tensor-1_0.stress_tensor'))
             else:
+                return self.exit_codes.ERROR_OUTPUT_MISSING
+        if result_dict["run_type"] in ["ENERGY"]:
+            try:
+                fname = 'aiida-1.restart'
+                output_string = self.retrieved.base.repository.get_object_content(fname)
+                ase_struct = Atoms(**read_structure(output_string))
+                symbols = ase_struct.get_chemical_symbols()
+                positions = [ase_struct.get_positions()]
+                cells = [ase_struct.get_cell().array]
+                forces = [np.zeros((len(symbols), 3))]
+                stress_tensor = [np.zeros(9)]
+            except Exception:
                 return self.exit_codes.ERROR_OUTPUT_MISSING
 
         if symbols and positions and cells and forces and stress_tensor:
