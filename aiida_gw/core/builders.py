@@ -432,8 +432,16 @@ class Cp2kBuilder:
         if kp_obj is not None:
             # Force non-periodic directions to mesh=1 (vacuum direction)
             _force_periodic_mesh(kp_obj, periodic)
-            builder.cp2k.kpoints = kp_obj
             mesh, _ = kp_obj.get_kpoints_mesh()
+            # Inject KPOINTS section directly into params instead of using
+            # builder.cp2k.kpoints, because the plugin's prepare_for_submission
+            # overrides the entire KPOINTS section (stripping extra keywords).
+            kp_sec = params.setdefault("FORCE_EVAL", {}).setdefault("DFT", {}).setdefault("KPOINTS", {})
+            kp_sec["SCHEME"] = f"MONKHORST-PACK {mesh[0]} {mesh[1]} {mesh[2]}"
+            kp_sec.setdefault("EPS_GEO", "1.0E-8")
+            kp_sec.setdefault("FULL_GRID", "OFF")
+            kp_sec.setdefault("SYMMETRY", "OFF")
+            kp_sec.setdefault("PARALLEL_GROUP_SIZE", -1)
         else:
             mesh = None
 
