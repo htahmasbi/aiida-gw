@@ -26,10 +26,6 @@ def read_structure(content):
     cell = np.array(cell_str, np.float64)
 
     cell_pbc = [True, True, True]
-#    for line in cell_lines:
-#        if line[0] == "PERIODIC":
-#            cell_pbc_str = line[-1]
-#            cell_pbc = [(dir in cell_pbc_str) for dir in ["X", "Y", "Z"]]
 
     return {
         "symbols": symbols,
@@ -90,12 +86,6 @@ def parse_cp2k_output_simple(fstring):
             energy = float(line.split()[8])
             result_dict["energy"] = energy*Eh2eV
             result_dict["energy_units"] = "eV"
-
-#        if line.startswith(" CELL| Periodicity"):
-#            if line.split()[-1] == "XYZ":
-#                result_dict["cell_pbc"] = [True, True, True]
-#            else:
-#                result_dict["cell_pbc"] = [(d in line.split()[-1]) for d in ["X", "Y", "Z"]]
 
         if "run_type" in result_dict.keys():
             # Initialization
@@ -239,13 +229,5 @@ def read_lattice_parameters(content):
     match = re.search(r"\n\s*&CELL\n(.*?)\n\s*&END CELL\n", content, re.DOTALL)
     cell_lines = [line.strip().split() for line in match.group(1).splitlines()]
     cell_str = [line[2:] for line in cell_lines if line[0] in "ABC"]
-    cell = np.array(cell_str, np.float64) 
+    cell = np.array(cell_str, np.float64)
     return cell
-
-#def read_lattice_parameters(content):
-#    bohr2ang = 0.529177208590000
-#    match = re.search(r"\n\s*&CELL\n(.*?)\n\s*&END CELL\n", content, re.DOTALL)
-#    cell_lines = [line.strip().split() for line in match.group(1).splitlines()]
-#    cell_str = [line[1:] for line in cell_lines if line[0] in "ABC"]
-#    cell = np.array(cell_str, np.float64) * bohr2ang
-#    return cell

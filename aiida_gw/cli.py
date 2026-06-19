@@ -357,7 +357,6 @@ def config_show(
         table.add_column("Value", style="green")
 
         table.add_row("code_label", config.code_label)
-        table.add_row("resource_preset", config.resource_preset)
         table.add_row("", "")
 
         table.add_row("cp2k.cutoff", str(config.cp2k.cutoff))

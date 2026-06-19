@@ -129,7 +129,8 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 cells = [ase_struct.get_cell().array]
                 forces = [np.zeros((len(symbols), 3))]
                 stress_tensor = [np.zeros(9)]
-            except Exception:
+            except Exception as exc:
+                self.logger.error("Failed to parse ENERGY run type restart file '%s': %s", fname, exc)
                 return self.exit_codes.ERROR_OUTPUT_MISSING
 
         if symbols and positions and cells and forces and stress_tensor:

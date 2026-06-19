@@ -8,8 +8,6 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
-from aiida_gw.core.enums import RESOURCE_PRESETS
-
 logger = logging.getLogger(__name__)
 
 
@@ -67,8 +65,6 @@ class Cp2kConfig(BaseModel):
     )
     basis_set_file: str = "BASIS_MOLOPT"
     potential_file: str = "GTH_POTENTIALS"
-    basis_set_mapping: dict[str, str] = Field(default_factory=dict)
-    potential_mapping: dict[str, str] = Field(default_factory=dict)
     scf: Cp2kScfConfig = Field(default_factory=Cp2kScfConfig)
 
     @field_validator("kpoints_mesh")
@@ -149,7 +145,6 @@ class ProjectConfig(BaseSettings):
 
     code_label: str = Field(default="cp2k@localhost")
     aiida_profile: str | None = None
-    resource_preset: str = Field(default="default")
     cp2k: Cp2kConfig = Field(default_factory=Cp2kConfig)
     gw: GwConfig = Field(default_factory=GwConfig)
     metadata_options: MetadataOptions = Field(default_factory=MetadataOptions)

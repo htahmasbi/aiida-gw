@@ -98,12 +98,24 @@ def get_kinds_section_qs(
         if symbol in seen:
             continue
         seen.add(symbol)
+
+        basis_data = atom_data.get("basis_set", {})
+        pseudo_data = atom_data.get("pseudopotential", {})
+
         if gw_config and gw_config.resolve_from_files:
-            orb = _resolve_orbital_for_element(symbol, gw_config) or atom_data["basis_set"][symbol]
-            pot = _resolve_potential_for_element(symbol, gw_config) or atom_data["pseudopotential"][symbol]
+            orb = _resolve_orbital_for_element(symbol, gw_config) or basis_data.get(symbol)
+            pot = _resolve_potential_for_element(symbol, gw_config) or pseudo_data.get(symbol)
         else:
-            orb = atom_data["basis_set"][symbol]
-            pot = atom_data["pseudopotential"][symbol]
+            orb = basis_data.get(symbol)
+            pot = pseudo_data.get(symbol)
+
+        if orb is None:
+            logger.warning("No orbital basis found for %s in atom_data, using 'DEFAULT'", symbol)
+            orb = "DEFAULT"
+        if pot is None:
+            logger.warning("No potential found for %s in atom_data, using 'DEFAULT'", symbol)
+            pot = "DEFAULT"
+
         ri = _resolve_ri_for_element(symbol, gw_config) if gw_config else None
 
         kind: dict[str, str] = {
@@ -172,7 +184,11 @@ def get_kinds_section_sirius(structure, atom_data: dict) -> dict:
         if symbol in seen:
             continue
         seen.add(symbol)
-        upf_stem = Path(atom_data[symbol]["filename"]).stem
+        entry = atom_data.get(symbol)
+        if entry is None:
+            logger.warning("No SIRIUS potential data found for %s, skipping KIND section", symbol)
+            continue
+        upf_stem = Path(entry["filename"]).stem
         kind = {
             "_": symbol,
             "POTENTIAL": f"UPF {upf_stem}.json",
@@ -190,6 +206,8 @@ def get_file_section_qs() -> dict:
         if path.exists():
             with open(path, "rb") as fh:
                 files[fname] = SinglefileData(file=fh)
+    if not files:
+        logger.warning("No standard CP2K data files found in %s. The calculation may fail.", cp2k_files)
     return files
 
 

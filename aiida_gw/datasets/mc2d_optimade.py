@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -70,10 +71,23 @@ def fetch_mc2d_structures(
     results: list[dict[str, Any]] = []
     url: str | None = MC2D_STRUCTURES_URL
 
+    max_retries = 3
     while url:
-        resp = requests.get(url, params=params, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
+        retries = 0
+        while retries < max_retries:
+            try:
+                resp = requests.get(url, params=params, timeout=60)
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except (requests.ConnectionError, requests.Timeout, requests.HTTPError) as exc:
+                retries += 1
+                if retries == max_retries:
+                    raise
+                wait = 2 ** retries
+                logger.warning("OPTIMADE request failed (attempt %d/%d): %s. Retrying in %ds ...",
+                               retries, max_retries, exc, wait)
+                time.sleep(wait)
 
         for entry in data["data"]:
             attributes = entry["attributes"]
@@ -266,6 +280,9 @@ def save_mc2d_by_nelements(
     by_nelements: dict[int, list[dict]] = {}
     for item in data:
         n = item["nelements"]
+        if n is None:
+            logger.warning("Skipping structure %s with nelements=None", item.get("id", "unknown"))
+            continue
         by_nelements.setdefault(n, []).append(item)
 
     paths: dict[int, str] = {}
