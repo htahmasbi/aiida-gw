@@ -30,7 +30,7 @@ gw:
           BETA: 0.8
           NBROYDEN: 10
       POISSON:
-        PERIODIC: XZ
+        PERIODIC: XYZ
         POISSON_SOLVER: PERIODIC
       XC:
         XC_FUNCTIONAL:

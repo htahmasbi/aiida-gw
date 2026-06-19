@@ -12,8 +12,8 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.05
-kpoints_w_distance = 0.05
+kpoints_distance = 0.08
+kpoints_w_distance = 0.08
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
