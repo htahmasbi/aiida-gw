@@ -108,7 +108,7 @@ class GwConfig(BaseModel):
     mixing_beta: float = Field(default=0.8)
     mixing_nbroyden: int = Field(default=10)
     num_time_freq: int = Field(default=10, ge=1)
-    memory_per_proc: int = Field(default=300, ge=1)
+    memory_per_proc: int = Field(default=30, ge=1)
     eps_filter: float = Field(default=1.0e-6, gt=0)
     cutoff_radius_ri: int = Field(default=5, ge=1)
     regularization_ri: float = Field(default=0.01, gt=0)

@@ -4,7 +4,7 @@ code_label = "cp2k@localhost"
 num_machines = 2
 num_mpiprocs_per_machine = 128
 max_wallclock_seconds = 86400
-memory_per_machine = "1000G"
+memory_per_machine = "1500G"
 partition = "cpu-genoa"
 
 [cp2k]
@@ -18,7 +18,7 @@ cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
 num_time_freq = 10
-memory_per_proc = 600
+memory_per_proc = 8
 eps_filter = 1.0e-6
 cutoff_radius_ri = 5
 regularization_ri = 0.01
