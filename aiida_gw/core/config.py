@@ -97,7 +97,7 @@ class GwConfig(BaseModel):
         description="Target k-point mesh density (1/Å) for GW correction (KPOINTS_W). Overrides protocol kpoints_w_distance.",
     )
     periodic: str = Field(default="XZ")
-    poisson_solver: str = Field(default="WAVELET")
+    poisson_solver: str = Field(default="PERIODIC")
     cutoff: int = Field(default=400, ge=0)
     rel_cutoff: int = Field(default=50, ge=0)
     eps_default: float = Field(default=1.0e-12, gt=0)
