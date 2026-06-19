@@ -31,7 +31,7 @@ gw:
           NBROYDEN: 10
       POISSON:
         PERIODIC: XZ
-        POISSON_SOLVER: WAVELET
+        POISSON_SOLVER: PERIODIC
       XC:
         XC_FUNCTIONAL:
           _: PBE
