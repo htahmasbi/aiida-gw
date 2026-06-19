@@ -118,6 +118,10 @@ def run(
         str | None,
         typer.Option("--json-dir", help="Directory with mc2d_*.json files from fetch-json"),
     ] = None,
+    formula: Annotated[
+        str | None,
+        typer.Option("--formula", help="Run only the structure with this chemical formula (e.g. MoS2)"),
+    ] = None,
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
@@ -217,15 +221,18 @@ def run(
                 with open(json_file) as f:
                     entries = _json.load(f)
                 for entry in entries:
+                    entry_formula = entry.get("formula", "")
+                    if formula and entry_formula != formula:
+                        continue
                     elems = set(entry.get("elements", []))
                     if target_elements and elems != target_elements:
-                        logger.info(f"Skipping {entry.get('id', 'unknown')} — elements {elems} != {target_elements}")
+                        logger.info(f"Skipping {entry_id} — elements {elems} != {target_elements}")
                         continue
                     if user_excl and (elems & user_excl):
-                        logger.info(f"Skipping {entry.get('id', 'unknown')} — excluded elements: {elems & user_excl}")
+                        logger.info(f"Skipping {entry_id} — excluded elements: {elems & user_excl}")
                         continue
                     if supported and not (elems <= supported):
-                        logger.info(f"Skipping {entry.get('id', 'unknown')} — unsupported elements: {elems - supported}")
+                        logger.info(f"Skipping {entry_id} — unsupported elements: {elems - supported}")
                         continue
                     try:
                         pmg_struct = Structure.from_dict(entry["structure"])
@@ -244,7 +251,8 @@ def run(
                         continue
 
             if not structures:
-                console.print("[red]Error:[/red] No valid structures found in JSON files")
+                msg = f"No structure with formula '{formula}' found" if formula else "No valid structures found in JSON files"
+                console.print(f"[red]Error:[/red] {msg}")
                 raise typer.Exit(1)
 
             console.print(f"[green]Loaded {len(structures)} structures from JSON files[/green]")

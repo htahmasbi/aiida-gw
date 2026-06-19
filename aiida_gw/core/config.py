@@ -108,7 +108,11 @@ class GwConfig(BaseModel):
     mixing_beta: float = Field(default=0.8)
     mixing_nbroyden: int = Field(default=10)
     num_time_freq: int = Field(default=10, ge=1)
-    memory_per_proc: int = Field(default=30, ge=1)
+    memory_per_proc: int = Field(
+        default=8,
+        ge=1,
+        description="Memory per MPI process for the GW run, in GB. Set to node_memory / MPI_per_node (e.g. 1000/128 ≈ 8). Too large = no parallelization, OOM. Too small = poor performance.",
+    )
     eps_filter: float = Field(default=1.0e-6, gt=0)
     cutoff_radius_ri: int = Field(default=5, ge=1)
     regularization_ri: float = Field(default=0.01, gt=0)
