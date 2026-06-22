@@ -103,20 +103,19 @@ def get_kinds_section_qs(
         pseudo_data = atom_data.get("pseudopotential", {})
 
         elem_override = gw_config.element_settings.get(symbol) if gw_config else None
+        resolve_from_files = gw_config and gw_config.resolve_from_files
 
         if elem_override:
-            orb = (
-                elem_override.orb_basis
-                or _resolve_orbital_for_element(symbol, gw_config)
-                or basis_data.get(symbol)
-            )
-            pot = (
-                elem_override.potential
-                or _resolve_potential_for_element(symbol, gw_config)
-                or pseudo_data.get(symbol)
-            )
-            ri = elem_override.ri_basis or (_resolve_ri_for_element(symbol, gw_config) if gw_config else None)
-        elif gw_config and gw_config.resolve_from_files:
+            orb = elem_override.orb_basis
+            if orb is None:
+                orb = _resolve_orbital_for_element(symbol, gw_config) if resolve_from_files else basis_data.get(symbol)
+            pot = elem_override.potential
+            if pot is None:
+                pot = _resolve_potential_for_element(symbol, gw_config) if resolve_from_files else pseudo_data.get(symbol)
+            ri = elem_override.ri_basis
+            if ri is None:
+                ri = _resolve_ri_for_element(symbol, gw_config) if resolve_from_files else None
+        elif resolve_from_files:
             orb = _resolve_orbital_for_element(symbol, gw_config) or basis_data.get(symbol)
             pot = _resolve_potential_for_element(symbol, gw_config) or pseudo_data.get(symbol)
             ri = _resolve_ri_for_element(symbol, gw_config) if gw_config else None
