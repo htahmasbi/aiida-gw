@@ -12,8 +12,8 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.08
-kpoints_w_distance = 0.08
+kpoints_distance = 0.06
+kpoints_w_distance = 0.06
 cutoff = 400
 rel_cutoff = 50
 periodic = "XZ"
@@ -32,9 +32,22 @@ mixing_nbroyden = 10
 vacuum = 20.0
 supercell = [2, 2, 1]
 bs_npoints = 20
+
+# Per-element overrides for basis/potential/RI resolution: 
+# Add entries for any new elements you need, e.g.:
+#
+# [gw.element_settings.B]
+# orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
+# ri_basis = "RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_009_s_p_d_f_g_h_i_3_2_0_0_0_0_0_error_1.1e-06"
+# potential = "GTH-PBE-q3"
+
+# Alternatively, set auto_resolve = true to read element name mappings
+# directly from the three file paths (files must be locally accessible):
+
+resolve_from_files = true
+ri_basis_accuracy_target = 1e-5
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
+
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
-resolve_from_files = true
-ri_basis_accuracy_target = 1e-5
