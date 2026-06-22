@@ -374,6 +374,18 @@ def config_show(
         table.add_row("gw.kpoints_mesh", str(config.gw.kpoints_mesh))
         table.add_row("gw.vacuum", str(config.gw.vacuum))
         table.add_row("gw.supercell", str(config.gw.supercell))
+        if config.gw.element_settings:
+            for el, ovr in config.gw.element_settings.items():
+                parts = []
+                if ovr.orb_basis:
+                    parts.append(f"orb={ovr.orb_basis}")
+                if ovr.potential:
+                    parts.append(f"pot={ovr.potential}")
+                if ovr.ri_basis:
+                    parts.append(f"ri={ovr.ri_basis}")
+                table.add_row(f"gw.element_settings.{el}", ", ".join(parts))
+        else:
+            table.add_row("gw.element_settings", "(none)")
 
         console.print(table)
 

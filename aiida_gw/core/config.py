@@ -79,6 +79,21 @@ class Cp2kConfig(BaseModel):
         return v
 
 
+class ElementOverride(BaseModel):
+    orb_basis: str | None = Field(
+        default=None,
+        description="Orbital basis set name for this element (overrides auto-resolution)",
+    )
+    potential: str | None = Field(
+        default=None,
+        description="Pseudopotential name for this element (overrides auto-resolution)",
+    )
+    ri_basis: str | None = Field(
+        default=None,
+        description="RI auxiliary basis name for this element (overrides auto-resolution)",
+    )
+
+
 class GwConfig(BaseModel):
     kpoints_mesh: list[int] | None = Field(
         default=None,
@@ -142,6 +157,11 @@ class GwConfig(BaseModel):
     )
     ri_basis: str | None = None
     potential: str | None = None
+    element_settings: dict[str, ElementOverride] = Field(
+        default_factory=dict,
+        description="Per-element overrides for basis set, potential, and RI auxiliary basis. "
+        "Keys are element symbols (e.g. 'B', 'N'), values are ElementOverride with optional orb_basis, potential, ri_basis.",
+    )
 
 
 class ProjectConfig(BaseSettings):

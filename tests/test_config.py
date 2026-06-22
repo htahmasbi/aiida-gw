@@ -1,8 +1,9 @@
 """Tests for config models."""
 
+import pytest
 from pydantic import ValidationError
 
-from aiida_gw.core.config import Cp2kConfig, MetadataOptions
+from aiida_gw.core.config import Cp2kConfig, ElementOverride, GwConfig, MetadataOptions
 
 
 class TestMetadataOptions:
@@ -65,16 +66,54 @@ class TestCp2kConfig:
         assert cfg.kpoints_mesh is None
 
     def test_kpoints_mesh_invalid_length(self):
-        import pytest
         with pytest.raises(ValidationError):
             Cp2kConfig(kpoints_mesh=[4, 1])
 
     def test_kpoints_mesh_zero_element(self):
-        import pytest
         with pytest.raises(ValidationError):
             Cp2kConfig(kpoints_mesh=[4, 0, 4])
 
     def test_kpoints_mesh_negative(self):
-        import pytest
         with pytest.raises(ValidationError):
             Cp2kConfig(kpoints_mesh=[-1, 1, 1])
+
+
+class TestElementOverride:
+    def test_defaults(self):
+        ovr = ElementOverride()
+        assert ovr.orb_basis is None
+        assert ovr.potential is None
+        assert ovr.ri_basis is None
+
+    def test_all_fields(self):
+        ovr = ElementOverride(orb_basis="TZV2P", potential="GTH-PBE-q3", ri_basis="RI_TZV2P")
+        assert ovr.orb_basis == "TZV2P"
+        assert ovr.potential == "GTH-PBE-q3"
+        assert ovr.ri_basis == "RI_TZV2P"
+
+    def test_partial(self):
+        ovr = ElementOverride(orb_basis="DZVP")
+        assert ovr.orb_basis == "DZVP"
+        assert ovr.potential is None
+        assert ovr.ri_basis is None
+
+
+class TestGwConfigElementSettings:
+    def test_empty_by_default(self):
+        cfg = GwConfig()
+        assert cfg.element_settings == {}
+
+    def test_with_overrides(self):
+        cfg = GwConfig(
+            element_settings={
+                "B": {"orb_basis": "DZVP-MOLOPT-PBE-GTH-q3", "potential": "GTH-PBE-q3"},
+                "N": {"ri_basis": "RI_TZV2P"},
+            }
+        )
+        assert "B" in cfg.element_settings
+        assert cfg.element_settings["B"].orb_basis == "DZVP-MOLOPT-PBE-GTH-q3"
+        assert cfg.element_settings["B"].potential == "GTH-PBE-q3"
+        assert cfg.element_settings["B"].ri_basis is None
+        assert cfg.element_settings["N"].ri_basis == "RI_TZV2P"
+
+
