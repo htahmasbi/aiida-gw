@@ -435,6 +435,10 @@ def fetch_json(
         str | None,
         typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
     ] = None,
+    structures_per_file: Annotated[
+        int | None,
+        typer.Option("--structures-per-file", help="Max structures per JSON file (splits large groups into numbered chunks)"),
+    ] = None,
 ) -> None:
     """Fetch all MC2D structures and save as JSON files grouped by element count."""
     from aiida_gw.datasets.mc2d_optimade import save_mc2d_by_nelements
@@ -448,9 +452,14 @@ def fetch_json(
         max_structures=max_structures,
         exclude_elements=user_excl,
         supported_elements=supported,
+        structures_per_file=structures_per_file,
     )
-    for n, path in sorted(paths.items()):
-        console.print(f"[green]{n} element(s):[/green] {path}")
+    for n, entry in sorted(paths.items()):
+        if isinstance(entry, list):
+            for p in entry:
+                console.print(f"[green]{n} element(s):[/green] {p}")
+        else:
+            console.print(f"[green]{n} element(s):[/green] {entry}")
 
 
 @app.callback()

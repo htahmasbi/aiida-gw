@@ -256,17 +256,23 @@ def save_mc2d_by_nelements(
     max_structures: int | None = None,
     exclude_elements: set[str] | None = None,
     supported_elements: set[str] | None = None,
-) -> dict[int, str]:
-    """Fetch all MC2D structures and save them into ``mc2d_{N}elements.json`` per element count.
+    structures_per_file: int | None = None,
+) -> dict[int, str | list[str]]:
+    """Fetch all MC2D structures and save them into JSON files per element count.
+
+    When *structures_per_file* is set, each element-count group is split into
+    multiple files of that size (e.g. ``mc2d_2elements_1.json``, ``mc2d_2elements_2.json``).
 
     Args:
         output_dir: Directory to write JSON files into.
         max_structures: Optional cap on total structures.
         exclude_elements: Set of elements to exclude; structures containing any are skipped.
         supported_elements: Whitelist; structures with elements outside this set are skipped.
+        structures_per_file: Max structures per JSON file. When set, large groups are
+            split into numbered chunks.
 
     Returns:
-        Mapping of ``nelements → file path``.
+        Mapping of ``nelements → file path(s)``.
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -285,13 +291,26 @@ def save_mc2d_by_nelements(
             continue
         by_nelements.setdefault(n, []).append(item)
 
-    paths: dict[int, str] = {}
+    paths: dict[int, str | list[str]] = {}
     for n, entries in sorted(by_nelements.items()):
-        filename = f"mc2d_{n}elements.json"
-        filepath = out / filename
-        with open(filepath, "w") as f:
-            json.dump(entries, f, indent=2)
-        logger.info(f"Saved {len(entries)} structures to {filepath}")
-        paths[n] = str(filepath)
+        if structures_per_file and len(entries) > structures_per_file:
+            file_list: list[str] = []
+            for i in range(0, len(entries), structures_per_file):
+                chunk = entries[i:i + structures_per_file]
+                chunk_num = i // structures_per_file + 1
+                filename = f"mc2d_{n}elements_{chunk_num}.json"
+                filepath = out / filename
+                with open(filepath, "w") as f:
+                    json.dump(chunk, f, indent=2)
+                logger.info(f"Saved {len(chunk)} structures to {filepath}")
+                file_list.append(str(filepath))
+            paths[n] = file_list
+        else:
+            filename = f"mc2d_{n}elements.json"
+            filepath = out / filename
+            with open(filepath, "w") as f:
+                json.dump(entries, f, indent=2)
+            logger.info(f"Saved {len(entries)} structures to {filepath}")
+            paths[n] = str(filepath)
 
     return paths

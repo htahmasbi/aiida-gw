@@ -485,3 +485,113 @@ def test_save_mc2d_creates_output_dir(mock_fetch):
         paths = save_mc2d_by_nelements(nested)
         assert nested.exists()
         assert paths == {}
+
+
+# ── save_mc2d_by_nelements chunking ───────────────────────────────────────────
+
+@patch("aiida_gw.datasets.mc2d_optimade.fetch_mc2d_structures")
+def test_save_mc2d_chunking_splits_large_group(mock_fetch):
+    from pymatgen.core import Lattice, Structure
+
+    bn_struct = Structure(
+        Lattice([[2.5, 0, 0], [-1.25, 2.165, 0], [0, 0, 15]]),
+        ["B", "N"],
+        [[0, 0, 0], [1.25, 0.722, 0]],
+    )
+
+    mock_fetch.return_value = [
+        {
+            "id": f"mc2d_{i:03d}",
+            "formula": "BN",
+            "entry": {"attributes": {"nelements": 2, "elements": ["B", "N"]}},
+            "structure": bn_struct,
+            "nsites": 2,
+        }
+        for i in range(55)
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        paths = save_mc2d_by_nelements(tmpdir, structures_per_file=20)
+
+        assert 2 in paths
+        assert isinstance(paths[2], list)
+        assert len(paths[2]) == 3  # 55 / 20 = 3 chunks (20 + 20 + 15)
+
+        for i, filepath_str in enumerate(paths[2]):
+            filepath = Path(filepath_str)
+            assert filepath.exists()
+            assert filepath.name == f"mc2d_2elements_{i + 1}.json"
+            with open(filepath) as f:
+                chunk = json.load(f)
+            expected = 20 if i < 2 else 15
+            assert len(chunk) == expected
+
+
+@patch("aiida_gw.datasets.mc2d_optimade.fetch_mc2d_structures")
+def test_save_mc2d_chunking_small_group_not_split(mock_fetch):
+    from pymatgen.core import Lattice, Structure
+
+    bn_struct = Structure(
+        Lattice([[2.5, 0, 0], [-1.25, 2.165, 0], [0, 0, 15]]),
+        ["B", "N"],
+        [[0, 0, 0], [1.25, 0.722, 0]],
+    )
+
+    mock_fetch.return_value = [
+        {
+            "id": f"mc2d_{i:03d}",
+            "formula": "BN",
+            "entry": {"attributes": {"nelements": 2, "elements": ["B", "N"]}},
+            "structure": bn_struct,
+            "nsites": 2,
+        }
+        for i in range(15)
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        paths = save_mc2d_by_nelements(tmpdir, structures_per_file=20)
+
+        assert 2 in paths
+        assert isinstance(paths[2], str)  # single file, not split
+        assert Path(paths[2]).name == "mc2d_2elements.json"
+
+
+@patch("aiida_gw.datasets.mc2d_optimade.fetch_mc2d_structures")
+def test_save_mc2d_chunking_exact_multiple(mock_fetch):
+    from pymatgen.core import Lattice, Structure
+
+    bn_struct = Structure(
+        Lattice([[2.5, 0, 0], [-1.25, 2.165, 0], [0, 0, 15]]),
+        ["B", "N"],
+        [[0, 0, 0], [1.25, 0.722, 0]],
+    )
+
+    mock_fetch.return_value = [
+        {
+            "id": f"mc2d_{i:03d}",
+            "formula": "BN",
+            "entry": {"attributes": {"nelements": 2, "elements": ["B", "N"]}},
+            "structure": bn_struct,
+            "nsites": 2,
+        }
+        for i in range(40)
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        paths = save_mc2d_by_nelements(tmpdir, structures_per_file=20)
+
+        assert isinstance(paths[2], list)
+        assert len(paths[2]) == 2  # exactly 2 chunks of 20
+        for i, filepath_str in enumerate(paths[2]):
+            with open(filepath_str) as f:
+                assert len(json.load(f)) == 20
+
+
+@patch("aiida_gw.datasets.mc2d_optimade.fetch_mc2d_structures")
+def test_save_mc2d_chunking_with_exclude(mock_fetch):
+    from pymatgen.core import Lattice, Structure
+
+    mock_fetch.return_value = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        paths = save_mc2d_by_nelements(tmpdir, structures_per_file=50)
+        assert paths == {}
