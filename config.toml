@@ -2,9 +2,10 @@ code_label = "cp2k@localhost"
 
 [metadata_options]
 num_machines = 2
-num_mpiprocs_per_machine = 128
+num_mpiprocs_per_machine = 16
+cpus_per_task = 8
 max_wallclock_seconds = 86400
-memory_per_machine = "1500G"
+memory_per_machine = "0"
 partition = "cpu-genoa"
 
 [cp2k]
@@ -12,11 +13,11 @@ cutoff = 400
 kpoints_distance = 0.3
 
 [gw]
-kpoints_distance = 0.06
-kpoints_w_distance = 0.06
+kpoints_distance = 2.0
+kpoints_w_distance = 2.0
 cutoff = 400
 rel_cutoff = 50
-periodic = "XZ"
+periodic = "XYZ"
 num_time_freq = 10
 memory_per_proc = 8
 eps_filter = 1.0e-6
@@ -26,11 +27,11 @@ eps_default = 1.0e-12
 eps_pgf_orb = 1.0e-12
 eps_scf = 5.0e-7
 max_scf = 500
-mixing_alpha = 0.2
-mixing_beta = 0.8
+mixing_alpha = 0.1
+mixing_beta = 1.5
 mixing_nbroyden = 10
 vacuum = 20.0
-supercell = [2, 2, 1]
+supercell = [1, 1, 1]
 bs_npoints = 20
 
 # Per-element overrides for basis/potential/RI resolution: 
