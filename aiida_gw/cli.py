@@ -226,13 +226,13 @@ def run(
                         continue
                     elems = set(entry.get("elements", []))
                     if target_elements and elems != target_elements:
-                        logger.info(f"Skipping {entry_id} — elements {elems} != {target_elements}")
+                        logger.info(f"Skipping {entry.get('id', '')} — elements {elems} != {target_elements}")
                         continue
                     if user_excl and (elems & user_excl):
-                        logger.info(f"Skipping {entry_id} — excluded elements: {elems & user_excl}")
+                        logger.info(f"Skipping {entry.get('id', '')} — excluded elements: {elems & user_excl}")
                         continue
                     if supported and not (elems <= supported):
-                        logger.info(f"Skipping {entry_id} — unsupported elements: {elems - supported}")
+                        logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
                         continue
                     try:
                         pmg_struct = Structure.from_dict(entry["structure"])
