@@ -18,6 +18,8 @@ basis_set:
   P:  aug-DZVP-MOLOPT-GTH-q5
   S:  aug-DZVP-MOLOPT-GTH-q6
   Cl: aug-DZVP-MOLOPT-GTH-q7
+  Te: aug-DZVP-MOLOPT-SR-GTH-q6
+  W:  aug-DZVP-MOLOPT-SR-GTH-q14
 
 pseudopotential:
   H:  GTH-PBE-q1
@@ -37,3 +39,5 @@ pseudopotential:
   P:  GTH-PBE-q5
   S:  GTH-PBE-q6
   Cl: GTH-PBE-q7
+  Te: GTH-PBE-q6
+  W:  GTH-PBE-q14

@@ -29,6 +29,7 @@ Create a `.env` file or set environment variables. All variables use the prefix 
 | `AIIDA_GW_NUM_MACHINES` | `1` | Number of compute nodes |
 | `AIIDA_GW_NUM_MPIPROCS` | `8` | MPI processes per node |
 | `AIIDA_GW_WALLTIME` | `36000` | Max wallclock time in seconds (10 hours) |
+| `AIIDA_GW_METADATA_OPTIONS__CPUS_PER_TASK` | *Optional* | CPUs per task ($\rightarrow$ `#SBATCH --cpus-per-task`) |
 | `AIIDA_GW_METADATA_OPTIONS__MEMORY_PER_MACHINE` | *Optional* | Memory per node (e.g., `600G` or `38400M` $\rightarrow$ `#SBATCH --mem`) |
 | `AIIDA_GW_METADATA_OPTIONS__PARTITION` | *Optional* | SLURM partition ($\rightarrow$ `#SBATCH --partition`) |
 | **CP2K Physics** | | |
@@ -55,6 +56,7 @@ or the current directory:
 num_machines = 2
 num_mpiprocs_per_machine = 64
 max_wallclock_seconds = 86400
+cpus_per_task = 8
 memory_per_machine = "600G"
 partition = "cpu-genoa"
 

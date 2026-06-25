@@ -16,6 +16,11 @@ class MetadataOptions(BaseModel):
     num_mpiprocs_per_machine: int = Field(default=8, ge=1)
     max_wallclock_seconds: int = Field(default=36000, ge=60)
     withmpi: bool = True
+    cpus_per_task: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of CPUs per task. When set, passed to the scheduler as #SBATCH --cpus-per-task=.",
+    )
     memory_per_machine: str | None = Field(
         default=None,
         description="Memory per node (e.g. \"600G\" or \"38400M\"). Passed to the scheduler as #SBATCH --mem=.",
@@ -35,6 +40,8 @@ class MetadataOptions(BaseModel):
             "withmpi": self.withmpi,
         }
         scheduler_lines = []
+        if self.cpus_per_task is not None:
+            scheduler_lines.append(f"#SBATCH --cpus-per-task={self.cpus_per_task}")
         if self.memory_per_machine is not None:
             scheduler_lines.append(f"#SBATCH --mem={self.memory_per_machine}")
         if self.partition:
@@ -122,6 +129,22 @@ class GwConfig(BaseModel):
     mixing_alpha: float = Field(default=0.2)
     mixing_beta: float = Field(default=0.8)
     mixing_nbroyden: int = Field(default=10)
+    smearing: bool = Field(
+        default=False,
+        description="Enable smearing for SCF convergence (useful for small-gap systems during initial SCF)",
+    )
+    smearing_electronic_temperature: float = Field(
+        default=300.0,
+        description="Electronic temperature [K] for smearing (only used when smearing=True)",
+    )
+    smearing_method: str = Field(
+        default="FERMI_DIRAC",
+        description="Smearing method: FERMI_DIRAC or ENERGY_WINDOW",
+    )
+    added_mos: int = Field(
+        default=0,
+        description="Number of additional MOs to add for SCF convergence. 0 = use protocol default.",
+    )
     num_time_freq: int = Field(default=10, ge=1)
     memory_per_proc: int = Field(
         default=8,

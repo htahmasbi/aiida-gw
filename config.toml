@@ -33,21 +33,29 @@ vacuum = 20.0
 supercell = [2, 2, 1]
 bs_npoints = 20
 
-# Per-element overrides for basis/potential/RI resolution: 
-# Add entries for any new elements you need, e.g.:
-#
-# [gw.element_settings.B]
-# orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
-# ri_basis = "RI_aug-SZV-MOLOPT-GTH-tier-1_N_RI_009_s_p_d_f_g_h_i_3_2_0_0_0_0_0_error_1.1e-06"
-# potential = "GTH-PBE-q3"
-
-# Alternatively, set auto_resolve = true to read element name mappings
-# directly from the three file paths (files must be locally accessible):
-
+# Basis/potential resolution — resolves names from the data files below
 resolve_from_files = true
 ri_basis_accuracy_target = 1e-5
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
 
-basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
-ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
-potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
+basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states"
+ri_basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
+potential_file = "/path/to/POTENTIAL_UZH"
+
+# Per-element overrides (when resolve_from_files fails or you need explicit names)
+# Example for Te₂W:
+# [gw.element_settings.Te]
+# orb_basis = "aug-DZVP-MOLOPT-SR-GTH-q6"
+# ri_basis = "RI_aug-DZVP-MOLOPT-SR-GTH-q6_..._error_1.0e-05"
+# potential = "GTH-PBE-q6"
+# [gw.element_settings.W]
+# orb_basis = "aug-DZVP-MOLOPT-SR-GTH-q14"
+# potential = "GTH-PBE-q14"
+
+# Smearing — enable only if SCF still doesn't converge (e.g. small-gap systems)
+# gw.smearing = true
+# gw.smearing_electronic_temperature = 300.0
+# gw.smearing_method = "FERMI_DIRAC"
+
+# Additional MOs for SCF stability (0 = use protocol default)
+# gw.added_mos = 40

@@ -19,8 +19,14 @@ gw:
         EPS_DEFAULT: 1.0E-12
         EPS_PGF_ORB: 1.0E-12
       SCF:
-        SCF_GUESS: RESTART
+        SCF_GUESS: ATOMIC
         MAX_SCF: 500
+        ADDED_MOS: 20
+        EPS_SCF: 1.0E-6
+        OUTER_SCF:
+          MAX_SCF: 10
+          EPS_SCF: 1.0E-6
+          DIIS: {}
         PRINT:
           RESTART:
             _: "ON"

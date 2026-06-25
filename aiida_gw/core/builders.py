@@ -545,11 +545,19 @@ class Cp2kBuilder:
             scf = dft.setdefault("SCF", {})
             scf.setdefault("EPS_SCF", self.config.gw.eps_scf)
             scf.setdefault("MAX_SCF", self.config.gw.max_scf)
+            if self.config.gw.added_mos:
+                scf["ADDED_MOS"] = self.config.gw.added_mos
             mixing = scf.setdefault("MIXING", {})
             mixing.setdefault("METHOD", "BROYDEN_MIXING")
             mixing.setdefault("ALPHA", self.config.gw.mixing_alpha)
             mixing.setdefault("BETA", self.config.gw.mixing_beta)
             mixing.setdefault("NBROYDEN", self.config.gw.mixing_nbroyden)
+
+            # Smearing — helps SCF convergence for small-gap systems
+            if self.config.gw.smearing:
+                smearing = dft.setdefault("SMEAR", {})
+                smearing.setdefault("ELEC_TEMPERATURE", self.config.gw.smearing_electronic_temperature)
+                smearing.setdefault("METHOD", self.config.gw.smearing_method)
 
             # POISSON section — use config values, fall back to protocol
             poisson = dft.setdefault("POISSON", {})
