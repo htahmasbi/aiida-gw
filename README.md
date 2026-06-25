@@ -64,9 +64,11 @@ ri_basis_set_file = "/path/to/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/path/to/POTENTIAL_UZH"
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
 resolve_from_files = true
-kpoints_mesh = [6, 1, 6]
+ri_basis_accuracy_target = 1e-5
+kpoints_distance = 0.06
+kpoints_w_distance = 0.06
 vacuum = 20.0
-supercell = [3, 3, 1]
+supercell = [2, 2, 1]
 ```
 
 ## Usage
