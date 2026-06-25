@@ -18,6 +18,7 @@ kpoints_w_distance = 0.3
 cutoff = 400
 rel_cutoff = 50
 periodic = "XYZ"
+cell_periodic = "XYZ"
 num_time_freq = 10
 memory_per_proc = 8
 eps_filter = 1.0e-6
