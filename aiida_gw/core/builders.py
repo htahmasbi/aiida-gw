@@ -536,25 +536,25 @@ class Cp2kBuilder:
             dft["MGRID"]["CUTOFF"] = self.config.gw.cutoff
             dft["MGRID"]["REL_CUTOFF"] = self.config.gw.rel_cutoff
 
-            # The QS section should already exist in the protocol, set eps defaults from config
+            # Set QS defaults from config (config wins over protocol)
             qs = dft.setdefault("QS", {})
-            qs.setdefault("EPS_DEFAULT", self.config.gw.eps_default)
-            qs.setdefault("EPS_PGF_ORB", self.config.gw.eps_pgf_orb)
+            qs["EPS_DEFAULT"] = self.config.gw.eps_default
+            qs["EPS_PGF_ORB"] = self.config.gw.eps_pgf_orb
 
-            # SCF section — set eps_scf, max_scf from config if not in protocol
+            # SCF section — config wins over protocol
             scf = dft.setdefault("SCF", {})
-            scf.setdefault("EPS_SCF", self.config.gw.eps_scf)
-            scf.setdefault("MAX_SCF", self.config.gw.max_scf)
+            scf["EPS_SCF"] = self.config.gw.eps_scf
+            scf["MAX_SCF"] = self.config.gw.max_scf
             mixing = scf.setdefault("MIXING", {})
-            mixing.setdefault("METHOD", "BROYDEN_MIXING")
-            mixing.setdefault("ALPHA", self.config.gw.mixing_alpha)
-            mixing.setdefault("BETA", self.config.gw.mixing_beta)
-            mixing.setdefault("NBROYDEN", self.config.gw.mixing_nbroyden)
+            mixing["METHOD"] = "BROYDEN_MIXING"
+            mixing["ALPHA"] = self.config.gw.mixing_alpha
+            mixing["BETA"] = self.config.gw.mixing_beta
+            mixing["NBROYDEN"] = self.config.gw.mixing_nbroyden
 
-            # POISSON section — use config values, fall back to protocol
+            # POISSON section — config wins over protocol
             poisson = dft.setdefault("POISSON", {})
-            poisson.setdefault("PERIODIC", self.config.gw.periodic)
-            poisson.setdefault("POISSON_SOLVER", self.config.gw.poisson_solver)
+            poisson["PERIODIC"] = self.config.gw.periodic
+            poisson["POISSON_SOLVER"] = self.config.gw.poisson_solver
 
             # Generate KIND sections from atom_data (includes RI_AUX if available)
             if atom_data:
@@ -683,19 +683,19 @@ class Cp2kBuilder:
         # Generate bandstructure path (use pre-computed or auto-detect)
         bs_path.setdefault("DOS", {})
         bs_path.setdefault("BANDSTRUCTURE_PATH", {})
-        bs_path["BANDSTRUCTURE_PATH"].setdefault("NPOINTS", gw_config.bs_npoints)
-        bs_path["BANDSTRUCTURE_PATH"].setdefault("UNITS", "B_VECTOR")
+        bs_path["BANDSTRUCTURE_PATH"]["NPOINTS"] = gw_config.bs_npoints
+        bs_path["BANDSTRUCTURE_PATH"]["UNITS"] = "B_VECTOR"
         if bandstructure_path is not None:
             bs_path["BANDSTRUCTURE_PATH"]["SPECIAL_POINT"] = bandstructure_path
         else:
-            bs_path["BANDSTRUCTURE_PATH"].setdefault("SPECIAL_POINT", get_bandstructure_path(structure))
+            bs_path["BANDSTRUCTURE_PATH"]["SPECIAL_POINT"] = get_bandstructure_path(structure)
 
-        # Set GW-specific numerical params from config
-        gw_sec.setdefault("NUM_TIME_FREQ_POINTS", gw_config.num_time_freq)
-        gw_sec.setdefault("MEMORY_PER_PROC", gw_config.memory_per_proc)
-        gw_sec.setdefault("EPS_FILTER", gw_config.eps_filter)
-        gw_sec.setdefault("CUTOFF_RADIUS_RI", gw_config.cutoff_radius_ri)
-        gw_sec.setdefault("REGULARIZATION_RI", gw_config.regularization_ri)
+        # Set GW-specific numerical params from config (config wins over protocol)
+        gw_sec["NUM_TIME_FREQ_POINTS"] = gw_config.num_time_freq
+        gw_sec["MEMORY_PER_PROC"] = gw_config.memory_per_proc
+        gw_sec["EPS_FILTER"] = gw_config.eps_filter
+        gw_sec["CUTOFF_RADIUS_RI"] = gw_config.cutoff_radius_ri
+        gw_sec["REGULARIZATION_RI"] = gw_config.regularization_ri
 
         _strip_invalid_keys(params)
         builder.cp2k.parameters = Dict(dict=params)
