@@ -571,10 +571,8 @@ class Cp2kBuilder:
                 f'{structure.cell[i][1]:<15} {structure.cell[i][2]:<15}'
             )
 
-        # Periodic (default XYZ, or from protocol)
-        periodic = cell.get("PERIODIC")
-        if periodic is None:
-            cell["PERIODIC"] = "XYZ"
+        # Cell periodicity — config wins over protocol
+        cell["PERIODIC"] = self.config.gw.cell_periodic
 
         # Strip any keys invalid for the CP2K input generator
         _strip_invalid_keys(params)

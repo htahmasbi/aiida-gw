@@ -40,6 +40,8 @@ Create a `.env` file or set environment variables. All variables use the prefix 
 | `AIIDA_GW_KPOINTS` | `12,1,12` | Ground-state K-point mesh |
 | `AIIDA_GW_GW_KPOINTS` | `12,1,12` | GW step K-point mesh |
 | `AIIDA_GW_GW_KPOINTS_W` | *Optional* | GW `KPOINTS_W` mesh (if different from `GW_KPOINTS`) |
+| `AIIDA_GW_PERIODIC` | `XZ` | Poisson solver periodicity (e.g., `XZ` for 2D, `XYZ` for bulk) |
+| `AIIDA_GW_CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
 | **Files & Basis Sets** | | |
 | `AIIDA_GW_RESOLVE_FROM_FILES` | `True` | Automatically resolve orbital/potential/RI from data files |
 | `AIIDA_GW_ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` | Orbital basis set name |
@@ -71,6 +73,8 @@ kpoints_distance = 0.06
 kpoints_w_distance = 0.06
 vacuum = 20.0
 supercell = [2, 2, 1]
+periodic = "XZ"
+cell_periodic = "XZ"
 ```
 
 ## Usage

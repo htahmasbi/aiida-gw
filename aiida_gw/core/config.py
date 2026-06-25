@@ -118,7 +118,16 @@ class GwConfig(BaseModel):
         default=None,
         description="Target k-point mesh density (1/Å) for GW correction (KPOINTS_W). Overrides protocol kpoints_w_distance.",
     )
-    periodic: str = Field(default="XZ")
+    periodic: str = Field(
+        default="XZ",
+        description="Periodicity for the Poisson solver (DFT.POISSON.PERIODIC). "
+        "Typically \"XZ\" for 2D materials with vacuum in Y, or \"XYZ\" for bulk.",
+    )
+    cell_periodic: str = Field(
+        default="XZ",
+        description="Cell periodicity (SUBSYS.CELL.PERIODIC). "
+        "Typically \"XZ\" for 2D materials with vacuum in Y.",
+    )
     poisson_solver: str = Field(default="PERIODIC")
     cutoff: int = Field(default=400, ge=0)
     rel_cutoff: int = Field(default=50, ge=0)
