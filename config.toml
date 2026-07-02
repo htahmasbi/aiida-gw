@@ -14,15 +14,16 @@ kpoints_distance = 0.3
 
 [gw]
 kpoints_distance = 0.08
-kpoints_w_distance = 0.3
-cutoff = 400
-rel_cutoff = 50
+#kpoints_w_distance = 0.3
+kpoints_w_mesh = [-1,-1,-1]
+cutoff = 500
+rel_cutoff = 100
 periodic = "XYZ"
-cell_periodic = "XYZ"
-num_time_freq = 10
-memory_per_proc = 8
+cell_periodic = "XZ"
+num_time_freq = 30
+memory_per_proc = 10
 eps_filter = 1.0e-6
-cutoff_radius_ri = 5
+cutoff_radius_ri = 7.0
 regularization_ri = 0.01
 eps_default = 1.0e-12
 eps_pgf_orb = 1.0e-12
