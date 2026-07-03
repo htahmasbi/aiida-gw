@@ -687,6 +687,10 @@ class Cp2kBuilder:
             else:
                 kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
 
+        # Non-positive values mean "skip KPOINTS_W" (let CP2K use its default)
+        if kpoints_w is not None and any(k <= 0 for k in kpoints_w):
+            kpoints_w = None
+
         bs_path = params.setdefault("FORCE_EVAL", {}).setdefault("PROPERTIES", {}).setdefault("BANDSTRUCTURE", {})
         gw_sec = bs_path.setdefault("GW", {})
         if kpoints_w is not None:

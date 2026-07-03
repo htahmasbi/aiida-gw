@@ -14,7 +14,7 @@ kpoints_distance = 0.3
 
 [gw]
 kpoints_distance = 0.08
-#kpoints_w_distance = 0.3
+kpoints_w_mesh = [-1,-1,-1]
 
 cutoff = 500
 rel_cutoff = 100
