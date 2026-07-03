@@ -1,7 +1,7 @@
 code_label = "cp2k@localhost"
 
 [metadata_options]
-num_machines = 2
+num_machines = 4
 num_mpiprocs_per_machine = 16
 cpus_per_task = 8
 max_wallclock_seconds = 86400
@@ -20,9 +20,9 @@ cutoff = 500
 rel_cutoff = 100
 periodic = "XYZ"
 cell_periodic = "XZ"
-num_time_freq = 30
+num_time_freq = 10
 memory_per_proc = 10
-eps_filter = 1.0e-6
+eps_filter = 1.0e-8
 cutoff_radius_ri = 7.0
 regularization_ri = 0.01
 eps_default = 1.0e-12
@@ -49,8 +49,8 @@ bs_npoints = 20
 
 resolve_from_files = true
 ri_basis_accuracy_target = 1e-5
-orb_basis = "aug-SZV-MOLOPT-GTH-tier-1"
+orb_basis = "aug-SZV-MOLOPT-GTH-tier-2"
 
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
-potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/POTENTIAL_UZH"
+potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/GTH_SOC_POTENTIALS"
