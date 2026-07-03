@@ -140,6 +140,8 @@ def resolve_ri_basis_name(
     if orb_basis:
         prefix = f"RI_{orb_basis}"
         entries = [e for e in entries if prefix in e.name]
+        if not orb_basis.endswith("-SR"):
+            entries = [e for e in entries if f"{prefix}-SR" not in e.name]
 
     if not entries:
         return None
