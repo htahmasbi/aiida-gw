@@ -82,6 +82,7 @@ def get_kinds_section_qs(
     structure,
     atom_data: dict,
     gw_config=None,
+    xc_functional: str | None = None,
 ) -> dict:
     """Build &KIND section for QUICKSTEP.
 
@@ -89,6 +90,9 @@ def get_kinds_section_qs(
     RI auxiliary is always resolved from the configured RI basis file when
     *gw_config* is available. When ``resolve_from_files`` is also ``True``, the
     orbital basis and potential are resolved from their configured files too.
+
+    When *xc_functional* is given, only potentials matching that functional
+    are considered during auto-resolution.
     """
     kinds = []
     ase = structure.get_ase()
@@ -111,13 +115,13 @@ def get_kinds_section_qs(
                 orb = _resolve_orbital_for_element(symbol, gw_config) if resolve_from_files else basis_data.get(symbol)
             pot = elem_override.potential
             if pot is None:
-                pot = _resolve_potential_for_element(symbol, gw_config) if resolve_from_files else pseudo_data.get(symbol)
+                pot = _resolve_potential_for_element(symbol, gw_config, xc_functional=xc_functional) if resolve_from_files else pseudo_data.get(symbol)
             ri = elem_override.ri_basis
             if ri is None:
                 ri = _resolve_ri_for_element(symbol, gw_config) if resolve_from_files else None
         elif resolve_from_files:
             orb = _resolve_orbital_for_element(symbol, gw_config) or basis_data.get(symbol)
-            pot = _resolve_potential_for_element(symbol, gw_config) or pseudo_data.get(symbol)
+            pot = _resolve_potential_for_element(symbol, gw_config, xc_functional=xc_functional) or pseudo_data.get(symbol)
             ri = _resolve_ri_for_element(symbol, gw_config) if gw_config else None
         else:
             orb = basis_data.get(symbol)
@@ -175,12 +179,16 @@ def _resolve_orbital_for_element(symbol: str, gw_config) -> str | None:
         return None
 
 
-def _resolve_potential_for_element(symbol: str, gw_config) -> str | None:
-    """Auto-resolve potential name for *symbol* from the configured potential file."""
+def _resolve_potential_for_element(symbol: str, gw_config, xc_functional: str | None = None) -> str | None:
+    """Auto-resolve potential name for *symbol* from the configured potential file.
+
+    When *xc_functional* is given (e.g. ``"PBE"``), only potentials matching
+    that functional are considered.
+    """
     try:
         from aiida_gw.codes.cp2k.data_reader import resolve_potential_name
 
-        return resolve_potential_name(gw_config.potential_file, symbol)
+        return resolve_potential_name(gw_config.potential_file, symbol, xc_functional=xc_functional)
     except Exception as exc:
         logger.error(f"Could not auto-resolve potential for {symbol}: {exc}")
         print(f"Error: Could not auto-resolve potential for {symbol}: {exc}", file=sys.stderr)
@@ -556,9 +564,20 @@ class Cp2kBuilder:
             poisson["PERIODIC"] = self.config.gw.periodic
             poisson["POISSON_SOLVER"] = self.config.gw.poisson_solver
 
+            # Determine XC functional — config override wins, fall back to protocol
+            xc_functional = self.config.gw.xc_functional
+            if xc_functional is None:
+                xc_functional = (
+                    params.get("FORCE_EVAL", {})
+                    .get("DFT", {})
+                    .get("XC", {})
+                    .get("XC_FUNCTIONAL", {})
+                    .get("_")
+                )
+
             # Generate KIND sections from atom_data (includes RI_AUX if available)
             if atom_data:
-                dict_merge(params, get_kinds_section_qs(structure, atom_data, gw_config=self.config.gw))
+                dict_merge(params, get_kinds_section_qs(structure, atom_data, gw_config=self.config.gw, xc_functional=xc_functional))
                 if not dft.get("BASIS_SET_FILE_NAME"):
                     builder.cp2k.file = get_file_section_qs()
 

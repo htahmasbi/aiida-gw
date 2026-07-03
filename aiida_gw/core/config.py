@@ -173,6 +173,12 @@ class GwConfig(BaseModel):
     )
     ri_basis: str | None = None
     potential: str | None = None
+    xc_functional: str | None = Field(
+        default=None,
+        description="XC functional name for potential selection (e.g. \"PBE\", \"OLYP\"). "
+        "When set, overrides the XC functional from the protocol YAML when resolving "
+        "potential names from the potential file.",
+    )
     element_settings: dict[str, ElementOverride] = Field(
         default_factory=dict,
         description="Per-element overrides for basis set, potential, and RI auxiliary basis. "

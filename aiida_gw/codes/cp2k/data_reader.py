@@ -209,12 +209,17 @@ def resolve_potential_name(
     potential_file: str | Path,
     element: str,
     pattern: str | None = "GTH-",
+    xc_functional: str | None = None,
 ) -> str | None:
     """Return the potential name for *element* from a CP2K POTENTIAL file.
 
-    When *pattern* is given (default ``"GTH-"``), only names containing
-    it are considered — this avoids picking an all-electron entry when
-    a pseudopotential is wanted.
+    When *xc_functional* is given (e.g. ``"PBE"``), the pattern is
+    narrowed to ``GTH-{xc_functional}`` so that only potentials matching
+    that XC functional are selected from a multi-functional file.
+
+    Otherwise, when *pattern* is given (default ``"GTH-"``), only names
+    containing it are considered — this avoids picking an all-electron
+    entry when a pseudopotential is wanted.
 
     When multiple entries match (e.g. ``GTH-PBE-q1`` and ``GTH-PBE-q9``
     for Na), the one with the **largest** q-number (most valence
@@ -222,6 +227,8 @@ def resolve_potential_name(
     """
     entries = list_basis_entries(potential_file, element)
     names = [_first_token(e.name) for e in entries]
+    if xc_functional:
+        pattern = f"GTH-{xc_functional}"
     if pattern:
         names = [n for n in names if pattern in n]
     if not names:
