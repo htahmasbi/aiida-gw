@@ -177,10 +177,15 @@ def resolve_orbital_basis_name(
 
     When *orb_basis* is given, picks the first entry whose name contains it
     (e.g. ``"aug-SZV-MOLOPT-GTH-tier-1"``). Otherwise returns the first entry.
+
+    Entries with a ``-SR`` suffix are excluded unless *orb_basis* itself ends
+    with ``-SR``.
     """
     entries = list_basis_entries(basis_file, element)
     if orb_basis:
         entries = [e for e in entries if orb_basis in e.name]
+        if not orb_basis.endswith("-SR"):
+            entries = [e for e in entries if f"{orb_basis}-SR" not in e.name]
     return _first_token(entries[0].name) if entries else None
 
 
