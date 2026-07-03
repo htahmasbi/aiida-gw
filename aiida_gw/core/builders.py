@@ -687,15 +687,10 @@ class Cp2kBuilder:
             else:
                 kpoints_w = gw_config.kpoints_w_mesh or gw_config.kpoints_mesh
 
-        if kpoints_w is None:
-            raise ValueError(
-                "No k-points mesh for GW correction (KPOINTS_W) could be determined. "
-                "Set kpoints_w_mesh, kpoints_w_distance in config, or kpoints_w_distance in the protocol."
-            )
-
         bs_path = params.setdefault("FORCE_EVAL", {}).setdefault("PROPERTIES", {}).setdefault("BANDSTRUCTURE", {})
         gw_sec = bs_path.setdefault("GW", {})
-        gw_sec["KPOINTS_W"] = " ".join(str(k) for k in kpoints_w)
+        if kpoints_w is not None:
+            gw_sec["KPOINTS_W"] = " ".join(str(k) for k in kpoints_w)
 
         # Generate bandstructure path (use pre-computed or auto-detect)
         bs_path.setdefault("DOS", {})
