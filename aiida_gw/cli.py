@@ -118,6 +118,10 @@ def run(
         str | None,
         typer.Option("--json-dir", help="Directory with mc2d_*.json files from fetch-json"),
     ] = None,
+    json_files: Annotated[
+        str | None,
+        typer.Option("--json-files", help="Comma-separated JSON files to load (e.g. f1.json,f2.json)"),
+    ] = None,
     formula: Annotated[
         str | None,
         typer.Option("--formula", help="Run only the structure with this chemical formula (e.g. MoS2)"),
@@ -158,8 +162,8 @@ def run(
     metadata = config.metadata_options.to_dict()
 
     if mode == CalculationMode.GW:
-        if not structure_file and not group and not json_dir:
-            console.print("[red]Error:[/red] Provide --structure, --group, or --json-dir for GW mode")
+        if not structure_file and not group and not json_dir and not json_files:
+            console.print("[red]Error:[/red] Provide --structure, --group, --json-dir, or --json-files for GW mode")
             raise typer.Exit(1)
 
         gw_config = config.gw
@@ -256,6 +260,70 @@ def run(
                 raise typer.Exit(1)
 
             console.print(f"[green]Loaded {len(structures)} structures from JSON files[/green]")
+        elif json_files:
+            from pathlib import Path as PPath
+            import json as _json
+
+            from pymatgen.core import Structure
+
+            file_paths = [PPath(f.strip()) for f in json_files.split(",") if f.strip()]
+            if not file_paths:
+                console.print("[red]Error:[/red] No files specified in --json-files")
+                raise typer.Exit(1)
+
+            for fp in file_paths:
+                if not fp.is_file():
+                    console.print(f"[red]Error:[/red] File not found: {fp}")
+                    raise typer.Exit(1)
+
+            user_excl = _parse_exclude_elements(exclude_elements)
+            supported = _detect_supported_elements(config) if user_excl is None else None
+            target_elements = set(elements.split(",")) if elements else None
+
+            structures = []
+            for json_file in file_paths:
+                if len(structures) >= max_structures:
+                    break
+                with open(json_file) as f:
+                    entries = _json.load(f)
+                for entry in entries:
+                    if len(structures) >= max_structures:
+                        break
+                    entry_formula = entry.get("formula", "")
+                    if formula and entry_formula != formula:
+                        continue
+                    elems = set(entry.get("elements", []))
+                    if target_elements and elems != target_elements:
+                        logger.info(f"Skipping {entry.get('id', '')} — elements {elems} != {target_elements}")
+                        continue
+                    if user_excl and (elems & user_excl):
+                        logger.info(f"Skipping {entry.get('id', '')} — excluded elements: {elems & user_excl}")
+                        continue
+                    if supported and not (elems <= supported):
+                        logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
+                        continue
+                    try:
+                        pmg_struct = Structure.from_dict(entry["structure"])
+                    except Exception as e:
+                        logger.warning(f"Failed to parse structure {entry.get('id', 'unknown')}: {e}")
+                        continue
+                    try:
+                        node = StructureData(pymatgen=pmg_struct)
+                        node.store()
+                        node.base.extras.set("source", "mc2d_optimade")
+                        node.base.extras.set("optimade_id", entry.get("id", ""))
+                        node.base.extras.set("formula", entry.get("formula", ""))
+                        structures.append(node)
+                    except Exception as e:
+                        logger.warning(f"Failed to store structure {entry.get('id', 'unknown')}: {e}")
+                        continue
+
+            if not structures:
+                msg = f"No structure with formula '{formula}' found" if formula else "No valid structures found in specified files"
+                console.print(f"[red]Error:[/red] {msg}")
+                raise typer.Exit(1)
+
+            console.print(f"[green]Loaded {len(structures)} structures from specified files[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData
 
