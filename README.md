@@ -107,6 +107,9 @@ aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost
 
 # Run GW with explicit element exclusion
 aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost --exclude-elements La,Ce,Pr
+
+# Run GW with reading from JSON files
+aiida-gw run --mode gw --code cp2k@localhost --elements As --max-structures 1 --json-files ./structure.json
 ```
 
 ## Project Structure
