@@ -44,10 +44,10 @@ Create a `.env` file or set environment variables. All variables use the prefix 
 | `AIIDA_GW_CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
 | **Files & Basis Sets** | | |
 | `AIIDA_GW_RESOLVE_FROM_FILES` | `True` | Automatically resolve orbital/potential/RI from data files |
-| `AIIDA_GW_ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` | Orbital basis set name |
+| `AIIDA_GW_ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` or `-2` | Orbital basis set name |
 | `AIIDA_GW_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states` | Primary orbital basis set file (cluster path) |
 | `AIIDA_GW_RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
-| `AIIDA_GW_POTENTIAL_FILE` | `POTENTIAL_UZH` | Potential file (cluster path) |
+| `AIIDA_GW_POTENTIAL_FILE` | `POTENTIAL_UZH` or `GTH_POTENTIALS` | Potential file (cluster path) |
 | `AIIDA_GW_RI_BASIS_ACCURACY_TARGET` | *Optional* | Numerical accuracy target for automated RI selection |
 
 Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,
