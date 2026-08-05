@@ -1,6 +1,6 @@
 {
-    "author": "Hossein Mirhosseini",
-    "author_email": "mirhoseini@gmail.com",
+    "authors": "Hossein Tahmasbi, Hossein Mirhosseini",
+    "authors_email": "h.tahmasb@gmail.com, mirhoseini@gmail.com",
     "description": "AiiDA GW workflows for 2D materials with CP2K",
     "name": "aiida-gw",
     "url": "https://github.com/htahmasbi/aiida-gw",
