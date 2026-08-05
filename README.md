@@ -36,9 +36,9 @@ Create a `.env` file or set environment variables. All variables use the prefix 
 | `AIIDA_GW_CUTOFF` | `400` | CP2K plane-wave cutoff (Ry) |
 | `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
 | `AIIDA_GW_VACUUM` | `20` | Vacuum gap (Å) |
-| `AIIDA_GW_SUPERCELL` | `2,2,1` | Supercell dimensions ($x, y, z$) |
-| `AIIDA_GW_KPOINTS` | `12,1,12` | Ground-state K-point mesh |
-| `AIIDA_GW_GW_KPOINTS` | `12,1,12` | GW step K-point mesh |
+| `AIIDA_GW_SUPERCELL` | `1,1,1` | Supercell dimensions ($x, y, z$) |
+| `AIIDA_GW_KPOINTS` | `42,1,42` | Ground-state K-point mesh |
+| `AIIDA_GW_GW_KPOINTS` | `42,1,42` | GW step K-point mesh |
 | `AIIDA_GW_GW_KPOINTS_W` | *Optional* | GW `KPOINTS_W` mesh (if different from `GW_KPOINTS`) |
 | `AIIDA_GW_PERIODIC` | `XZ` | Poisson solver periodicity (e.g., `XZ` for 2D, `XYZ` for bulk) |
 | `AIIDA_GW_CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
@@ -84,7 +84,7 @@ cell_periodic = "XZ"
 aiida-gw config-show
 
 # Run a single-point calculation (SIRIUS mode)
-aiida-gw run --mode single_point --structure structure.cif --code cp2k@localhost
+aiida-gw run --mode single-point --structure structure.cif --code cp2k@localhost
 
 # Run a relaxation (SIRIUS mode)
 aiida-gw run --mode relax --structure structure.cif --code cp2k@localhost
