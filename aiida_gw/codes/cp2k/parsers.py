@@ -48,6 +48,19 @@ def parse_cp2k_output_simple(fstring):
     energy = None
     bohr2ang = 0.529177208590000
     Eh2eV = 27.211324570273
+    _bs_levels = {
+        "SCF": "scf",
+        "SCF+SOC": "scf_soc",
+        "G0W0": "g0w0",
+        "G0W0+SOC": "g0w0_soc",
+        "Hartree-Fock with SCF orbitals": "hf",
+    }
+    _bs_quantities = {
+        "valence band maximum": "vbm",
+        "conduction band minimum": "cbm",
+        "indirect band gap": "gap_indirect",
+        "direct band gap": "gap_direct",
+    }
 
     for i_line, line in enumerate(lines):
         if line.startswith(" CP2K| version string:"):
@@ -86,6 +99,15 @@ def parse_cp2k_output_simple(fstring):
             energy = float(line.split()[8])
             result_dict["energy"] = energy*Eh2eV
             result_dict["energy_units"] = "eV"
+
+        if line.startswith(" "):
+            for level, level_key in _bs_levels.items():
+                if not line.startswith(f" {level} "):
+                    continue
+                for quantity, quantity_key in _bs_quantities.items():
+                    if f"{quantity} (eV)" in line:
+                        result_dict[f"{level_key}_{quantity_key}"] = float(line.split()[-1])
+                break
 
         if "run_type" in result_dict.keys():
             # Initialization
