@@ -6,7 +6,7 @@ gw:
   kpoints_distance: 0.3
   kpoints_w_distance: 0.3
   GLOBAL:
-    PROJECT: GW-2D
+    PROJECT: aiida
     RUN_TYPE: ENERGY
     PRINT_LEVEL: MEDIUM
   FORCE_EVAL:
