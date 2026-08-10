@@ -34,11 +34,12 @@ Create a `.env` file or set environment variables.
 | `METADATA_OPTIONS__PARTITION` | *Optional* | SLURM partition ($\rightarrow$ `#SBATCH --partition`) |
 | **CP2K Physics** | | |
 | `CP2K__CUTOFF` (and/or `GW__CUTOFF`) | `400` | CP2K plane-wave cutoff (Ry) |
-| `CP2K__REL_CUTOFF ` (and/or `GW__REL_CUTOFF`) | `50` | Relative cutoff (Ry) |
+| `CP2K__REL_CUTOFF` (and/or `GW__REL_CUTOFF`) | `50` | Relative cutoff (Ry) |
+| `CP2K__KPOINTS_MESH` | *Optional* | Ground-state K-point mesh |
 | `GW__VACUUM` | `20` | Vacuum gap (Å) |
 | `GW__SUPERCELL` | *Optional* | Supercell dimensions ($x, y, z$) |
-| `CP2K__KPOINTS_MESH` | *Optional* | Ground-state K-point mesh |
-| `GW__KPOINTS_W_MESH` | *Optional* | GW step K-point mesh |
+| `GW__KPOINTS_MESH` | *Optional* | GW step K-point mesh |
+| `GW__KPOINTS_W_MESH` | *Optional* | GW KPOINTS_W mesh |
 | `GW__PERIODIC` | `XZ` | Poisson solver periodicity (e.g., `XZ` for 2D, `XYZ` for bulk) |
 | `GW__CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
 | **Files & Basis Sets** | | |
@@ -82,13 +83,13 @@ cell_periodic = "XZ"
 # Show configuration
 aiida-gw config-show
 
-# Run a single-point calculation (SIRIUS mode)
+# Run a single-point calculation
 aiida-gw run --mode single-point --structure structure.cif --code cp2k@localhost
 
-# Run a relaxation (SIRIUS mode)
+# Run a relaxation
 aiida-gw run --mode relax --structure structure.cif --code cp2k@localhost
 
-# Run GW calculation (QS/GPW mode)
+# Run GW calculation
 aiida-gw run --mode gw --structure structure.cif --code cp2k@localhost --vacuum 20 --supercell 3,3,1
 
 # Run GW with explicit k-points
