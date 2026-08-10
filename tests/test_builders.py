@@ -87,8 +87,8 @@ class TestDictMerge:
 
 
 class TestClassifyFromVectors:
-    def make_vec(self, x, y):
-        return np.array([x, y, 0.0], dtype=float)
+    def make_vec(self, x, y, z=0.0):
+        return np.array([x, y, z], dtype=float)
 
     def test_square(self):
         a = self.make_vec(3.0, 0.0)

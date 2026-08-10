@@ -61,6 +61,16 @@ def _has_unsupported_elements(
     return False
 
 
+def _store_in_run_group(node, run_group: str | None) -> None:
+    """Add a submitted workflow node to an AiiDA group for later result collection."""
+    if not run_group:
+        return
+    from aiida.orm import Group
+
+    group, _ = Group.collection.get_or_create(label=run_group)
+    group.add_nodes(node)
+
+
 @app.command()
 def run(
     mode: Annotated[
@@ -126,6 +136,10 @@ def run(
         str | None,
         typer.Option("--formula", help="Run only the structure with this chemical formula (e.g. MoS2)"),
     ] = None,
+    run_group: Annotated[
+        str | None,
+        typer.Option("--run-group", help="AiiDA group to store submitted workflow nodes (for later results collection)"),
+    ] = "gw_runs",
 ) -> None:
     """Run a calculation workflow."""
     from aiida import load_profile
@@ -371,6 +385,7 @@ def run(
 
                 node = submit(builder)
                 pk_list.append(node.pk)
+                _store_in_run_group(node, run_group)
                 console.print(f"[green]Submitted[/green] GwWorkChain<{node.pk}> for structure {i}")
 
             console.print(f"Submitted {len(pk_list)} GW calculations")
@@ -394,6 +409,7 @@ def run(
             builder.kpoints_mesh = List(list=kpoints_mesh)
 
         node = submit(builder)
+        _store_in_run_group(node, run_group)
         console.print(f"[green]Submitted[/green] SinglePointWorkChain<{node.pk}>")
 
     elif mode == CalculationMode.RELAX:
@@ -415,6 +431,7 @@ def run(
             builder.kpoints_mesh = List(list=kpoints_mesh)
 
         node = submit(builder)
+        _store_in_run_group(node, run_group)
         console.print(f"[green]Submitted[/green] RelaxWorkChain<{node.pk}>")
 
 
@@ -528,6 +545,139 @@ def fetch_json(
                 console.print(f"[green]{n} element(s):[/green] {p}")
         else:
             console.print(f"[green]{n} element(s):[/green] {entry}")
+
+
+@app.command()
+def results(
+    run_group: Annotated[
+        str | None,
+        typer.Option("--run-group", help="AiiDA group with submitted workflow nodes"),
+    ] = "gw_runs",
+    as_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        str | None,
+        typer.Option("--output", "-o", help="Write results to CSV file"),
+    ] = None,
+    only_finished: Annotated[
+        bool,
+        typer.Option("--only-finished", help="Report only successfully finished workflows"),
+    ] = False,
+) -> None:
+    """Collect parsed results (VBM/CBM/gaps, energy) from all workflows in a group."""
+    import csv
+    import json as _json
+
+    from aiida import load_profile
+    from aiida.orm import Dict, Group, WorkChainNode
+
+    load_profile()
+
+    try:
+        group = Group.collection.get(label=run_group)
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] Group '{run_group}' not found: {exc}")
+        raise typer.Exit(1)
+
+    result_keys = [
+        "scf_vbm",
+        "scf_cbm",
+        "scf_gap_direct",
+        "scf_gap_indirect",
+        "g0w0_vbm",
+        "g0w0_cbm",
+        "g0w0_gap_direct",
+        "g0w0_gap_indirect",
+        "scf_soc_vbm",
+        "scf_soc_cbm",
+        "scf_soc_gap_direct",
+        "scf_soc_gap_indirect",
+        "g0w0_soc_vbm",
+        "g0w0_soc_cbm",
+        "g0w0_soc_gap_direct",
+        "g0w0_soc_gap_indirect",
+        "hf_vbm",
+        "hf_cbm",
+        "hf_gap_direct",
+        "hf_gap_indirect",
+        "energy",
+        "run_type",
+        "nwarnings",
+    ]
+
+    rows: list[dict] = []
+    for node in group.nodes:
+        if not isinstance(node, WorkChainNode):
+            continue
+        if only_finished and not node.is_finished_ok:
+            continue
+        formula = ""
+        try:
+            formula = node.inputs.structure.get_pymatgen().composition.reduced_formula
+        except Exception:
+            pass
+        row: dict = {
+            "pk": node.pk,
+            "process": node.process_label,
+            "state": node.process_state.value if node.process_state else "unknown",
+            "exit_status": node.exit_status if node.exit_status is not None else "",
+            "formula": formula,
+            "label": node.label,
+        }
+        try:
+            params = node.outputs.output_parameters
+            if isinstance(params, Dict):
+                params = params.get_dict()
+            for key in result_keys:
+                row[key] = params.get(key, "")
+        except Exception:
+            for key in result_keys:
+                row[key] = ""
+        rows.append(row)
+
+    rows.sort(key=lambda r: (r["formula"], r["pk"]))
+
+    if not rows:
+        console.print(f"[yellow]No workflows found in group '{run_group}'. Run 'aiida-gw run --run-group {run_group}' first.[/yellow]")
+        raise typer.Exit(0)
+
+    if output:
+        fieldnames = list(rows[0].keys())
+        with open(output, "w", newline="") as fhandle:
+            writer = csv.DictWriter(fhandle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        console.print(f"[green]Results written to {output}[/green]")
+        return
+
+    if as_json:
+        console.print(_json.dumps(rows, indent=2, default=str))
+        return
+
+    table = Table(title=f"Results in group '{run_group}'")
+    table.add_column("pk", style="cyan")
+    table.add_column("formula", style="green")
+    table.add_column("process")
+    table.add_column("state")
+    table.add_column("exit")
+    table.add_column("g0w0_vbm")
+    table.add_column("g0w0_cbm")
+    table.add_column("gap_dir")
+    table.add_column("gap_ind")
+    table.add_column("energy")
+    for r in rows:
+        table.add_row(
+            str(r["pk"]),
+            r["formula"],
+            r["process"],
+            r["state"],
+            str(r["exit_status"]),
+            str(r.get("g0w0_vbm", "")),
+            str(r.get("g0w0_cbm", "")),
+            str(r.get("g0w0_gap_direct", "")),
+            str(r.get("g0w0_gap_indirect", "")),
+            str(r.get("energy", "")),
+        )
+    console.print(table)
 
 
 @app.callback()
