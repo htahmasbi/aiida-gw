@@ -18,37 +18,36 @@ pip install -e .
 
 ## Configuration
 
-Create a `.env` file or set environment variables. All variables use the prefix `AIIDA_GW_` with nested keys separated by `__`:
+Create a `.env` file or set environment variables.
 
 | Variable | Default | Description |
 | :--- | :---: | :--- |
 | **AiiDA Core** | | |
-| `AIIDA_GW_PROFILE` | *Required* | AiiDA profile name |
-| `AIIDA_GW_CODE_LABEL` | `cp2k@localhost` | Code label for CP2K |
+| `AIIDA_PROFILE` | *Optional*, default `None` | AiiDA profile name |
+| `CODE_LABEL` | `cp2k@localhost` | Code label for CP2K |
 | **Cluster Resources** | | |
-| `AIIDA_GW_NUM_MACHINES` | `1` | Number of compute nodes |
-| `AIIDA_GW_NUM_MPIPROCS` | `8` | MPI processes per node |
-| `AIIDA_GW_WALLTIME` | `36000` | Max wallclock time in seconds (10 hours) |
-| `AIIDA_GW_METADATA_OPTIONS__CPUS_PER_TASK` | *Optional* | CPUs per task ($\rightarrow$ `#SBATCH --cpus-per-task`) |
-| `AIIDA_GW_METADATA_OPTIONS__MEMORY_PER_MACHINE` | *Optional* | Memory per node (e.g., `600G` or `38400M` $\rightarrow$ `#SBATCH --mem`) |
-| `AIIDA_GW_METADATA_OPTIONS__PARTITION` | *Optional* | SLURM partition ($\rightarrow$ `#SBATCH --partition`) |
+| `METADATA_OPTIONS__NUM_MACHINES` | `1` | Number of compute nodes |
+| `METADATA_OPTIONS__NUM_MPIPROCS_PER_MACHINE` | `8` | MPI processes per node |
+| `METADATA_OPTIONS__MAX_WALLCLOCK_SECONDS` | `36000` | Max wallclock time in seconds (10 hours) |
+| `METADATA_OPTIONS__CPUS_PER_TASK` | *Optional* | CPUs per task ($\rightarrow$ `#SBATCH --cpus-per-task`) |
+| `METADATA_OPTIONS__MEMORY_PER_MACHINE` | *Optional* | Memory per node (e.g., `600G` or `38400M` $\rightarrow$ `#SBATCH --mem`) |
+| `METADATA_OPTIONS__PARTITION` | *Optional* | SLURM partition ($\rightarrow$ `#SBATCH --partition`) |
 | **CP2K Physics** | | |
-| `AIIDA_GW_CUTOFF` | `400` | CP2K plane-wave cutoff (Ry) |
-| `AIIDA_GW_REL_CUTOFF` | `50` | Relative cutoff (Ry) |
-| `AIIDA_GW_VACUUM` | `20` | Vacuum gap (Å) |
-| `AIIDA_GW_SUPERCELL` | `1,1,1` | Supercell dimensions ($x, y, z$) |
-| `AIIDA_GW_KPOINTS` | `42,1,42` | Ground-state K-point mesh |
-| `AIIDA_GW_GW_KPOINTS` | `42,1,42` | GW step K-point mesh |
-| `AIIDA_GW_GW_KPOINTS_W` | *Optional* | GW `KPOINTS_W` mesh (if different from `GW_KPOINTS`) |
-| `AIIDA_GW_PERIODIC` | `XZ` | Poisson solver periodicity (e.g., `XZ` for 2D, `XYZ` for bulk) |
-| `AIIDA_GW_CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
+| `CP2K__CUTOFF` (and/or `GW__CUTOFF`) | `400` | CP2K plane-wave cutoff (Ry) |
+| `CP2K__REL_CUTOFF ` (and/or `GW__REL_CUTOFF`) | `50` | Relative cutoff (Ry) |
+| `GW__VACUUM` | `20` | Vacuum gap (Å) |
+| `GW__SUPERCELL` | *Optional* | Supercell dimensions ($x, y, z$) |
+| `CP2K__KPOINTS_MESH` | *Optional* | Ground-state K-point mesh |
+| `GW__KPOINTS_W_MESH` | *Optional* | GW step K-point mesh |
+| `GW__PERIODIC` | `XZ` | Poisson solver periodicity (e.g., `XZ` for 2D, `XYZ` for bulk) |
+| `GW__CELL_PERIODIC` | `XZ` | Cell periodicity (typically `XZ` for 2D with vacuum in Y) |
 | **Files & Basis Sets** | | |
-| `AIIDA_GW_RESOLVE_FROM_FILES` | `True` | Automatically resolve orbital/potential/RI from data files |
-| `AIIDA_GW_ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` or `-2` | Orbital basis set name |
-| `AIIDA_GW_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states` | Primary orbital basis set file (cluster path) |
-| `AIIDA_GW_RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
-| `AIIDA_GW_POTENTIAL_FILE` | `POTENTIAL_UZH` or `GTH_POTENTIALS` | Potential file (cluster path) |
-| `AIIDA_GW_RI_BASIS_ACCURACY_TARGET` | *Optional* | Numerical accuracy target for automated RI selection |
+| `GW__RESOLVE_FROM_FILES` | `True` | Automatically resolve orbital/potential/RI from data files |
+| `GW__ORB_BASIS` | `aug-SZV-MOLOPT-GTH-tier-1` or `-2` | Orbital basis set name |
+| `GW__BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states` | Primary orbital basis set file (cluster path) |
+| `GW__RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
+| `GW__POTENTIAL_FILE` | `POTENTIAL_UZH` or `GTH_POTENTIALS` | Potential file (cluster path) |
+| `GW__RI_BASIS_ACCURACY_TARGET` | *Optional* | Numerical accuracy target for automated RI selection |
 
 Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,
 or the current directory:
