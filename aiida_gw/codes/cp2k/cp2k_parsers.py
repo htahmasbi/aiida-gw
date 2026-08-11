@@ -104,7 +104,7 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 cells = read_cell_parameters(self.retrieved.get_object_content('aiida-1.cell'))
                 symbols, _ = read_coordinates(self.retrieved.get_object_content('aiida.coords.xyz'))
             else:
-                return self.exit_codes.ERROR_OUTPUT_MISSING
+                self.logger.warning("Missing trajectory files for %s run; skipping structure output.", result_dict["run_type"])
         if result_dict["run_type"] in ["ENERGY_FORCE"]:
             if 'aiida-s_p_forces-1_0.xyz' in self.retrieved.list_object_names():
                 symbols, positions = read_coordinates(self.retrieved.get_object_content('aiida.coords.xyz'))
@@ -114,31 +114,33 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 else:
                     cells = [read_lattice_parameters(self.retrieved.get_object_content('aiida.inp'))]
             else:
-                return self.exit_codes.ERROR_OUTPUT_MISSING
+                self.logger.warning("Missing SIRIUS force file 'aiida-s_p_forces-1_0.xyz'; skipping force/structure output.")
             if 'aiida-s_p_stress_tensor-1_0.stress_tensor' in self.retrieved.list_object_names():
                 stress_tensor = read_s_p_stress_tensor(self.retrieved.get_object_content('aiida-s_p_stress_tensor-1_0.stress_tensor'))
             else:
-                return self.exit_codes.ERROR_OUTPUT_MISSING
+                self.logger.warning("Missing SIRIUS stress tensor file; skipping stress output.")
         if result_dict["run_type"] in ["ENERGY"]:
-            try:
-                fname = 'aiida-1.restart'
-                output_string = self.retrieved.base.repository.get_object_content(fname)
-                ase_struct = Atoms(**read_structure(output_string))
-                symbols = ase_struct.get_chemical_symbols()
-                positions = [ase_struct.get_positions()]
-                cells = [ase_struct.get_cell().array]
-                forces = [np.zeros((len(symbols), 3))]
-                stress_tensor = [np.zeros(9)]
-            except Exception as exc:
-                self.logger.error("Failed to parse ENERGY run type restart file '%s': %s", fname, exc)
-                return self.exit_codes.ERROR_OUTPUT_MISSING
+            for fname in ('aiida-1.restart', 'aiida-RESTART.kp'):
+                try:
+                    output_string = self.retrieved.base.repository.get_object_content(fname)
+                    ase_struct = Atoms(**read_structure(output_string))
+                    symbols = ase_struct.get_chemical_symbols()
+                    positions = [ase_struct.get_positions()]
+                    cells = [ase_struct.get_cell().array]
+                    forces = [np.zeros((len(symbols), 3))]
+                    stress_tensor = [np.zeros(9)]
+                    break
+                except Exception as exc:
+                    self.logger.warning("Failed to parse %s run type restart file '%s': %s", result_dict["run_type"], fname, exc)
+            else:
+                self.logger.warning("No usable restart file for %s run; skipping structure output.", result_dict["run_type"])
 
         if symbols and positions and cells and forces and stress_tensor:
             result_dict['motion_step_info'].update({'symbols': symbols, 'positions': positions, 'cells': cells, 'forces': forces, 'stress_tensor': stress_tensor})
+            cell_pbc = [True, True, True] #result_dict['cell_pbc']
+            output_structure = StructureData(ase=Atoms(symbols = symbols, positions = positions[-1], cell = cells[-1], pbc = cell_pbc))
+            self.out("output_structure", output_structure)
         else:
-            return self.exit_codes.ERROR_OUTPUT_MISSING
-        cell_pbc = [True, True, True] #result_dict['cell_pbc']
-        output_structure = StructureData(ase=Atoms(symbols = symbols, positions = positions[-1], cell = cells[-1], pbc = cell_pbc))
+            self.logger.warning("Incomplete structure data for %s run; skipping structure output.", result_dict["run_type"])
         self.out("output_parameters", Dict(dict=result_dict))
-        self.out("output_structure", output_structure)
         return None

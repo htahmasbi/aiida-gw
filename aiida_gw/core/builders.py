@@ -605,6 +605,7 @@ class Cp2kBuilder:
                 "aiida-1.cell", "aiida-s_p_forces-1_0.xyz",
                 "aiida-s_p_stress_tensor-1_0.stress_tensor",
                 "aiida-1.stress", "aiida.coords.xyz",
+                "aiida-1.restart", "aiida-RESTART.kp",
             ],
         })
 
