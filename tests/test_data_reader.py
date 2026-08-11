@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 from aiida_gw.codes.cp2k.data_reader import (
     _extract_accuracy,
     _first_token,
+    get_supported_elements,
     parse_cp2k_data_file,
     resolve_orbital_basis_name,
     resolve_potential_name,
@@ -396,3 +397,103 @@ def test_resolve_ri_no_accuracy_metadata():
         assert result == "RI_aug-SZV-MOLOPT-GTH-tier-1_basic"
     finally:
         Path(path).unlink()
+
+
+# ── get_supported_elements ───────────────────────────────────────────────────
+
+def _supported_tier2_files():
+    """Return (basis, ri, pot) temp files with full tier-2 support for B only."""
+    basis = _make_basis_file([("B", "aug-SZV-MOLOPT-GTH-tier-2")])
+    ri = _make_ri_basis_file([("B", "RI_aug-SZV-MOLOPT-GTH-tier-2_error_1.0e-06")])
+    pot = _make_potential_file([("B", "GTH-PBE-q3 GTH-PBE")])
+    return basis, ri, pot
+
+
+def test_get_supported_elements_includes_full_resolution():
+    """Element with resolvable orb/RI/potential for tier-2 is supported."""
+    basis, ri, pot = _supported_tier2_files()
+    try:
+        result = get_supported_elements(
+            basis, ri, pot, orb_basis="aug-SZV-MOLOPT-GTH-tier-2"
+        )
+        assert result == {"B"}
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()
+
+
+def test_get_supported_elements_excludes_missing_orbital_tier():
+    """Element present in all files but without a tier-2 orbital basis is excluded."""
+    basis = _make_basis_file([("B", "aug-SZV-MOLOPT-GTH-tier-1")])
+    ri = _make_ri_basis_file([("B", "RI_aug-SZV-MOLOPT-GTH-tier-2_error_1.0e-06")])
+    pot = _make_potential_file([("B", "GTH-PBE-q3 GTH-PBE")])
+    try:
+        result = get_supported_elements(
+            basis, ri, pot, orb_basis="aug-SZV-MOLOPT-GTH-tier-2"
+        )
+        assert result == set()
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()
+
+
+def test_get_supported_elements_excludes_missing_ri_tier():
+    """Element present in all files but without a matching RI tier is excluded."""
+    basis = _make_basis_file([("B", "aug-SZV-MOLOPT-GTH-tier-2")])
+    ri = _make_ri_basis_file([("B", "RI_aug-SZV-MOLOPT-GTH-tier-1_error_1.0e-06")])
+    pot = _make_potential_file([("B", "GTH-PBE-q3 GTH-PBE")])
+    try:
+        result = get_supported_elements(
+            basis, ri, pot, orb_basis="aug-SZV-MOLOPT-GTH-tier-2"
+        )
+        assert result == set()
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()
+
+
+def test_get_supported_elements_respects_xc_functional():
+    """Elements only resolvable with a different XC functional are excluded."""
+    basis = _make_basis_file([("B", "aug-SZV-MOLOPT-GTH-tier-2")])
+    ri = _make_ri_basis_file([("B", "RI_aug-SZV-MOLOPT-GTH-tier-2_error_1.0e-06")])
+    pot = _make_potential_file([("B", "GTH-BLYP-q3 GTH-BLYP")])
+    try:
+        without = get_supported_elements(
+            basis, ri, pot, orb_basis="aug-SZV-MOLOPT-GTH-tier-2"
+        )
+        assert without == {"B"}
+        with_pbe = get_supported_elements(
+            basis,
+            ri,
+            pot,
+            orb_basis="aug-SZV-MOLOPT-GTH-tier-2",
+            xc_functional="PBE",
+        )
+        assert with_pbe == set()
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()
+
+
+def test_get_supported_elements_requires_all_three_files():
+    """Element missing from one data file is not supported."""
+    basis = _make_basis_file([("B", "aug-SZV-MOLOPT-GTH-tier-2")])
+    ri = _make_ri_basis_file([("B", "RI_aug-SZV-MOLOPT-GTH-tier-2_error_1.0e-06")])
+    pot = _make_potential_file([("N", "GTH-PBE-q5 GTH-PBE")])
+    try:
+        result = get_supported_elements(basis, ri, pot)
+        assert result == set()
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()
+
+
+def test_get_supported_elements_no_extra_args_backward_compatible():
+    """Without config knobs, presence in all three files is sufficient."""
+    basis, ri, pot = _supported_tier2_files()
+    try:
+        result = get_supported_elements(basis, ri, pot)
+        assert result == {"B"}
+    finally:
+        for p in (basis, ri, pot):
+            Path(p).unlink()

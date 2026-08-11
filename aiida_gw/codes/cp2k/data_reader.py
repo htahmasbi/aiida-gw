@@ -204,12 +204,39 @@ def get_supported_elements(
     basis_set_file: str | Path,
     ri_basis_set_file: str | Path,
     potential_file: str | Path,
+    orb_basis: str | None = None,
+    accuracy_target: float | None = None,
+    xc_functional: str | None = None,
 ) -> set[str]:
-    """Return the set of elements that have entries in all three data files."""
-    basis_elems = set(parse_cp2k_data_file(basis_set_file).keys())
-    ri_elems = set(parse_cp2k_data_file(ri_basis_set_file).keys())
-    pot_elems = set(parse_cp2k_data_file(potential_file).keys())
-    return basis_elems & ri_elems & pot_elems
+    """Return elements that can be fully resolved for a GW calculation.
+
+    An element is supported only when it has entries in all three data files
+    *and* every resolver returns a concrete name for the requested settings
+    (orbital basis, RI auxiliary basis, and potential).  This prevents silent
+    fallback to ``DEFAULT`` (orbital basis / potential) or a missing
+    ``BASIS_SET RI_AUX`` in the generated input, both of which would fail the
+    run at runtime.
+    """
+    elements = (
+        set(parse_cp2k_data_file(basis_set_file).keys())
+        & set(parse_cp2k_data_file(ri_basis_set_file).keys())
+        & set(parse_cp2k_data_file(potential_file).keys())
+    )
+    supported = set()
+    for element in elements:
+        if resolve_orbital_basis_name(basis_set_file, element, orb_basis=orb_basis) is None:
+            continue
+        if resolve_ri_basis_name(
+            ri_basis_set_file,
+            element,
+            accuracy_target=accuracy_target,
+            orb_basis=orb_basis,
+        ) is None:
+            continue
+        if resolve_potential_name(potential_file, element, xc_functional=xc_functional) is None:
+            continue
+        supported.add(element)
+    return supported
 
 
 def resolve_potential_name(

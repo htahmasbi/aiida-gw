@@ -39,6 +39,9 @@ def _detect_supported_elements(config: ProjectConfig) -> set[str] | None:
             config.gw.basis_set_file,
             config.gw.ri_basis_set_file,
             config.gw.potential_file,
+            orb_basis=config.gw.orb_basis,
+            accuracy_target=config.gw.ri_basis_accuracy_target,
+            xc_functional=config.gw.xc_functional,
         )
         if supported:
             logger.info(f"Auto-detected {len(supported)} supported elements from data files")
@@ -236,9 +239,13 @@ def run(
 
             structures = []
             for json_file in json_files:
+                if len(structures) >= max_structures:
+                    break
                 with open(json_file) as f:
                     entries = _json.load(f)
                 for entry in entries:
+                    if len(structures) >= max_structures:
+                        break
                     entry_formula = entry.get("formula", "")
                     if formula and entry_formula != formula:
                         continue
