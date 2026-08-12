@@ -184,6 +184,12 @@ class GwConfig(BaseModel):
         description="Per-element overrides for basis set, potential, and RI auxiliary basis. "
         "Keys are element symbols (e.g. 'B', 'N'), values are ElementOverride with optional orb_basis, potential, ri_basis.",
     )
+    print_cube_files: bool = Field(
+        default=False,
+        description="Opt-in: write V_HARTREE_CUBE and E_DENSITY_CUBE cube files "
+        "(for band alignment) and add them to the retrieve list. "
+        "Cube files are large; keep off unless needed.",
+    )
 
 
 class ProjectConfig(BaseSettings):

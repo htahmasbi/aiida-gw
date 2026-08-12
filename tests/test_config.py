@@ -117,3 +117,19 @@ class TestGwConfigElementSettings:
         assert cfg.element_settings["N"].ri_basis == "RI_TZV2P"
 
 
+class TestGwConfigPrintCubeFiles:
+    def test_default_off(self):
+        cfg = GwConfig()
+        assert cfg.print_cube_files is False
+
+    def test_enabled(self):
+        cfg = GwConfig(print_cube_files=True)
+        assert cfg.print_cube_files is True
+
+    def test_from_project_config(self):
+        from aiida_gw.core.config import ProjectConfig
+
+        cfg = ProjectConfig(gw={"print_cube_files": True})
+        assert cfg.gw.print_cube_files is True
+
+

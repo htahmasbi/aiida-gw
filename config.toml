@@ -52,6 +52,9 @@ resolve_from_files = true
 ri_basis_accuracy_target = 1e-6
 orb_basis = "aug-SZV-MOLOPT-GTH-tier-2"
 
+# Opt-in: write V_HARTREE_CUBE / E_DENSITY_CUBE files and retrieve them (band alignment)
+# print_cube_files = true
+
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/GTH_SOC_POTENTIALS"

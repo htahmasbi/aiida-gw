@@ -8,6 +8,7 @@ from aiida_gw.core.builders import (
     _is_cp2k_key,
     _strip_invalid_keys,
     dict_merge,
+    get_cube_print_section,
 )
 
 
@@ -84,6 +85,31 @@ class TestDictMerge:
         merge = {"a": 2}
         dict_merge(base, merge)
         assert merge == {"a": 2}  # unchanged
+
+
+class TestGetCubePrintSection:
+    def test_structure(self):
+        section = get_cube_print_section()
+        assert "PRINT" in section
+        dft_print = section["PRINT"]
+        assert "V_HARTREE_CUBE" in dft_print
+        assert "E_DENSITY_CUBE" in dft_print
+
+    def test_sections_enabled(self):
+        section = get_cube_print_section()
+        for name in ("V_HARTREE_CUBE", "E_DENSITY_CUBE"):
+            assert section["PRINT"][name]["_"] == "ON"
+            assert section["PRINT"][name]["STRIDE"] == "1 1 1"
+
+    def test_keys_survive_strip(self):
+        section = get_cube_print_section()
+        _strip_invalid_keys(section)
+        assert section == get_cube_print_section()
+
+    def test_mergeable_into_dft(self):
+        dft = {"CUTOFF": 400}
+        dict_merge(dft, get_cube_print_section())
+        assert dft["PRINT"]["V_HARTREE_CUBE"]["_"] == "ON"
 
 
 class TestClassifyFromVectors:

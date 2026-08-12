@@ -218,6 +218,27 @@ def get_kinds_section_sirius(structure, atom_data: dict) -> dict:
     return {"FORCE_EVAL": {"SUBSYS": {"KIND": kinds}}}
 
 
+def get_cube_print_section() -> dict:
+    """Build a DFT.PRINT section that writes Hartree-potential and density cube files.
+
+    Returns a dict to be merged under ``FORCE_EVAL/DFT/PRINT``. The cube files are
+    written by CP2K as ``<project>-V_HARTREE-1_0.cube`` and
+    ``<project>-E_DENSITY-1_0.cube`` (for band alignment analysis).
+    """
+    return {
+        "PRINT": {
+            "V_HARTREE_CUBE": {
+                "_": "ON",
+                "STRIDE": "1 1 1",
+            },
+            "E_DENSITY_CUBE": {
+                "_": "ON",
+                "STRIDE": "1 1 1",
+            },
+        }
+    }
+
+
 def get_file_section_qs() -> dict:
     """Get CP2K file resources for QUICKSTEP (GTH potentials + basis sets)."""
     cp2k_files = get_cp2k_files_path()
@@ -564,6 +585,10 @@ class Cp2kBuilder:
             poisson["PERIODIC"] = self.config.gw.periodic
             poisson["POISSON_SOLVER"] = self.config.gw.poisson_solver
 
+            # Opt-in cube files (V_HARTREE / E_DENSITY) for band alignment
+            if self.config.gw.print_cube_files:
+                dict_merge(dft, get_cube_print_section())
+
             # Determine XC functional — config override wins, fall back to protocol
             xc_functional = self.config.gw.xc_functional
             if xc_functional is None:
@@ -599,15 +624,17 @@ class Cp2kBuilder:
         # Build the final parameters dict
         builder.cp2k.parameters = Dict(dict=params)
         builder.cp2k.code = code
-        builder.cp2k.settings = Dict(dict={
-            "additional_retrieve_list": [
-                "aiida.inp", "aiida-pos-1.xyz", "aiida-frc-1.xyz",
-                "aiida-1.cell", "aiida-s_p_forces-1_0.xyz",
-                "aiida-s_p_stress_tensor-1_0.stress_tensor",
-                "aiida-1.stress", "aiida.coords.xyz",
-                "aiida-1.restart", "aiida-RESTART.kp",
-            ],
-        })
+
+        retrieve_list = [
+            "aiida.inp", "aiida-pos-1.xyz", "aiida-frc-1.xyz",
+            "aiida-1.cell", "aiida-s_p_forces-1_0.xyz",
+            "aiida-s_p_stress_tensor-1_0.stress_tensor",
+            "aiida-1.stress", "aiida.coords.xyz",
+            "aiida-1.restart", "aiida-RESTART.kp",
+        ]
+        if self.config.gw.print_cube_files:
+            retrieve_list.append(("aiida-*.cube", ".", 1))
+        builder.cp2k.settings = Dict(dict={"additional_retrieve_list": retrieve_list})
 
         if metadata_options:
             builder.cp2k.metadata.options = metadata_options

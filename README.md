@@ -49,6 +49,7 @@ Create a `.env` file or set environment variables.
 | `GW__RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
 | `GW__POTENTIAL_FILE` | `POTENTIAL_UZH` or `GTH_POTENTIALS` | Potential file (cluster path) |
 | `GW__RI_BASIS_ACCURACY_TARGET` | *Optional* | Numerical accuracy target for automated RI selection |
+| `GW__PRINT_CUBE_FILES` | `false` | Opt-in: write `V_HARTREE_CUBE`/`E_DENSITY_CUBE` cube files (band alignment) and add them to the retrieve list. Cube files are large; keep off unless needed. |
 
 Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,
 or the current directory:
@@ -75,6 +76,7 @@ vacuum = 20.0
 supercell = [2, 2, 1]
 periodic = "XZ"
 cell_periodic = "XZ"
+print_cube_files = true  # optional: write + retrieve Hartree/density cube files
 ```
 
 ## Usage
