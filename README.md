@@ -140,8 +140,7 @@ aiida-gw/
 │   └── workflows/
 │       ├── single_point.py     # SinglePointWorkChain
 │       ├── relaxation.py       # RelaxWorkChain
-│       ├── gw.py               # GwWorkChain
-│       └── archive/            # Original pipeline (step1/2/3, main, settings)
+│       └── gw.py               # GwWorkChain
 ├── setup.json
 └── README.md
 ```
