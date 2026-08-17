@@ -39,7 +39,52 @@
 
 ## Done
 
+### GW Retrieval & Parsing — Aug 2026
+
+**Committed:** `cd4604e` — "Add GW output retrieval and parsing for database support"
+
+Files changed: `aiida_gw/core/builders.py`, `aiida_gw/codes/cp2k/parsers.py`, `aiida_gw/codes/cp2k/cp2k_parsers.py`
+
+- **`builders.py`** — Extended `retrieve_list` to include GW-specific outputs:
+  - `aiida.out` — full CP2K output (archival/debugging)
+  - `aiida-RESTART.kp.bak-1` — backup restart file
+  - `aiida-BANDSTRUCTURE*` — GW bandstructure outputs (CP2K standard naming)
+  - `aiida-dos.dat`, `aiida-pdos*` — DOS/PDOS outputs (CP2K standard naming)
+  - `aiida-*.cube` already handled via `print_cube_files` flag (V_HARTREE + E_DENSITY cubes) ✓
+
+- **`parsers.py`** — Added:
+  - `read_bandstructure(content)` — parses k-points, labels, eigenvalues from bandstructure files
+  - `read_dos_pdos(content)` — parses energy, total DOS, PDOS, and Fermi energy
+
+- **`cp2k_parsers.py`** — Added `Cp2kEFSParser._parse_gw_outputs(result_dict)`:
+  - Parses bandstructure files into `output_parameters` (`g0w0_bandstructure`, `scf_bandstructure`, etc.)
+  - Parses DOS/PDOS into `output_parameters` (`g0w0_dos`, `scf_dos`, etc.)
+  - Handles both CP2K standard naming (`aiida-BANDSTRUCTURE*`, `aiida-dos.dat`) and custom naming (`bandstructure_SCF_and_G0W0`, `DOS_PDOS_*.out`)
+
+**Parser outputs in `output_parameters` Dict:**
+```python
+# Bandstructure
+result_dict["g0w0_bandstructure"] = {
+    "kpoints": [[kx, ky, kz], ...],
+    "kpoint_labels": ["GAMMA", "K", "M", ...],
+    "eigenvalues_SCF": [[e1, e2, ...], ...],  # nkpoints x nbands
+    "eigenvalues_G0W0": [[e1, e2, ...], ...],
+    "units": "eV",
+}
+
+# DOS/PDOS
+result_dict["g0w0_dos"] = {
+    "energy": [...],
+    "total_dos": [...],
+    "fermi_energy": -4.2,
+    "pdos": {"C p": [...], "C s": [...]},
+    "units": {"energy": "eV", "dos": "1/eV"},
+}
+```
+
+**Pending:** Push to GitHub — blocked on GitHub auth (token to be provided).
+
 
 ## Remaining
 
-*(None — all items completed)*
+**Parser tuning:** The `read_bandstructure()` and `read_dos_pdos()` regex patterns may need adjustment based on actual CP2K output format. Test with a real GW calculation via `verdi shell` to validate parsing.
