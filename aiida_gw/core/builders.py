@@ -631,6 +631,15 @@ class Cp2kBuilder:
             "aiida-s_p_stress_tensor-1_0.stress_tensor",
             "aiida-1.stress", "aiida.coords.xyz",
             "aiida-1.restart", "aiida-RESTART.kp",
+            # Full CP2K output for debugging/archival
+            "aiida.out",
+            # Backup restart file
+            "aiida-RESTART.kp.bak-1",
+            # GW bandstructure outputs from CP2K BANDSTRUCTURE section
+            "aiida-BANDSTRUCTURE*",
+            # DOS/PDOS outputs from CP2K PRINT/DOS section
+            "aiida-dos.dat",
+            "aiida-pdos*",
         ]
         if self.config.gw.print_cube_files:
             retrieve_list.append(("aiida-*.cube", ".", 1))

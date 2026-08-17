@@ -253,3 +253,150 @@ def read_lattice_parameters(content):
     cell_str = [line[2:] for line in cell_lines if line[0] in "ABC"]
     cell = np.array(cell_str, np.float64)
     return cell
+
+
+def read_bandstructure(content):
+    """Parse CP2K GW bandstructure output file.
+
+    Parses files like 'bandstructure_SCF_and_G0W0' which contain:
+    - K-point coordinates and labels
+    - Eigenvalues at each k-point for SCF, GW, etc.
+
+    Returns:
+        dict with keys:
+            - kpoints: list of k-point coordinates (nx3 arrays)
+            - kpoint_labels: list of k-point labels (e.g. "GAMMA", "K", "M")
+            - eigenvalues: dict of {level_name: 2D array (nkpoints x nbands)}
+              e.g. {"SCF": np.array, "G0W0": np.array, "G0W0+SOC": np.array}
+            - units: str ("eV")
+    """
+    lines = content.splitlines()
+    kpoints = []
+    kpoint_labels = []
+    eigenvalues = {}
+    current_level = None
+    nkpoints = 0
+    nbands = 0
+    eig_data = []
+
+    for i_line, line in enumerate(lines):
+        line_stripped = line.strip()
+
+        if not line_stripped:
+            continue
+
+        if "SCF bands:" in line_stripped or "G0W0" in line_stripped or "SOC" in line_stripped:
+            if current_level is not None and eig_data:
+                eigenvalues[current_level] = np.array(eig_data)
+                eig_data = []
+
+            if "SCF bands:" in line_stripped:
+                current_level = "SCF"
+            elif "G0W0+SOC" in line_stripped:
+                current_level = "G0W0+SOC"
+            elif "G0W0" in line_stripped:
+                current_level = "G0W0"
+            elif "SOC" in line_stripped:
+                current_level = "SOC"
+            continue
+
+        if line_stripped.startswith("#") or line_stripped.startswith("k-point"):
+            continue
+
+        tokens = line_stripped.split()
+        if len(tokens) >= 4:
+            try:
+                kx, ky, kz = float(tokens[0]), float(tokens[1]), float(tokens[2])
+                kpoints.append([kx, ky, kz])
+                if len(tokens) > 4:
+                    kpoint_labels.append(tokens[4])
+                else:
+                    kpoint_labels.append("")
+            except ValueError:
+                pass
+
+        if current_level is not None and len(tokens) >= 3:
+            try:
+                eig_vals = [float(t) for t in tokens if t not in ["eV", "Ry"]]
+                if eig_vals:
+                    eig_data.append(eig_vals)
+            except ValueError:
+                pass
+
+    if current_level is not None and eig_data:
+        eigenvalues[current_level] = np.array(eig_data)
+
+    return {
+        "kpoints": np.array(kpoints),
+        "kpoint_labels": kpoint_labels,
+        "eigenvalues": eigenvalues,
+        "units": "eV",
+    }
+
+
+def read_dos_pdos(content):
+    """Parse CP2K DOS/PDOS output file.
+
+    Parses files like 'DOS_PDOS_G0W0.out' which contain:
+    - Energy values (eV)
+    - Total DOS
+    - Projected DOS per atom/orbital
+
+    Returns:
+        dict with keys:
+            - energy: 1D array of energy values (eV)
+            - total_dos: 1D array of total DOS values
+            - pdos: dict of {label: 1D array} for projected DOS
+            - fermi_energy: float (eV) or None
+            - units: str ("eV", "1/eV")
+    """
+    lines = content.splitlines()
+    energy = []
+    total_dos = []
+    pdos = {}
+    current_pdos_label = None
+    fermi_energy = None
+
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped or line_stripped.startswith("#"):
+            continue
+
+        if "E (eV)" in line_stripped or "Energy" in line_stripped:
+            continue
+
+        if "Fermi energy" in line_stripped or "Fermi" in line_stripped:
+            try:
+                fermi_energy = float(line_stripped.split()[-1])
+            except (ValueError, IndexError):
+                pass
+            continue
+
+        tokens = line_stripped.split()
+        if len(tokens) >= 2:
+            try:
+                energy.append(float(tokens[0]))
+                total_dos.append(float(tokens[1]))
+            except ValueError:
+                pass
+
+        if len(tokens) >= 4 and not tokens[0].replace(".", "").replace("-", "").isdigit():
+            label = " ".join(tokens[:-2])
+            try:
+                val = float(tokens[-1])
+                if label not in pdos:
+                    pdos[label] = []
+                pdos[label].append(val)
+            except ValueError:
+                pass
+
+    result = {
+        "energy": np.array(energy),
+        "total_dos": np.array(total_dos),
+        "pdos": {k: np.array(v) for k, v in pdos.items()},
+        "units": {"energy": "eV", "dos": "1/eV"},
+    }
+    if fermi_energy is not None:
+        result["fermi_energy"] = fermi_energy
+
+    return result

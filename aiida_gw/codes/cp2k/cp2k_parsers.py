@@ -16,7 +16,10 @@ from aiida_gw.codes.cp2k.parsers import (
     read_s_p_forces,
     read_s_p_stress_tensor,
     read_cell_parameters,
-    read_lattice_parameters)
+    read_lattice_parameters,
+    read_bandstructure,
+    read_dos_pdos,
+)
 
 StructureData = DataFactory("structure")
 
@@ -142,5 +145,114 @@ class Cp2kEFSParser(Cp2kBaseParser):
             self.out("output_structure", output_structure)
         else:
             self.logger.warning("Incomplete structure data for %s run; skipping structure output.", result_dict["run_type"])
+
+        self._parse_gw_outputs(result_dict)
+
         self.out("output_parameters", Dict(dict=result_dict))
         return None
+
+    def _parse_gw_outputs(self, result_dict):
+        """Parse GW-specific output files (bandstructure, DOS/PDOS).
+
+        Handles both standard CP2K naming (aiida-BANDSTRUCTURE*, aiida-dos.dat, aiida-pdos*)
+        and custom naming conventions (bandstructure_*, DOS_PDOS_*.out).
+        """
+        available = set(self.retrieved.list_object_names())
+
+        bandstructure_files = {
+            "bandstructure_SCF_and_G0W0": "g0w0",
+            "bandstructure_SCF_and_G0W0_plus_SOC": "g0w0_soc",
+            "aiida-BANDSTRUCTURE_1-1.dat": "kpoints",
+        }
+        for fname, key in bandstructure_files.items():
+            if fname in available:
+                try:
+                    content = self.retrieved.get_object_content(fname)
+                    bs_data = read_bandstructure(content)
+                    result_dict[f"bandstructure_{key}"] = {
+                        "kpoints": bs_data["kpoints"].tolist(),
+                        "kpoint_labels": bs_data["kpoint_labels"],
+                        "units": bs_data["units"],
+                    }
+                    for level_name, eigenvalues in bs_data["eigenvalues"].items():
+                        result_dict[f"bandstructure_{key}"][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
+                    self.logger.info("Parsed %s bandstructure data", fname)
+                except Exception as exc:
+                    self.logger.warning("Failed to parse bandstructure file '%s': %s", fname, exc)
+
+        eigenvalue_files = [
+            "aiida-BANDSTRUCTURE_1-1_0.dat",
+            "aiida-BANDSTRUCTURE_1-1_SOC.dat",
+            "aiida-BANDSTRUCTURE_1-1_0_GW0.dat",
+        ]
+        for fname in eigenvalue_files:
+            if fname in available:
+                try:
+                    content = self.retrieved.get_object_content(fname)
+                    bs_data = read_bandstructure(content)
+                    level_key = "scf" if "SCF" in fname.upper() or "_0" in fname else "g0w0"
+                    if "SOC" in fname.upper():
+                        level_key += "_soc"
+                    key = f"{level_key}_bandstructure"
+                    if key not in result_dict:
+                        result_dict[key] = {"kpoints": [], "kpoint_labels": [], "units": "eV"}
+                    for level_name, eigenvalues in bs_data["eigenvalues"].items():
+                        result_dict[key][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
+                    self.logger.info("Parsed eigenvalue file %s", fname)
+                except Exception as exc:
+                    self.logger.warning("Failed to parse eigenvalue file '%s': %s", fname, exc)
+
+        dos_files = {
+            "DOS_PDOS_SCF.out": "scf",
+            "DOS_PDOS_G0W0.out": "g0w0",
+            "DOS_PDOS_SCF_SOC.out": "scf_soc",
+            "DOS_PDOS_G0W0_SOC.out": "g0w0_soc",
+        }
+        for fname, key in dos_files.items():
+            if fname in available:
+                try:
+                    content = self.retrieved.get_object_content(fname)
+                    dos_data = read_dos_pdos(content)
+                    result_dict[f"{key}_dos"] = {
+                        "energy": dos_data["energy"].tolist(),
+                        "total_dos": dos_data["total_dos"].tolist(),
+                        "units": dos_data["units"],
+                    }
+                    if "fermi_energy" in dos_data:
+                        result_dict[f"{key}_dos"]["fermi_energy"] = dos_data["fermi_energy"]
+                    if dos_data["pdos"]:
+                        result_dict[f"{key}_dos"]["pdos"] = {k: v.tolist() for k, v in dos_data["pdos"].items()}
+                    self.logger.info("Parsed %s DOS/PDOS data", fname)
+                except Exception as exc:
+                    self.logger.warning("Failed to parse DOS/PDOS file '%s': %s", fname, exc)
+
+        if "aiida-dos.dat" in available:
+            try:
+                content = self.retrieved.get_object_content("aiida-dos.dat")
+                dos_data = read_dos_pdos(content)
+                result_dict["dos"] = {
+                    "energy": dos_data["energy"].tolist(),
+                    "total_dos": dos_data["total_dos"].tolist(),
+                    "units": dos_data["units"],
+                }
+                if "fermi_energy" in dos_data:
+                    result_dict["dos"]["fermi_energy"] = dos_data["fermi_energy"]
+                self.logger.info("Parsed aiida-dos.dat")
+            except Exception as exc:
+                self.logger.warning("Failed to parse aiida-dos.dat: %s", exc)
+
+        pdos_files = [f for f in available if f.startswith("aiida-pdos")]
+        for fname in pdos_files:
+            try:
+                content = self.retrieved.get_object_content(fname)
+                dos_data = read_dos_pdos(content)
+                pdos_key = fname.replace("aiida-", "").replace(".dat", "")
+                result_dict[f"pdos_{pdos_key}"] = {
+                    "energy": dos_data["energy"].tolist(),
+                    "total_dos": dos_data["total_dos"].tolist(),
+                    "pdos": {k: v.tolist() for k, v in dos_data["pdos"].items()},
+                    "units": dos_data["units"],
+                }
+                self.logger.info("Parsed %s", fname)
+            except Exception as exc:
+                self.logger.warning("Failed to parse %s: %s", fname, exc)
