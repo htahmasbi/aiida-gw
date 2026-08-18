@@ -138,7 +138,7 @@ class GwConfig(BaseModel):
     mixing_alpha: float = Field(default=0.2)
     mixing_beta: float = Field(default=0.8)
     mixing_nbroyden: int = Field(default=10)
-    num_time_freq: int = Field(default=10, ge=1)
+    num_time_freq: int = Field(default=20, ge=1)
     memory_per_proc: int = Field(
         default=8,
         ge=1,
