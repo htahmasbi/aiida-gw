@@ -78,8 +78,10 @@ class GwWorkChain(WorkChain):
 
     def finalize(self):
         if not self.ctx.gw_calc.is_finished_ok:
-            logger.error("GW calculations failed with exit code %s", self.ctx.gw_calc.exit_status)
+            logger.error("GW calculation failed with exit code %s", self.ctx.gw_calc.exit_status)
             return self.exit_codes.ERROR_GW_FAILED
+        logger.info("GW calculation finished successfully")
+
         if hasattr(self.ctx.gw_calc.outputs, "output_structure"):
             self.out("output_structure", self.ctx.gw_calc.outputs.output_structure)
         if hasattr(self.ctx.gw_calc.outputs, "output_parameters"):

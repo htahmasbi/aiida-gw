@@ -65,12 +65,15 @@ class SinglePointWorkChain(WorkChain):
         if self.inputs.metadata_options is not None:
             inputs.cp2k.metadata.options = self.inputs.metadata_options.get_dict()
 
+        logger.info("Submitting SinglePointWorkChain for structure %s", self.inputs.structure.label)
         future = self.submit(inputs)
         self.to_context(cp2k_calc=future)
 
     def finalize(self):
         if not self.ctx.cp2k_calc.is_finished_ok:
+            logger.error("CP2K calculation failed with exit code %s", self.ctx.cp2k_calc.exit_status)
             return self.exit_codes.ERROR_CALCULATION_FAILED
+        logger.info("Single-point calculation finished successfully")
         self.out("output_structure", self.ctx.cp2k_calc.outputs.output_structure)
         self.out("output_parameters", self.ctx.cp2k_calc.outputs.output_parameters)
 

@@ -65,7 +65,9 @@ class RelaxWorkChain(WorkChain):
 
     def inspect_relax(self):
         if not self.ctx.relax_calc.is_finished_ok:
+            logger.error("Relax calculation failed with exit code %s", self.ctx.relax_calc.exit_status)
             return self.exit_codes.ERROR_RELAX_FAILED
+        logger.info("Relaxation finished successfully")
 
     def run_scf(self):
         from aiida_gw.core.builders import Cp2kBuilder
@@ -94,6 +96,8 @@ class RelaxWorkChain(WorkChain):
 
     def inspect_scf(self):
         if not self.ctx.scf_calc.is_finished_ok:
+            logger.error("Post-relax SCF failed with exit code %s", self.ctx.scf_calc.exit_status)
             return self.exit_codes.ERROR_SCF_FAILED
+        logger.info("Post-relax SCF finished successfully")
         self.out("output_structure", self.ctx.scf_calc.outputs.output_structure)
         self.out("output_parameters", self.ctx.scf_calc.outputs.output_parameters)
