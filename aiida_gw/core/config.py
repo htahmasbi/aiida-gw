@@ -31,6 +31,37 @@ class MetadataOptions(BaseModel):
         description="SLURM partition (queue). When set, passed as #SBATCH --partition=.",
     )
 
+    @field_validator("partition")
+    @classmethod
+    def validate_partition(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(
+                f"Invalid partition name {v!r} — only alphanumeric, "
+                "dashes (-), and underscores (_) are allowed."
+            )
+        return v
+
+    @field_validator("memory_per_machine")
+    @classmethod
+    def validate_memory_format(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            return v
+        unit = v[-1].upper()
+        if unit not in ("G", "M", "K"):
+            raise ValueError(
+                f"memory_per_machine must end with G/M/K (e.g. '600G', got {v!r})"
+            )
+        if not v[:-1].isdigit():
+            raise ValueError(
+                f"memory_per_machine must be a number followed by G/M/K (e.g. '600G', got {v!r})"
+            )
+        return v
+
     def to_dict(self) -> dict:
         result: dict[str, Any] = {
             "resources": {

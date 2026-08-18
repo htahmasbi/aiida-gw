@@ -1,15 +1,65 @@
-"""Tests for pure builder functions."""
+"""Tests for pure builder functions and Cp2kBuilder."""
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
 from aiida_gw.core.builders import (
+    Cp2kBuilder,
     _classify_from_vectors,
     _is_cp2k_key,
     _strip_invalid_keys,
     dict_merge,
     get_cube_print_section,
 )
+
+
+class TestMetadataOptionsValidators:
+    """Tests for MetadataOptions pydantic field validators."""
+
+    def test_partition_valid(self):
+        from aiida_gw.core.config import MetadataOptions
+        for name in ("cpu-genoa", "gpu-a100", "debug", "compute", "cpu_gen6", "a_b"):
+            opts = MetadataOptions(partition=name)
+            assert opts.partition == name
+
+    def test_partition_invalid_characters(self):
+        from aiida_gw.core.config import MetadataOptions
+        from pydantic import ValidationError
+
+        for name in ("cpu genoa", "partition!", "queue@cluster", "part/queue"):
+            with pytest.raises(ValidationError, match="Invalid partition name"):
+                MetadataOptions(partition=name)
+
+    def test_memory_format_valid(self):
+        from aiida_gw.core.config import MetadataOptions
+        for val in ("600G", "38400M", "128K", "1G", "512M"):
+            opts = MetadataOptions(memory_per_machine=val)
+            assert opts.memory_per_machine == val
+
+    def test_memory_format_invalid_unit(self):
+        from aiida_gw.core.config import MetadataOptions
+        from pydantic import ValidationError
+
+        for val in ("600", "600X", "10GB", "8T"):
+            with pytest.raises(ValidationError, match="must end with G/M/K"):
+                MetadataOptions(memory_per_machine=val)
+
+    def test_memory_format_invalid_number(self):
+        from aiida_gw.core.config import MetadataOptions
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="must be a number"):
+            MetadataOptions(memory_per_machine="abcG")
+
+    def test_partition_and_memory_none(self):
+        from aiida_gw.core.config import MetadataOptions
+
+        opts = MetadataOptions()
+        assert opts.partition is None
+        assert opts.memory_per_machine is None
 
 
 class TestIsCp2kKey:
@@ -135,3 +185,108 @@ class TestClassifyFromVectors:
         a = self.make_vec(3.0, 0.0)
         b = self.make_vec(1.0, 2.0, 0.0)  # arbitrary angle
         assert _classify_from_vectors(a, b) == "oblique"
+
+
+class TestCp2kBuilder:
+    """Integration tests for Cp2kBuilder.build_scf_inputs and build_gw_inputs."""
+
+    @pytest.fixture
+    def mock_structure(self):
+        """Minimal H2 molecule structure."""
+        from ase import Atoms
+
+        mol = Atoms("HH", positions=[(0, 0, 0), (0.74, 0, 0)], cell=[10, 10, 10], pbc=[True, True, True])
+        with patch("aiida_gw.core.builders.StructureData") as MockSD:
+            mock = MagicMock()
+            mock.get_ase.return_value = mol
+            mock.cell = [[10, 0, 0], [0, 10, 0], [0, 0, 10]]
+            MockSD.return_value = mock
+            yield mock
+
+    @pytest.fixture
+    def mock_code(self):
+        return MagicMock(label="cp2k@localhost")
+
+    @pytest.fixture
+    def mock_config(self):
+        from aiida_gw.core.config import Cp2kConfig, GwConfig, MetadataOptions, ProjectConfig
+
+        metadata = MetadataOptions()
+        cp2k_cfg = Cp2kConfig()
+        gw_cfg = GwConfig(
+            resolve_from_files=False,
+            xc_functional="PBE",
+        )
+        return ProjectConfig(metadata_options=metadata, cp2k=cp2k_cfg, gw=gw_cfg)
+
+    def test_build_scf_inputs_returns_builder(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_scf_inputs(
+            structure=mock_structure,
+            code=mock_code,
+            protocol_section="single_point",
+            protocol_name="protocol_SIRIUS.yml",
+            kpoints_mesh=[2, 2, 2],
+        )
+        assert builder is not None
+        assert hasattr(builder, "cp2k")
+        assert builder.cp2k.code is mock_code
+        assert builder.cp2k.structure is mock_structure
+
+    def test_build_scf_inputs_sets_parameters(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_scf_inputs(
+            structure=mock_structure,
+            code=mock_code,
+            protocol_section="single_point",
+            protocol_name="protocol_SIRIUS.yml",
+        )
+        params = builder.cp2k.parameters.get_dict()
+        assert "FORCE_EVAL" in params
+        assert "GLOBAL" in params
+
+    def test_build_scf_inputs_sets_retrieve_list(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_scf_inputs(
+            structure=mock_structure,
+            code=mock_code,
+            protocol_section="single_point",
+            protocol_name="protocol_SIRIUS.yml",
+        )
+        settings = builder.cp2k.settings.get_dict()
+        retrieve_list = settings["additional_retrieve_list"]
+        assert isinstance(retrieve_list, list)
+        assert "aiida.out" in retrieve_list
+        assert "aiida-BANDSTRUCTURE*" in retrieve_list
+        assert "bandstructure_SCF_and_G0W0" in retrieve_list
+        assert "DOS_PDOS_SCF.out" in retrieve_list
+
+    def test_build_scf_inputs_kpoints_injected(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_scf_inputs(
+            structure=mock_structure,
+            code=mock_code,
+            protocol_section="single_point",
+            protocol_name="protocol_SIRIUS.yml",
+            kpoints_mesh=[4, 4, 1],
+        )
+        params = builder.cp2k.parameters.get_dict()
+        dft = params.get("FORCE_EVAL", {}).get("DFT", {})
+        kp = dft.get("KPOINTS", {})
+        assert "MONKHORST-PACK 4 4 1" in kp.get("SCHEME", "")
+
+    def test_build_gw_inputs_returns_builder(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_gw_inputs(
+            structure=mock_structure,
+            code=mock_code,
+        )
+        assert builder is not None
+        assert hasattr(builder, "cp2k")
+        assert builder.cp2k.code is mock_code
+
+    def test_build_gw_inputs_gw_section_present(self, mock_structure, mock_code, mock_config):
+        builder = Cp2kBuilder(mock_config).build_gw_inputs(
+            structure=mock_structure,
+            code=mock_code,
+        )
+        params = builder.cp2k.parameters.get_dict()
+        bs = params.get("FORCE_EVAL", {}).get("PROPERTIES", {}).get("BANDSTRUCTURE", {})
+        assert "GW" in bs
+        assert "NUM_TIME_FREQ_POINTS" in bs["GW"]
+        assert "KPOINTS_W" in bs["GW"]
