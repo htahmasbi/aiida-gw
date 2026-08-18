@@ -452,6 +452,31 @@ class Cp2kBuilder:
         if protocol_section not in protocol:
             raise KeyError(f"Section '{protocol_section}' not found in {protocol_name}")
 
+        # --- Pre-flight element coverage check ---
+        if self.config.gw.resolve_from_files:
+            try:
+                from aiida_gw.codes.cp2k.data_reader import get_supported_elements
+
+                supported = get_supported_elements(
+                    self.config.gw.basis_set_file,
+                    self.config.gw.ri_basis_set_file,
+                    self.config.gw.potential_file,
+                    orb_basis=self.config.gw.orb_basis,
+                    accuracy_target=self.config.gw.ri_basis_accuracy_target,
+                    xc_functional=self.config.gw.xc_functional,
+                )
+                ase = structure.get_ase()
+                missing = set(ase.get_chemical_symbols()) - supported
+                if missing:
+                    raise ValueError(
+                        f"Elements {missing} not supported by configured "
+                        f"basis/potential/RI files. Supported: {supported}"
+                    )
+            except ValueError:
+                raise
+            except Exception as exc:
+                logger.warning("Could not validate element coverage: %s", exc)
+
         params = copy.deepcopy(protocol[protocol_section])
         basis_pseudo = protocol.get("basis_pseudo", "")
 

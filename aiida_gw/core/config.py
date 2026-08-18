@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -234,15 +235,19 @@ def load_config(config_path: str | Path | None = None) -> ProjectConfig:
 
 
 _config: ProjectConfig | None = None
+_config_lock = threading.Lock()
 
 
 def get_config() -> ProjectConfig:
     global _config
     if _config is None:
-        _config = load_config()
+        with _config_lock:
+            if _config is None:  # double-check under lock
+                _config = load_config()
     return _config
 
 
 def reset_config() -> None:
     global _config
-    _config = None
+    with _config_lock:
+        _config = None
