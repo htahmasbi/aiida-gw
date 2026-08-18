@@ -611,7 +611,7 @@ class Cp2kBuilder:
         cell = fe.get("SUBSYS", {}).get("CELL", {})
         for i, key in enumerate(["A", "B", "C"]):
             cell[key] = (
-                f'{cell.get(key, "")} {structure.cell[i][0]:<15} '
+                f'{structure.cell[i][0]:<15} '
                 f'{structure.cell[i][1]:<15} {structure.cell[i][2]:<15}'
             )
 
@@ -640,6 +640,13 @@ class Cp2kBuilder:
             # DOS/PDOS outputs from CP2K PRINT/DOS section
             "aiida-dos.dat",
             "aiida-pdos*",
+            # Custom-named GW outputs (alternative to aiida-* naming)
+            "bandstructure_SCF_and_G0W0",
+            "bandstructure_SCF_and_G0W0_plus_SOC",
+            "DOS_PDOS_SCF.out",
+            "DOS_PDOS_G0W0.out",
+            "DOS_PDOS_SCF_SOC.out",
+            "DOS_PDOS_G0W0_SOC.out",
         ]
         if self.config.gw.print_cube_files:
             retrieve_list.append(("aiida-*.cube", ".", 1))

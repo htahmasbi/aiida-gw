@@ -51,6 +51,25 @@ def _detect_supported_elements(config: ProjectConfig) -> set[str] | None:
     return None
 
 
+def _parse_3int(value: str | None, name: str, default: list[int] | None = None) -> list[int] | None:
+    """Parse a comma-separated string of 3 positive integers, e.g. '3,3,1'."""
+    if value is None:
+        return default
+    parts = value.split(",")
+    if len(parts) != 3:
+        console.print(f"[red]Error:[/red] '{name}' must be 3 comma-separated positive integers, e.g. 3,3,1 (got {value!r})")
+        raise typer.Exit(1)
+    try:
+        result = [int(x) for x in parts]
+    except ValueError:
+        console.print(f"[red]Error:[/red] '{name}' contains non-integer values: {value!r}")
+        raise typer.Exit(1)
+    if any(x <= 0 for x in result):
+        console.print(f"[red]Error:[/red] '{name}' values must be positive integers: {value!r}")
+        raise typer.Exit(1)
+    return result
+
+
 def _has_unsupported_elements(
     struct_elements: set[str],
     exclude_elements: set[str] | None,
@@ -168,13 +187,8 @@ def run(
         console.print("Run 'verdi code list' to see available codes.")
         raise typer.Exit(1)
 
-    kpoints_mesh = None
-    if kpoints:
-        kpoints_mesh = [int(x) for x in kpoints.split(",")]
-
-    kpoints_w_mesh = None
-    if kpoints_w:
-        kpoints_w_mesh = [int(x) for x in kpoints_w.split(",")]
+    kpoints_mesh = _parse_3int(kpoints, "kpoints")
+    kpoints_w_mesh = _parse_3int(kpoints_w, "kpoints-w")
 
     metadata = config.metadata_options.to_dict()
 
@@ -185,7 +199,7 @@ def run(
 
         gw_config = config.gw
         vacuum_val = vacuum or gw_config.vacuum
-        supercell_val = [int(x) for x in (supercell or ",".join(map(str, gw_config.supercell))).split(",")]
+        supercell_val = _parse_3int(supercell, "supercell", default=gw_config.supercell)
 
         if group:
             from aiida_gw.datasets.mc2d_optimade import fetch_and_store_mc2d
@@ -205,7 +219,7 @@ def run(
             from aiida.orm import Group
 
             group_node = Group.collection.get(label=group)
-            structures = list(group_node.nodes)[:max_structures]
+            structures = [n for n in group_node.nodes if isinstance(n, StructureData)][:max_structures]
             if user_excl or supported:
                 filtered = []
                 for s in structures:

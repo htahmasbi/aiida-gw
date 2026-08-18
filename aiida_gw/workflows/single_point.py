@@ -62,7 +62,7 @@ class SinglePointWorkChain(WorkChain):
             kpoints_mesh=kpoints_mesh,
             kpoints_distance=cp2k_cfg.kpoints_distance,
         )
-        if self.inputs.metadata_options:
+        if self.inputs.metadata_options is not None:
             inputs.cp2k.metadata.options = self.inputs.metadata_options.get_dict()
 
         future = self.submit(inputs)

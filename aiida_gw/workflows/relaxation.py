@@ -76,6 +76,9 @@ class RelaxWorkChain(WorkChain):
             if "kpoints_mesh" in self.inputs
             else cp2k_cfg.kpoints_mesh
         )
+        if not hasattr(self.ctx.relax_calc.outputs, "output_structure"):
+            logger.error("Relax calculation missing output_structure")
+            return self.exit_codes.ERROR_RELAX_FAILED
         relaxed_structure = self.ctx.relax_calc.outputs.output_structure
         builder = Cp2kBuilder(self.ctx.config)
         inputs = builder.build_scf_inputs(
