@@ -35,7 +35,7 @@ class TestMetadataOptionsValidators:
 
     def test_memory_format_valid(self):
         from aiida_gw.core.config import MetadataOptions
-        for val in ("600G", "38400M", "128K", "1G", "512M"):
+        for val in ("600G", "38400M", "128K", "1G", "512M", "600", "0", "38400"):
             opts = MetadataOptions(memory_per_machine=val)
             assert opts.memory_per_machine == val
 
@@ -43,8 +43,8 @@ class TestMetadataOptionsValidators:
         from aiida_gw.core.config import MetadataOptions
         from pydantic import ValidationError
 
-        for val in ("600", "600X", "10GB", "8T"):
-            with pytest.raises(ValidationError, match="must end with G/M/K"):
+        for val in ("600X", "10GB", "8T", "12.5G"):
+            with pytest.raises(ValidationError, match="must end with G/M/K|must be a number"):
                 MetadataOptions(memory_per_machine=val)
 
     def test_memory_format_invalid_number(self):

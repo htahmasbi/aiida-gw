@@ -51,14 +51,16 @@ class MetadataOptions(BaseModel):
         v = v.strip()
         if not v:
             return v
+        if v.isdigit():
+            return v
         unit = v[-1].upper()
         if unit not in ("G", "M", "K"):
             raise ValueError(
-                f"memory_per_machine must end with G/M/K (e.g. '600G', got {v!r})"
+                f"memory_per_machine must be a number (e.g. '38400' = MB) or end with G/M/K (e.g. '600G'), got {v!r}"
             )
         if not v[:-1].isdigit():
             raise ValueError(
-                f"memory_per_machine must be a number followed by G/M/K (e.g. '600G', got {v!r})"
+                f"memory_per_machine must be a number (e.g. '38400' = MB) or end with G/M/K (e.g. '600G'), got {v!r}"
             )
         return v
 
