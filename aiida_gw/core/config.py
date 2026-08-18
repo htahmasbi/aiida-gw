@@ -129,8 +129,8 @@ class GwConfig(BaseModel):
         "Typically \"XZ\" for 2D materials with vacuum in Y.",
     )
     poisson_solver: str = Field(default="PERIODIC")
-    cutoff: int = Field(default=400, ge=0)
-    rel_cutoff: int = Field(default=50, ge=0)
+    cutoff: int = Field(default=600, ge=50)
+    rel_cutoff: int = Field(default=100, ge=0)
     eps_default: float = Field(default=1.0e-12, gt=0)
     eps_pgf_orb: float = Field(default=1.0e-12, gt=0)
     eps_scf: float = Field(default=5.0e-7, gt=0)
