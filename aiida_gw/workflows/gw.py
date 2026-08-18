@@ -72,11 +72,13 @@ class GwWorkChain(WorkChain):
             kpoints_w_distance=gw_config.kpoints_w_distance,
             bandstructure_path=bs_path,
         )
+        logger.info("Submitting GwWorkChain for structure %s", self.inputs.structure.label)
         future = self.submit(inputs)
         self.to_context(gw_calc=future)
 
     def finalize(self):
         if not self.ctx.gw_calc.is_finished_ok:
+            logger.error("GW calculations failed with exit code %s", self.ctx.gw_calc.exit_status)
             return self.exit_codes.ERROR_GW_FAILED
         if hasattr(self.ctx.gw_calc.outputs, "output_structure"):
             self.out("output_structure", self.ctx.gw_calc.outputs.output_structure)
