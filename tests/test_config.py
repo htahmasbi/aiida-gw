@@ -117,19 +117,24 @@ class TestGwConfigElementSettings:
         assert cfg.element_settings["N"].ri_basis == "RI_TZV2P"
 
 
-class TestGwConfigPrintCubeFiles:
-    def test_default_off(self):
+class TestGwConfigCubeFiles:
+    def test_default(self):
         cfg = GwConfig()
-        assert cfg.print_cube_files is False
+        assert "V_HARTREE_CUBE" in cfg.cube_files
+        assert "E_DENSITY_CUBE" in cfg.cube_files
 
-    def test_enabled(self):
-        cfg = GwConfig(print_cube_files=True)
-        assert cfg.print_cube_files is True
+    def test_single_cube(self):
+        cfg = GwConfig(cube_files=["V_HARTREE_CUBE"])
+        assert cfg.cube_files == ["V_HARTREE_CUBE"]
+
+    def test_empty_list(self):
+        cfg = GwConfig(cube_files=[])
+        assert cfg.cube_files == []
 
     def test_from_project_config(self):
         from aiida_gw.core.config import ProjectConfig
 
-        cfg = ProjectConfig(gw={"print_cube_files": True})
-        assert cfg.gw.print_cube_files is True
+        cfg = ProjectConfig(gw={"cube_files": ["V_HARTREE_CUBE"]})
+        assert cfg.gw.cube_files == ["V_HARTREE_CUBE"]
 
 

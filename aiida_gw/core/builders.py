@@ -218,25 +218,26 @@ def get_kinds_section_sirius(structure, atom_data: dict) -> dict:
     return {"FORCE_EVAL": {"SUBSYS": {"KIND": kinds}}}
 
 
-def get_cube_print_section() -> dict:
-    """Build a DFT.PRINT section that writes Hartree-potential and density cube files.
+def get_cube_print_section(cube_files: list[str] | None = None) -> dict:
+    """Build a DFT.PRINT section that writes cube files.
 
-    Returns a dict to be merged under ``FORCE_EVAL/DFT/PRINT``. The cube files are
-    written by CP2K as ``<project>-V_HARTREE-1_0.cube`` and
-    ``<project>-E_DENSITY-1_0.cube`` (for band alignment analysis).
+    Args:
+        cube_files: List of CP2K PRINT section names (e.g. ``V_HARTREE_CUBE``,
+            ``E_DENSITY_CUBE``). If None, returns both (backward-compatible default).
+
+    Returns a dict to be merged under ``FORCE_EVAL/DFT/PRINT``.
     """
-    return {
-        "PRINT": {
-            "V_HARTREE_CUBE": {
-                "_": "ON",
-                "STRIDE": "1 1 1",
-            },
-            "E_DENSITY_CUBE": {
-                "_": "ON",
-                "STRIDE": "1 1 1",
-            },
-        }
+    all_cubes = {
+        "V_HARTREE_CUBE": {"_": "ON", "STRIDE": "1 1 1"},
+        "E_DENSITY_CUBE": {"_": "ON", "STRIDE": "1 1 1"},
     }
+    if cube_files is None:
+        enabled = all_cubes
+    else:
+        enabled = {k: v for k, v in all_cubes.items() if k in cube_files}
+    if not enabled:
+        return {}
+    return {"PRINT": enabled}
 
 
 def get_file_section_qs() -> dict:
@@ -610,9 +611,9 @@ class Cp2kBuilder:
             poisson["PERIODIC"] = self.config.gw.periodic
             poisson["POISSON_SOLVER"] = self.config.gw.poisson_solver
 
-            # Opt-in cube files (V_HARTREE / E_DENSITY) for band alignment
-            if self.config.gw.print_cube_files:
-                dict_merge(dft, get_cube_print_section())
+            cube_files = self.config.gw.cube_files
+            if cube_files:
+                dict_merge(dft, get_cube_print_section(cube_files))
 
             # Determine XC functional — config override wins, fall back to protocol
             xc_functional = self.config.gw.xc_functional
@@ -673,7 +674,7 @@ class Cp2kBuilder:
             "DOS_PDOS_SCF_SOC.out",
             "DOS_PDOS_G0W0_SOC.out",
         ]
-        if self.config.gw.print_cube_files:
+        if self.config.gw.cube_files:
             retrieve_list.append(("aiida-*.cube", ".", 1))
         builder.cp2k.settings = Dict(dict={"additional_retrieve_list": retrieve_list})
 

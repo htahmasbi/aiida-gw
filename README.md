@@ -76,7 +76,7 @@ vacuum = 20.0
 supercell = [2, 2, 1]
 periodic = "XZ"
 cell_periodic = "XZ"
-print_cube_files = true  # optional: write + retrieve Hartree/density cube files
+cube_files = ["V_HARTREE_CUBE", "E_DENSITY_CUBE"]  # empty [] to disable
 ```
 
 ## Usage

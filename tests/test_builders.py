@@ -138,7 +138,7 @@ class TestDictMerge:
 
 
 class TestGetCubePrintSection:
-    def test_structure(self):
+    def test_default_both_cubes(self):
         section = get_cube_print_section()
         assert "PRINT" in section
         dft_print = section["PRINT"]
@@ -160,6 +160,21 @@ class TestGetCubePrintSection:
         dft = {"CUTOFF": 400}
         dict_merge(dft, get_cube_print_section())
         assert dft["PRINT"]["V_HARTREE_CUBE"]["_"] == "ON"
+
+    def test_filter_to_single_cube(self):
+        section = get_cube_print_section(["V_HARTREE_CUBE"])
+        assert "PRINT" in section
+        assert "V_HARTREE_CUBE" in section["PRINT"]
+        assert "E_DENSITY_CUBE" not in section["PRINT"]
+
+    def test_filter_empty_returns_empty_dict(self):
+        section = get_cube_print_section([])
+        assert section == {}
+
+    def test_filter_with_unknown_cube_ignored(self):
+        section = get_cube_print_section(["V_HARTREE_CUBE", "FAKE_CUBE"])
+        assert "V_HARTREE_CUBE" in section["PRINT"]
+        assert "FAKE_CUBE" not in section["PRINT"]
 
 
 class TestClassifyFromVectors:

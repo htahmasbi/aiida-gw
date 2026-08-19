@@ -218,11 +218,12 @@ class GwConfig(BaseModel):
         description="Per-element overrides for basis set, potential, and RI auxiliary basis. "
         "Keys are element symbols (e.g. 'B', 'N'), values are ElementOverride with optional orb_basis, potential, ri_basis.",
     )
-    print_cube_files: bool = Field(
-        default=False,
-        description="Opt-in: write V_HARTREE_CUBE and E_DENSITY_CUBE cube files "
-        "(for band alignment) and add them to the retrieve list. "
-        "Cube files are large; keep off unless needed.",
+    cube_files: list[str] = Field(
+        default_factory=lambda: ["V_HARTREE_CUBE", "E_DENSITY_CUBE"],
+        description="List of CP2K PRINT cube-section names to write and retrieve. "
+        "Common values: 'V_HARTREE_CUBE' (Hartree potential for band alignment), "
+        "'E_DENSITY_CUBE' (total charge density, large). "
+        "Empty list disables all cube output.",
     )
 
 
