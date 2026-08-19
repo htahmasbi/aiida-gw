@@ -6,7 +6,7 @@ num_mpiprocs_per_machine = 16
 cpus_per_task = 12
 max_wallclock_seconds = 345600
 memory_per_machine = "0"
-partition = "cpu-genoa"
+partition = "cpu-turin"
 
 [cp2k]
 cutoff = 400
@@ -55,7 +55,8 @@ orb_basis = "aug-SZV-MOLOPT-GTH-tier-2"
 # Cube files to write (CP2K PRINT section names) and retrieve:
 #   V_HARTREE_CUBE — Hartree potential, useful for band alignment
 #   E_DENSITY_CUBE — total charge density, large files — omit if not needed
-cube_files = ["V_HARTREE_CUBE", "E_DENSITY_CUBE"]
+# [] - no cubes, 
+cube_files = ["V_HARTREE_CUBE"]
 
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
