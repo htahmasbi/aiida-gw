@@ -33,7 +33,7 @@ Create a `.env` file or set environment variables.
 | `METADATA_OPTIONS__MEMORY_PER_MACHINE` | *Optional* | Memory per node (e.g., `600G` or `38400M` $\rightarrow$ `#SBATCH --mem`) |
 | `METADATA_OPTIONS__PARTITION` | *Optional* | SLURM partition ($\rightarrow$ `#SBATCH --partition`) |
 | **CP2K Physics** | | |
-| `CP2K__CUTOFF` (and/or `GW__CUTOFF`) | `400` | CP2K plane-wave cutoff (Ry) |
+| `CP2K__CUTOFF` (and/or `GW__CUTOFF`) | `500` | CP2K plane-wave cutoff (Ry) |
 | `CP2K__REL_CUTOFF` (and/or `GW__REL_CUTOFF`) | `50` | Relative cutoff (Ry) |
 | `CP2K__KPOINTS_MESH` | *Optional* | Ground-state K-point mesh |
 | `GW__VACUUM` | `20` | Vacuum gap (Å) |
@@ -49,7 +49,7 @@ Create a `.env` file or set environment variables.
 | `GW__RI_BASIS_SET_FILE` | `BASIS_GTH_MOLOPT_AUG_for_excited_states_RI` | RI basis set file (cluster path) |
 | `GW__POTENTIAL_FILE` | `POTENTIAL_UZH` or `GTH_POTENTIALS` | Potential file (cluster path) |
 | `GW__RI_BASIS_ACCURACY_TARGET` | *Optional* | Numerical accuracy target for automated RI selection |
-| `GW__PRINT_CUBE_FILES` | `false` | Opt-in: write `V_HARTREE_CUBE`/`E_DENSITY_CUBE` cube files (band alignment) and add them to the retrieve list. Cube files are large; keep off unless needed. |
+| `GW__CUBE_FILES` | `["V_HARTREE_CUBE"]` | Write `V_HARTREE_CUBE`,`E_DENSITY_CUBE`, or other cube files |
 
 Alternatively, place a ``config.toml`` file in the project root, ``~/.config/aiida-gw/``,
 or the current directory:
@@ -112,6 +112,9 @@ aiida-gw run --mode gw --group mc2d_structures --code cp2k@localhost --exclude-e
 
 # Run GW with reading from JSON files
 aiida-gw run --mode gw --code cp2k@localhost --elements As --max-structures 1 --json-files ./structure.json
+
+# See G0W0 band-gaps 
+aiida-gw results --run-group gw_test_runs
 ```
 
 ## Project Structure
