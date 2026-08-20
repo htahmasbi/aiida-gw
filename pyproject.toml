@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiida-gw"
+version = "0.1.0"
+description = "AiiDA GW workflows for 2D materials with CP2K"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    "build/",
+    ".egg-info/",
+    "__pycache__/",
+    ".pytest_cache/",
+    "utils/",          # ad-hoc cluster scripts — lint separately
+]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: undefined names, unused imports, etc.
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort: import sorting
+    "N",    # naming conventions
+    "UP",   # pyupgrade: modernize syntax
+    "B",    # flake8-bugbear: common bugs
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",            # line too long — handled by line-length
+    "N802",            # function name casing — pydantic uses snake_case
+    "N803",            # argument name casing — pydantic uses snake_case
+    "N806",            # variable in function casing in nested function — common in builders
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aiida_gw"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+exclude = [
+    "utils/",
+    "tests/",
+    "build/",
+]

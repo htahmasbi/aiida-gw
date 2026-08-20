@@ -24,8 +24,16 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pydantic pydantic-settings pyyaml pymatgen numpy pytest
+          pip install pydantic pydantic-settings pyyaml pymatgen numpy pytest typer rich requests
+          pip install ruff mypy
+
+      - name: Lint with ruff
+        run: |
+          ruff check aiida_gw/ --config pyproject.toml
+          ruff format --check aiida_gw/ --config pyproject.toml
+
+      - name: Type-check with mypy
+        run: mypy aiida_gw/ --config-file pyproject.toml
 
       - name: Run tests
-        run: |
-          python -m pytest tests/ -v --ignore=tests/test_builders.py
+        run: python -m pytest tests/ -v
