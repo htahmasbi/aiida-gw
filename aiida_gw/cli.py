@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -26,6 +27,69 @@ def _parse_exclude_elements(exclude_str: str | None) -> set[str] | None:
     if exclude_str:
         return set(e.strip() for e in exclude_str.split(",") if e.strip())
     return None
+
+
+def _load_structures_from_json(
+    file_paths: list[Path],
+    formula: str | None,
+    elements: str | None,
+    exclude_elements: str | None,
+    max_structures: int,
+    config: ProjectConfig,
+    not_found_msg: str,
+) -> list:
+    """Load structures from JSON files, applying filters and storing as AiiDA nodes."""
+    import json as _json
+
+    from aiida.orm import StructureData as OrmStructureData
+    from pymatgen.core import Structure
+
+    user_excl = _parse_exclude_elements(exclude_elements)
+    supported = _detect_supported_elements(config) if user_excl is None else None
+    target_elements = set(elements.split(",")) if elements else None
+
+    structures = []
+    for json_file in file_paths:
+        if len(structures) >= max_structures:
+            break
+        with open(json_file) as f:
+            entries = _json.load(f)
+        for entry in entries:
+            if len(structures) >= max_structures:
+                break
+            entry_formula = entry.get("formula", "")
+            if formula and entry_formula != formula:
+                continue
+            elems = set(entry.get("elements", []))
+            if target_elements and elems != target_elements:
+                logger.info(f"Skipping {entry.get('id', '')} — elements {elems} != {target_elements}")
+                continue
+            if user_excl and (elems & user_excl):
+                logger.info(f"Skipping {entry.get('id', '')} — excluded elements: {elems & user_excl}")
+                continue
+            if supported and not (elems <= supported):
+                logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
+                continue
+            try:
+                pmg_struct = Structure.from_dict(entry["structure"])
+            except Exception as e:
+                logger.warning(f"Failed to parse structure {entry.get('id', 'unknown')}: {e}")
+                continue
+            try:
+                node = OrmStructureData(pymatgen=pmg_struct)
+                node.store()
+                node.base.extras.set("source", "mc2d_optimade")
+                node.base.extras.set("optimade_id", entry.get("id", ""))
+                node.base.extras.set("formula", entry.get("formula", ""))
+                structures.append(node)
+            except Exception as e:
+                logger.warning(f"Failed to store structure {entry.get('id', 'unknown')}: {e}")
+                continue
+
+    if not structures:
+        console.print(f"[red]Error:[/red] {not_found_msg}")
+        raise typer.Exit(1)
+    return structures
 
 
 def _detect_supported_elements(config: ProjectConfig) -> set[str] | None:
@@ -233,9 +297,6 @@ def run(
             console.print(f"[green]Fetched {len(structures)} structures from OPTIMADE[/green]")
         elif json_dir:
             from pathlib import Path as PPath
-            import json as _json
-
-            from pymatgen.core import Structure
 
             json_path = PPath(json_dir)
             if not json_path.is_dir():
@@ -247,59 +308,18 @@ def run(
                 console.print(f"[red]Error:[/red] No mc2d_*.json files found in '{json_dir}'")
                 raise typer.Exit(1)
 
-            user_excl = _parse_exclude_elements(exclude_elements)
-            supported = _detect_supported_elements(config) if user_excl is None else None
-            target_elements = set(elements.split(",")) if elements else None
-
-            structures = []
-            for json_file in json_files:
-                if len(structures) >= max_structures:
-                    break
-                with open(json_file) as f:
-                    entries = _json.load(f)
-                for entry in entries:
-                    if len(structures) >= max_structures:
-                        break
-                    entry_formula = entry.get("formula", "")
-                    if formula and entry_formula != formula:
-                        continue
-                    elems = set(entry.get("elements", []))
-                    if target_elements and elems != target_elements:
-                        logger.info(f"Skipping {entry.get('id', '')} — elements {elems} != {target_elements}")
-                        continue
-                    if user_excl and (elems & user_excl):
-                        logger.info(f"Skipping {entry.get('id', '')} — excluded elements: {elems & user_excl}")
-                        continue
-                    if supported and not (elems <= supported):
-                        logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
-                        continue
-                    try:
-                        pmg_struct = Structure.from_dict(entry["structure"])
-                    except Exception as e:
-                        logger.warning(f"Failed to parse structure {entry.get('id', 'unknown')}: {e}")
-                        continue
-                    try:
-                        node = StructureData(pymatgen=pmg_struct)
-                        node.store()
-                        node.base.extras.set("source", "mc2d_optimade")
-                        node.base.extras.set("optimade_id", entry.get("id", ""))
-                        node.base.extras.set("formula", entry.get("formula", ""))
-                        structures.append(node)
-                    except Exception as e:
-                        logger.warning(f"Failed to store structure {entry.get('id', 'unknown')}: {e}")
-                        continue
-
-            if not structures:
-                msg = f"No structure with formula '{formula}' found" if formula else "No valid structures found in JSON files"
-                console.print(f"[red]Error:[/red] {msg}")
-                raise typer.Exit(1)
-
+            structures = _load_structures_from_json(
+                json_files,
+                formula,
+                elements,
+                exclude_elements,
+                max_structures,
+                config,
+                f"No structure with formula '{formula}' found" if formula else "No valid structures found in JSON files",
+            )
             console.print(f"[green]Loaded {len(structures)} structures from JSON files[/green]")
         elif json_files:
             from pathlib import Path as PPath
-            import json as _json
-
-            from pymatgen.core import Structure
 
             file_paths = [PPath(f.strip()) for f in json_files.split(",") if f.strip()]
             if not file_paths:
@@ -311,53 +331,15 @@ def run(
                     console.print(f"[red]Error:[/red] File not found: {fp}")
                     raise typer.Exit(1)
 
-            user_excl = _parse_exclude_elements(exclude_elements)
-            supported = _detect_supported_elements(config) if user_excl is None else None
-            target_elements = set(elements.split(",")) if elements else None
-
-            structures = []
-            for json_file in file_paths:
-                if len(structures) >= max_structures:
-                    break
-                with open(json_file) as f:
-                    entries = _json.load(f)
-                for entry in entries:
-                    if len(structures) >= max_structures:
-                        break
-                    entry_formula = entry.get("formula", "")
-                    if formula and entry_formula != formula:
-                        continue
-                    elems = set(entry.get("elements", []))
-                    if target_elements and elems != target_elements:
-                        logger.info(f"Skipping {entry.get('id', '')} — elements {elems} != {target_elements}")
-                        continue
-                    if user_excl and (elems & user_excl):
-                        logger.info(f"Skipping {entry.get('id', '')} — excluded elements: {elems & user_excl}")
-                        continue
-                    if supported and not (elems <= supported):
-                        logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
-                        continue
-                    try:
-                        pmg_struct = Structure.from_dict(entry["structure"])
-                    except Exception as e:
-                        logger.warning(f"Failed to parse structure {entry.get('id', 'unknown')}: {e}")
-                        continue
-                    try:
-                        node = StructureData(pymatgen=pmg_struct)
-                        node.store()
-                        node.base.extras.set("source", "mc2d_optimade")
-                        node.base.extras.set("optimade_id", entry.get("id", ""))
-                        node.base.extras.set("formula", entry.get("formula", ""))
-                        structures.append(node)
-                    except Exception as e:
-                        logger.warning(f"Failed to store structure {entry.get('id', 'unknown')}: {e}")
-                        continue
-
-            if not structures:
-                msg = f"No structure with formula '{formula}' found" if formula else "No valid structures found in specified files"
-                console.print(f"[red]Error:[/red] {msg}")
-                raise typer.Exit(1)
-
+            structures = _load_structures_from_json(
+                file_paths,
+                formula,
+                elements,
+                exclude_elements,
+                max_structures,
+                config,
+                f"No structure with formula '{formula}' found" if formula else "No valid structures found in specified files",
+            )
             console.print(f"[green]Loaded {len(structures)} structures from specified files[/green]")
         else:
             from aiida.orm import StructureData as OrmStructureData
