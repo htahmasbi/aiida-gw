@@ -249,9 +249,16 @@ def read_cell_parameters(content):
 
 def read_lattice_parameters(content):
     match = re.search(r"\n\s*&CELL\n(.*?)\n\s*&END CELL\n", content, re.DOTALL)
-    cell_lines = [line.strip().split() for line in match.group(1).splitlines()]
-    cell_str = [line[2:] for line in cell_lines if line[0] in "ABC"]
-    cell = np.array(cell_str, np.float64)
+    if match is None:
+        raise ValueError("No &CELL section found in CP2K input")
+    cell = np.full((3, 3), np.nan)
+    for raw_line in match.group(1).splitlines():
+        tokens = raw_line.split("#")[0].strip().split()
+        if len(tokens) >= 4 and tokens[0].upper() in ("A", "B", "C"):
+            idx = "ABC".index(tokens[0].upper())
+            cell[idx, :] = np.array(tokens[1:4], np.float64)
+    if np.isnan(cell).any():
+        raise ValueError("Could not parse A/B/C lattice vectors from &CELL section")
     return cell
 
 
