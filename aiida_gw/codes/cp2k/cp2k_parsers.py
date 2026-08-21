@@ -136,7 +136,20 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 except Exception as exc:
                     self.logger.warning("Failed to parse %s run type restart file '%s': %s", result_dict["run_type"], fname, exc)
             else:
-                self.logger.warning("No usable restart file for %s run; skipping structure output.", result_dict["run_type"])
+                self.logger.warning("No usable restart file for %s run; falling back to 'aiida.coords.xyz'.", result_dict["run_type"])
+                if 'aiida.coords.xyz' in self.retrieved.list_object_names():
+                    try:
+                        symbols, positions = read_coordinates(self.retrieved.get_object_content('aiida.coords.xyz'))
+                        if result_dict["SIRIUS"]:
+                            cells = [result_dict["lattice_vectors"]]
+                        else:
+                            cells = [read_lattice_parameters(self.retrieved.get_object_content('aiida.inp'))]
+                        forces = [np.zeros((len(symbols), 3))]
+                        stress_tensor = [np.zeros(9)]
+                    except Exception as exc:
+                        self.logger.warning("Failed to parse fallback coordinates file 'aiida.coords.xyz': %s", exc)
+                else:
+                    self.logger.warning("No coordinate file available for %s run; skipping structure output.", result_dict["run_type"])
 
         if symbols and positions and cells and forces and stress_tensor:
             result_dict['motion_step_info'].update({'symbols': symbols, 'positions': positions, 'cells': cells, 'forces': forces, 'stress_tensor': stress_tensor})

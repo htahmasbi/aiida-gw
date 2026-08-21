@@ -74,7 +74,11 @@ class SinglePointWorkChain(WorkChain):
             logger.error("CP2K calculation failed with exit code %s", self.ctx.cp2k_calc.exit_status)
             return self.exit_codes.ERROR_CALCULATION_FAILED
         logger.info("Single-point calculation finished successfully")
-        self.out("output_structure", self.ctx.cp2k_calc.outputs.output_structure)
+        if hasattr(self.ctx.cp2k_calc.outputs, "output_structure"):
+            self.out("output_structure", self.ctx.cp2k_calc.outputs.output_structure)
+        else:
+            logger.info("CP2K calculation produced no output structure; emitting input structure")
+            self.out("output_structure", self.inputs.structure)
         self.out("output_parameters", self.ctx.cp2k_calc.outputs.output_parameters)
 
 

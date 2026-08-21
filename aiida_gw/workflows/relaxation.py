@@ -99,5 +99,9 @@ class RelaxWorkChain(WorkChain):
             logger.error("Post-relax SCF failed with exit code %s", self.ctx.scf_calc.exit_status)
             return self.exit_codes.ERROR_SCF_FAILED
         logger.info("Post-relax SCF finished successfully")
-        self.out("output_structure", self.ctx.scf_calc.outputs.output_structure)
+        if hasattr(self.ctx.scf_calc.outputs, "output_structure"):
+            self.out("output_structure", self.ctx.scf_calc.outputs.output_structure)
+        else:
+            logger.info("SCF calculation produced no output structure; emitting relaxed structure")
+            self.out("output_structure", self.ctx.relax_calc.outputs.output_structure)
         self.out("output_parameters", self.ctx.scf_calc.outputs.output_parameters)

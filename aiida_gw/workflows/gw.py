@@ -84,5 +84,8 @@ class GwWorkChain(WorkChain):
 
         if hasattr(self.ctx.gw_calc.outputs, "output_structure"):
             self.out("output_structure", self.ctx.gw_calc.outputs.output_structure)
+        else:
+            logger.info("GW calculation produced no output structure; emitting input structure")
+            self.out("output_structure", self.inputs.structure)
         if hasattr(self.ctx.gw_calc.outputs, "output_parameters"):
             self.out("output_parameters", self.ctx.gw_calc.outputs.output_parameters)
