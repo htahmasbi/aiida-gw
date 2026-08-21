@@ -154,8 +154,12 @@ class Cp2kEFSParser(Cp2kBaseParser):
         if symbols and positions and cells and forces and stress_tensor:
             result_dict['motion_step_info'].update({'symbols': symbols, 'positions': positions, 'cells': cells, 'forces': forces, 'stress_tensor': stress_tensor})
             cell_pbc = [True, True, True] #result_dict['cell_pbc']
-            output_structure = StructureData(ase=Atoms(symbols = symbols, positions = positions[-1], cell = cells[-1], pbc = cell_pbc))
-            self.out("output_structure", output_structure)
+            try:
+                cell = np.asarray(cells[-1], dtype=np.float64).reshape(3, 3)
+                output_structure = StructureData(ase=Atoms(symbols = symbols, positions = positions[-1], cell = cell, pbc = cell_pbc))
+                self.out("output_structure", output_structure)
+            except Exception as exc:
+                self.logger.error("Failed to construct output structure from parsed data: %s", exc)
         else:
             self.logger.warning("Incomplete structure data for %s run; skipping structure output.", result_dict["run_type"])
 
