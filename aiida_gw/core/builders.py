@@ -48,7 +48,10 @@ def load_atom_data(basis_pseudo: str) -> dict:
     """Load atom data YAML/JSON from cp2k_files."""
     path = get_cp2k_files_path() / basis_pseudo
     if not path.exists():
-        return {}
+        raise FileNotFoundError(
+            f"Atom data file not found: {path} "
+            f"(basis_pseudo from protocol). Without it no &KIND sections can be generated."
+        )
     with open(path) as f:
         return json.load(f) if basis_pseudo.endswith(".json") else yaml.safe_load(f)
 
@@ -498,13 +501,9 @@ class Cp2kBuilder:
         builder = Cp2kBaseWorkChain.get_builder()
         builder.cp2k.structure = structure
 
-        # Determine periodic directions from protocol (default XYZ)
-        periodic = (
-            params.get("FORCE_EVAL", {})
-            .get("SUBSYS", {})
-            .get("CELL", {})
-            .get("PERIODIC", "XYZ")
-        )
+        # Effective cell periodicity: config always wins (set on &CELL below),
+        # so the k-mesh must be forced consistently with it, not with the protocol value.
+        periodic = self.config.gw.cell_periodic
 
         # K-points priority: CLI kpoints_mesh > explicit kpoints_distance > protocol kpoints_distance
         kp_obj = None
@@ -591,20 +590,30 @@ class Cp2kBuilder:
             dft["MGRID"]["CUTOFF"] = self.config.gw.cutoff
             dft["MGRID"]["REL_CUTOFF"] = self.config.gw.rel_cutoff
 
-            # Set QS defaults from config (config wins over protocol)
+            # Set QS defaults from config — only when explicitly configured;
+            # otherwise the protocol YAML value stands.
             qs = dft.setdefault("QS", {})
-            qs["EPS_DEFAULT"] = self.config.gw.eps_default
-            qs["EPS_PGF_ORB"] = self.config.gw.eps_pgf_orb
+            if self.config.gw.eps_default is not None:
+                qs["EPS_DEFAULT"] = self.config.gw.eps_default
+            if self.config.gw.eps_pgf_orb is not None:
+                qs["EPS_PGF_ORB"] = self.config.gw.eps_pgf_orb
 
-            # SCF section — config wins over protocol
+            # SCF section — same opt-in override semantics
             scf = dft.setdefault("SCF", {})
-            scf["EPS_SCF"] = self.config.gw.eps_scf
-            scf["MAX_SCF"] = self.config.gw.max_scf
-            mixing = scf.setdefault("MIXING", {})
-            mixing["METHOD"] = "BROYDEN_MIXING"
-            mixing["ALPHA"] = self.config.gw.mixing_alpha
-            mixing["BETA"] = self.config.gw.mixing_beta
-            mixing["NBROYDEN"] = self.config.gw.mixing_nbroyden
+            if self.config.gw.eps_scf is not None:
+                scf["EPS_SCF"] = self.config.gw.eps_scf
+            if self.config.gw.max_scf is not None:
+                scf["MAX_SCF"] = self.config.gw.max_scf
+            mixing_overrides = {
+                "ALPHA": self.config.gw.mixing_alpha,
+                "BETA": self.config.gw.mixing_beta,
+                "NBROYDEN": self.config.gw.mixing_nbroyden,
+            }
+            mixing_overrides = {k: v for k, v in mixing_overrides.items() if v is not None}
+            if mixing_overrides:
+                mixing = scf.setdefault("MIXING", {})
+                mixing["METHOD"] = "BROYDEN_MIXING"
+                mixing.update(mixing_overrides)
 
             # POISSON section — config wins over protocol
             poisson = dft.setdefault("POISSON", {})
@@ -731,13 +740,7 @@ class Cp2kBuilder:
         # Priority: CLI kpoints_w_mesh > config kpoints_w_distance > protocol kpoints_w_distance
         params = builder.cp2k.parameters.get_dict()
 
-        # Determine periodic directions (already set in the params from protocol)
-        periodic = (
-            params.get("FORCE_EVAL", {})
-            .get("SUBSYS", {})
-            .get("CELL", {})
-            .get("PERIODIC", "XYZ")
-        )
+        periodic = self.config.gw.cell_periodic
 
         if kpoints_w_mesh is not None:
             kpoints_w = kpoints_w_mesh

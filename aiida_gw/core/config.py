@@ -165,13 +165,34 @@ class GwConfig(BaseModel):
     poisson_solver: str = Field(default="PERIODIC")
     cutoff: int = Field(default=600, ge=50)
     rel_cutoff: int = Field(default=100, ge=0)
-    eps_default: float = Field(default=1.0e-12, gt=0)
-    eps_pgf_orb: float = Field(default=1.0e-12, gt=0)
-    eps_scf: float = Field(default=5.0e-7, gt=0)
-    max_scf: int = Field(default=500, ge=1)
-    mixing_alpha: float = Field(default=0.2)
-    mixing_beta: float = Field(default=0.8)
-    mixing_nbroyden: int = Field(default=10)
+    eps_default: float | None = Field(
+        default=None,
+        description="QS.EPS_DEFAULT override. When None, the protocol YAML value is used.",
+    )
+    eps_pgf_orb: float | None = Field(
+        default=None,
+        description="QS.EPS_PGF_ORB override. When None, the protocol YAML value is used.",
+    )
+    eps_scf: float | None = Field(
+        default=None,
+        description="SCF.EPS_SCF override. When None, the protocol YAML value is used.",
+    )
+    max_scf: int | None = Field(
+        default=None,
+        description="SCF.MAX_SCF override. When None, the protocol YAML value is used.",
+    )
+    mixing_alpha: float | None = Field(
+        default=None,
+        description="MIXING.ALPHA override. When None, the protocol YAML value is used.",
+    )
+    mixing_beta: float | None = Field(
+        default=None,
+        description="MIXING.BETA override. When None, the protocol YAML value is used.",
+    )
+    mixing_nbroyden: int | None = Field(
+        default=None,
+        description="MIXING.NBROYDEN override. When None, the protocol YAML value is used.",
+    )
     num_time_freq: int = Field(default=20, ge=1)
     memory_per_proc: int = Field(
         default=8,
