@@ -262,79 +262,148 @@ def read_lattice_parameters(content):
     return cell
 
 
-def read_bandstructure(content):
-    """Parse CP2K GW bandstructure output file.
+_FLOAT_RE = r"[-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?"
+_KPOINT_HEADER_RE = re.compile(
+    r"kpoint:\s*\d+\s+coordinate:\s*"
+    rf"({_FLOAT_RE})\s+({_FLOAT_RE})\s+({_FLOAT_RE})",
+    re.IGNORECASE,
+)
+_BAND_ROW_RE = re.compile(r"^\s*(\d+)\s+\((occ|vir)\)\s+(\d+)\s+(.*)$")
+_SPIN_RE = re.compile(r"SPIN:\s*(\d+)")
+_DAT_COORDS_RE = re.compile(_FLOAT_RE)
 
-    Parses files like 'bandstructure_SCF_and_G0W0' which contain:
-    - K-point coordinates and labels
-    - Eigenvalues at each k-point for SCF, GW, etc.
+
+def _level_tag(label):
+    """Map a column label from the xTP header to an energy-level name."""
+    upper = label.upper()
+    for needle, tag in (
+        ("G0W0+SOC", "G0W0+SOC"),
+        ("G0W0", "G0W0"),
+        ("GW", "G0W0"),
+        ("DFT", "DFT"),
+    ):
+        if needle in upper:
+            return tag
+    return None
+
+
+def read_bandstructure(content):
+    """Parse CP2K bandstructure output files.
+
+    Supports two formats:
+
+    1. CP2K xTP (GW) files like 'bandstructure_SCF_and_G0W0', consisting of
+       repeated blocks::
+
+           kpoint:       1             coordinate:     0.0000    0.0000    0.0000
+               n           k   <epsilon>_nk^DFT (eV)  ...  <epsilon>_nk^G0W0 (eV)
+               1 (occ)     1         -75.519    ...       -86.246
+
+       The '^'-tagged header columns define the energy levels returned
+       (e.g. 'DFT', 'G0W0'); each data row is ``n (occ|vir) k <ncols floats>``.
+
+    2. Standard CP2K '.dat' band files like 'aiida-BANDSTRUCTURE_1-1.dat'
+       with '# KPOINT'/'# SET: .. SPIN: n' comments and one eigenvalue per
+       line; levels are named 'spin_<n>'.
 
     Returns:
         dict with keys:
-            - kpoints: list of k-point coordinates (nx3 arrays)
-            - kpoint_labels: list of k-point labels (e.g. "GAMMA", "K", "M")
-            - eigenvalues: dict of {level_name: 2D array (nkpoints x nbands)}
-              e.g. {"SCF": np.array, "G0W0": np.array, "G0W0+SOC": np.array}
+            - kpoints: (nkpoints x 3) array of fractional coordinates
+            - kpoint_labels: list (empty strings; xTP files carry no labels)
+            - eigenvalues: dict of {level_name: (nkpoints x nbands) array}
             - units: str ("eV")
+
+    Raises:
+        ValueError: on structurally inconsistent data (ragged bands, column
+            count mismatch).
     """
     lines = content.splitlines()
     kpoints = []
     kpoint_labels = []
     eigenvalues = {}
-    current_level = None
-    nkpoints = 0
-    nbands = 0
-    eig_data = []
 
-    for i_line, line in enumerate(lines):
-        line_stripped = line.strip()
+    level_columns = []
+    n_value_cols = 0
+    pending = {}
+    open_kpt = False
+    current_spin = None
 
+    def _flush():
+        nonlocal pending, open_kpt
+        if not open_kpt:
+            return
+        for level, rows in pending.items():
+            eigenvalues.setdefault(level, []).append(rows)
+        pending = {}
+        open_kpt = False
+
+    for raw_line in lines:
+        line_stripped = raw_line.strip()
         if not line_stripped:
             continue
 
-        if "SCF bands:" in line_stripped or "G0W0" in line_stripped or "SOC" in line_stripped:
-            if current_level is not None and eig_data:
-                eigenvalues[current_level] = np.array(eig_data)
-                eig_data = []
-
-            if "SCF bands:" in line_stripped:
-                current_level = "SCF"
-            elif "G0W0+SOC" in line_stripped:
-                current_level = "G0W0+SOC"
-            elif "G0W0" in line_stripped:
-                current_level = "G0W0"
-            elif "SOC" in line_stripped:
-                current_level = "SOC"
+        match = _KPOINT_HEADER_RE.search(line_stripped)
+        if match is not None:
+            _flush()
+            kpoints.append([float(match.group(i)) for i in (1, 2, 3)])
+            kpoint_labels.append("")
+            open_kpt = True
             continue
 
-        if line_stripped.startswith("#") or line_stripped.startswith("k-point"):
+        if line_stripped.startswith("#"):
+            upper = line_stripped.upper()
+            if "KPOINT" in upper:
+                _flush()
+                coords = _DAT_COORDS_RE.findall(line_stripped.split(":")[-1])
+                if len(coords) >= 3:
+                    kpoints.append([float(c) for c in coords[:3]])
+                    kpoint_labels.append("")
+                    open_kpt = True
+            else:
+                spin_match = _SPIN_RE.search(upper)
+                if spin_match is not None:
+                    current_spin = f"spin_{spin_match.group(1)}"
             continue
 
         tokens = line_stripped.split()
-        if len(tokens) >= 4:
-            try:
-                kx, ky, kz = float(tokens[0]), float(tokens[1]), float(tokens[2])
-                kpoints.append([kx, ky, kz])
-                if len(tokens) > 4:
-                    kpoint_labels.append(tokens[4])
-                else:
-                    kpoint_labels.append("")
-            except ValueError:
-                pass
 
-        if current_level is not None and len(tokens) >= 3:
-            try:
-                eig_vals = [float(t) for t in tokens if t not in ["eV", "Ry"]]
-                if eig_vals:
-                    eig_data.append(eig_vals)
-            except ValueError:
-                pass
+        if "^" in line_stripped and "EV" in line_stripped.upper():
+            level_columns = [_level_tag(tok) for tok in tokens if "^" in tok]
+            n_value_cols = len(level_columns)
+            continue
 
-    if current_level is not None and eig_data:
-        eigenvalues[current_level] = np.array(eig_data)
+        band_match = _BAND_ROW_RE.match(line_stripped)
+        if band_match is not None and open_kpt:
+            try:
+                vals = [float(tok) for tok in band_match.group(4).split()]
+            except ValueError:
+                continue
+            if len(vals) != n_value_cols:
+                raise ValueError(
+                    f"Band row has {len(vals)} value(s), expected {n_value_cols}: "
+                    f"'{line_stripped}'"
+                )
+            for tag, val in zip(level_columns, vals):
+                if tag is not None:
+                    pending.setdefault(tag, []).append(val)
+            continue
+
+        if open_kpt:
+            try:
+                vals = [float(tok) for tok in tokens]
+            except ValueError:
+                continue
+            if vals:
+                level = current_spin or "default"
+                pending.setdefault(level, []).extend(vals)
+
+    _flush()
+
+    for level, rows in eigenvalues.items():
+        eigenvalues[level] = np.array(rows, dtype=np.float64)
 
     return {
-        "kpoints": np.array(kpoints),
+        "kpoints": np.array(kpoints, dtype=np.float64),
         "kpoint_labels": kpoint_labels,
         "eigenvalues": eigenvalues,
         "units": "eV",

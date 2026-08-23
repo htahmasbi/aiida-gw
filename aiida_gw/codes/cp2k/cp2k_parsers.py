@@ -186,16 +186,24 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 try:
                     content = self.retrieved.get_object_content(fname)
                     bs_data = read_bandstructure(content)
-                    result_dict[f"bandstructure_{key}"] = {
-                        "kpoints": bs_data["kpoints"].tolist(),
-                        "kpoint_labels": bs_data["kpoint_labels"],
-                        "units": bs_data["units"],
-                    }
-                    for level_name, eigenvalues in bs_data["eigenvalues"].items():
-                        result_dict[f"bandstructure_{key}"][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
-                    self.logger.info("Parsed %s bandstructure data", fname)
                 except Exception as exc:
                     self.logger.warning("Failed to parse bandstructure file '%s': %s", fname, exc)
+                    continue
+                if len(bs_data["kpoints"]) == 0 or not bs_data["eigenvalues"]:
+                    self.logger.warning(
+                        "Bandstructure file '%s' yielded no k-points/eigenvalues; "
+                        "not storing 'bandstructure_%s'.",
+                        fname, key,
+                    )
+                    continue
+                result_dict[f"bandstructure_{key}"] = {
+                    "kpoints": bs_data["kpoints"].tolist(),
+                    "kpoint_labels": bs_data["kpoint_labels"],
+                    "units": bs_data["units"],
+                }
+                for level_name, eigenvalues in bs_data["eigenvalues"].items():
+                    result_dict[f"bandstructure_{key}"][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
+                self.logger.info("Parsed %s bandstructure data", fname)
 
         eigenvalue_files = [
             "aiida-BANDSTRUCTURE_1-1_0.dat",
@@ -207,17 +215,25 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 try:
                     content = self.retrieved.get_object_content(fname)
                     bs_data = read_bandstructure(content)
-                    level_key = "scf" if "SCF" in fname.upper() or "_0" in fname else "g0w0"
-                    if "SOC" in fname.upper():
-                        level_key += "_soc"
-                    key = f"{level_key}_bandstructure"
-                    if key not in result_dict:
-                        result_dict[key] = {"kpoints": [], "kpoint_labels": [], "units": "eV"}
-                    for level_name, eigenvalues in bs_data["eigenvalues"].items():
-                        result_dict[key][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
-                    self.logger.info("Parsed eigenvalue file %s", fname)
                 except Exception as exc:
                     self.logger.warning("Failed to parse eigenvalue file '%s': %s", fname, exc)
+                    continue
+                if len(bs_data["kpoints"]) == 0 or not bs_data["eigenvalues"]:
+                    self.logger.warning(
+                        "Eigenvalue file '%s' yielded no k-points/eigenvalues; skipping.", fname,
+                    )
+                    continue
+                level_key = "scf" if "SCF" in fname.upper() or "_0" in fname else "g0w0"
+                if "SOC" in fname.upper():
+                    level_key += "_soc"
+                key = f"{level_key}_bandstructure"
+                if key not in result_dict:
+                    result_dict[key] = {"kpoints": [], "kpoint_labels": [], "units": "eV"}
+                result_dict[key]["kpoints"] = bs_data["kpoints"].tolist()
+                result_dict[key]["kpoint_labels"] = bs_data["kpoint_labels"]
+                for level_name, eigenvalues in bs_data["eigenvalues"].items():
+                    result_dict[key][f"eigenvalues_{level_name}"] = eigenvalues.tolist()
+                self.logger.info("Parsed eigenvalue file %s", fname)
 
         dos_files = {
             "DOS_PDOS_SCF.out": "scf",
@@ -230,18 +246,22 @@ class Cp2kEFSParser(Cp2kBaseParser):
                 try:
                     content = self.retrieved.get_object_content(fname)
                     dos_data = read_dos_pdos(content)
-                    result_dict[f"{key}_dos"] = {
-                        "energy": dos_data["energy"].tolist(),
-                        "total_dos": dos_data["total_dos"].tolist(),
-                        "units": dos_data["units"],
-                    }
-                    if "fermi_energy" in dos_data:
-                        result_dict[f"{key}_dos"]["fermi_energy"] = dos_data["fermi_energy"]
-                    if dos_data["pdos"]:
-                        result_dict[f"{key}_dos"]["pdos"] = {k: v.tolist() for k, v in dos_data["pdos"].items()}
-                    self.logger.info("Parsed %s DOS/PDOS data", fname)
                 except Exception as exc:
                     self.logger.warning("Failed to parse DOS/PDOS file '%s': %s", fname, exc)
+                    continue
+                if len(dos_data["energy"]) == 0 or len(dos_data["total_dos"]) == 0:
+                    self.logger.warning("DOS/PDOS file '%s' yielded no data; not storing '%s_dos'.", fname, key)
+                    continue
+                result_dict[f"{key}_dos"] = {
+                    "energy": dos_data["energy"].tolist(),
+                    "total_dos": dos_data["total_dos"].tolist(),
+                    "units": dos_data["units"],
+                }
+                if "fermi_energy" in dos_data:
+                    result_dict[f"{key}_dos"]["fermi_energy"] = dos_data["fermi_energy"]
+                if dos_data["pdos"]:
+                    result_dict[f"{key}_dos"]["pdos"] = {k: v.tolist() for k, v in dos_data["pdos"].items()}
+                self.logger.info("Parsed %s DOS/PDOS data", fname)
 
         if "aiida-dos.dat" in available:
             try:
