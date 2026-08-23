@@ -31,7 +31,7 @@
 
 ## Pending features / HT preparation
 
-- [ ] **17. Test GW parser with real calculation** — validate `read_bandstructure()` and `read_dos_pdos()` regex patterns against actual CP2K GW output via `verdi shell`.
+- [x] **17. Test GW parser with real calculation** — validated against run 307 output: DOS parsers OK (1298 pts); `read_bandstructure()` rewritten for real xTP format (61×52 DFT/G0W0, 61×104 SOC) in afdf0a5.
 - [ ] **18. Verify `periodic` vs `cell_periodic` in `config.toml`** (XZ vs XYZ) before HT.
 - [ ] **19. Confirm `memory_per_proc = 96`** (GB/rank → ~1.5 TB/node) for `cpu-genoa` nodes.
 - [ ] **20. Test runs on P group** with fixed parser; verify results + band-structure path.
