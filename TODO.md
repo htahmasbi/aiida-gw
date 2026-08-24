@@ -32,7 +32,7 @@
 ## Pending features / HT preparation
 
 - [x] **17. Test GW parser with real calculation** — validated against run 307 output: DOS parsers OK (1298 pts); `read_bandstructure()` rewritten for real xTP format (61×52 DFT/G0W0, 61×104 SOC) in afdf0a5.
-- [ ] **18. Verify `periodic` vs `cell_periodic` in `config.toml`** (XZ vs XYZ) before HT.
-- [ ] **19. Confirm `memory_per_proc = 96`** (GB/rank → ~1.5 TB/node) for `cpu-genoa` nodes.
-- [ ] **20. Test runs on P group** with fixed parser; verify results + band-structure path.
+- [x] **18. Verify `periodic` vs `cell_periodic` in `config.toml`** (XZ vs XYZ) — confirmed via test run 358 reproducing reference gaps with current config.toml.
+- [x] **19. Confirm `memory_per_proc = 96`** (GB/rank → ~1.5 TB/node) for `cpu-genoa` nodes — checked previously.
+- [x] **20. Test runs on P group** with fixed parser; verify results + band-structure path — workchain 358: exit 0, all gaps match reference exactly (SCF 1.541 / G0W0 2.259 / G0W0+SOC 1.962 eV), bandstructures 61×52 + 61×104 stored.
 - [ ] **21. Launch HT GW calculations.**
