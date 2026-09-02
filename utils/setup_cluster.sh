@@ -37,7 +37,10 @@ CP2K_PREPEND_TEXT="ml purge
 ml use /data/rosi/shared/spack/turin/modules/linux-ubuntu22.04-x86_64/Core/
 ml use /data/rosi/shared/spack/turin/modules/linux-ubuntu22.04-x86_64/gcc/14.3.0/
 ml use /data/rosi/shared/spack/turin/modules/linux-ubuntu22.04-x86_64/openmpi/5.0.8-x7ce7xb/gcc/14.3.0/
-ml cp2k/master"
+ml cp2k/master
+export OMP_NUM_THREADS=\$SLURM_CPUS_PER_TASK
+export OMP_PLACES=cores
+export OMP_PROC_BIND=true"
 
 # =============================================================================
 
