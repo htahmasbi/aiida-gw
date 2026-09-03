@@ -353,6 +353,22 @@ def run(
 
         if structures:
             from aiida_gw.core.builders import get_bandstructure_path
+            from pymatgen.core import Element as PmgElement
+
+            filtered = []
+            for s in structures:
+                comp = s.get_pymatgen().composition
+                nelect = sum(PmgElement(sym).Z * amt for sym, amt in comp.get_el_amt_dict().items())
+                if int(nelect) % 2 != 0:
+                    logger.info(f"Skipping {comp.reduced_formula} — odd electrons ({nelect}), open-shell not supported")
+                    continue
+                filtered.append(s)
+            if not filtered:
+                console.print("[red]Error:[/red] All structures have odd electron counts — nothing to submit")
+                raise typer.Exit(1)
+            if len(filtered) < len(structures):
+                console.print(f"[yellow]Skipped {len(structures) - len(filtered)} open-shell structure(s), {len(filtered)} remaining[/yellow]")
+            structures = filtered
 
             pk_list = []
             for i, struct in enumerate(structures):
