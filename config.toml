@@ -1,4 +1,4 @@
-code_label = "cp2k@localhost"
+code_label = "cp2k@rosi7"
 
 [metadata_options]
 num_machines = 4
