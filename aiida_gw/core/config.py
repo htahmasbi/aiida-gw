@@ -30,6 +30,10 @@ class MetadataOptions(BaseModel):
         default=None,
         description="SLURM partition (queue). When set, passed as #SBATCH --partition=.",
     )
+    account: str | None = Field(
+        default=None,
+        description="SLURM accounting project for job charging. When set, passed as #SBATCH --account=.",
+    )
 
     @field_validator("partition")
     @classmethod
@@ -39,6 +43,18 @@ class MetadataOptions(BaseModel):
         if not v.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
                 f"Invalid partition name {v!r} — only alphanumeric, "
+                "dashes (-), and underscores (_) are allowed."
+            )
+        return v
+
+    @field_validator("account")
+    @classmethod
+    def validate_account(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(
+                f"Invalid account name {v!r} — only alphanumeric, "
                 "dashes (-), and underscores (_) are allowed."
             )
         return v
@@ -80,6 +96,8 @@ class MetadataOptions(BaseModel):
             scheduler_lines.append(f"#SBATCH --mem={self.memory_per_machine}")
         if self.partition:
             scheduler_lines.append(f"#SBATCH --partition={self.partition}")
+        if self.account:
+            scheduler_lines.append(f"#SBATCH --account={self.account}")
         if scheduler_lines:
             result["custom_scheduler_commands"] = "\n".join(scheduler_lines) + "\n"
         return result
