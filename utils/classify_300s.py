@@ -55,7 +55,7 @@ def has_output(calc, label):
 
 def find_calcjobs(gw):
     return sorted(
-        (n for n in gw.called_descendants if (n.process_type or "").endswith("Cp2kCalculation")),
+        (n for n in gw.called_descendants if n.process_label == "Cp2kCalculation"),
         key=lambda c: c.ctime,
     )
 
@@ -72,12 +72,12 @@ def main():
     if args.pks:
         for pk in args.pks:
             node = orm.load_node(pk)
-            if node.process_type and node.process_type.endswith("GwWorkChain"):
+            if node.process_label == "GwWorkChain":
                 chains.append(node)
     else:
         group = orm.load_group(args.group)
         for node in group.nodes:
-            if (node.process_type or "").endswith("GwWorkChain"):
+            if node.process_label == "GwWorkChain":
                 chains.append(node)
 
     header = (f"{'gw':>7} {'calc':>7} {'calc_state':<22} {'job_exit':>8} "
