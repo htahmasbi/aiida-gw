@@ -37,13 +37,20 @@ EXTRA_PARAM_KEYS = ("g0w0_vbm", "g0w0_cbm", "energy", "nwarnings")
 PHYSICS_LEVELS = ("scf", "scf_soc", "g0w0", "g0w0_soc", "hf")
 
 
+def _last_calcjob(wc):
+    calcs = [n for n in wc.called_descendants if isinstance(n, CalcJobNode)]
+    return max(calcs, key=lambda c: c.ctime) if calcs else None
+
+
 def _calcjob_params(wc):
-    """Return the output_parameters dict of the workchain's first CalcJobNode."""
+    """Return (calc_pk, params) from the workchain's last CalcJobNode."""
+    cj = _last_calcjob(wc)
+    if cj is None:
+        return None, {}
     try:
-        cj = next(n for n in wc.called_descendants if isinstance(n, CalcJobNode))
-        return cj.outputs.output_parameters.get_dict()
+        return cj.pk, cj.outputs.output_parameters.get_dict()
     except Exception:
-        return {}
+        return cj.pk, {}
 
 
 def _physics_summary(params):
@@ -52,7 +59,11 @@ def _physics_summary(params):
     Runs re-parsed with the current code carry an explicit physics_flags dict;
     older runs are judged from the stored gap values (negative/zero gap ->
     physically suspect) so they are not silently reported as clean.
+    A run with no stored physics data at all is reported as BAD:no_data,
+    never as clean.
     """
+    if not params:
+        return False, "no_data"
     flags = params.get("physics_flags") or {}
     issues = []
     if "physics_ok" in flags:
@@ -88,8 +99,10 @@ def _physics_summary(params):
 
 
 def _formula(wc):
+    cj = _last_calcjob(wc)
+    if cj is None:
+        return ""
     try:
-        cj = next(n for n in wc.called_descendants if isinstance(n, CalcJobNode))
         return cj.outputs.output_structure.get_formula()
     except Exception:
         return ""
@@ -114,7 +127,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
         running = not wc.is_finished
         if running and not include_running:
             continue
-        params = _calcjob_params(wc)
+        calc_pk, params = _calcjob_params(wc)
         physics_ok, physics_issues = _physics_summary(params)
         if ok_only and not physics_ok:
             continue
@@ -123,6 +136,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
             wall_seconds = (wc.mtime - wc.ctime).total_seconds()
         row = {
             "pk": wc.pk,
+            "calc": calc_pk,
             "ctime": wc.ctime.isoformat(),
             "status": "running" if running else ("ok" if wc.is_finished_ok else f"exit_{wc.exit_status}"),
             "wall_s": wall_seconds,
@@ -144,7 +158,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
 def print_table(rows):
     figs = list(GAP_KEYS.values()) + ["energy"]
     header = (
-        f"{'PK':>7}  {'status':<9} {'physics':<44} {'wall_h':>7}  "
+        f"{'PK':>7}  {'calc':>7} {'status':<9} {'physics':<44} {'wall_h':>7}  "
         + " ".join(f"{c:>10}" for c in figs)
         + f"  {'formula':<14}"
     )
@@ -159,8 +173,9 @@ def print_table(rows):
         for key in figs:
             v = row.get(key)
             values.append(f"{v:>10.3f}" if isinstance(v, float) else " " * 9 + "-")
+        calc = row["calc"] if row["calc"] is not None else "-"
         print(
-            f"{row['pk']:>7}  {row['status']:<9} {physics:<44} {wall:>7}  "
+            f"{row['pk']:>7}  {calc:>7}  {row['status']:<9} {physics:<44} {wall:>7}  "
             + " ".join(values)
             + f"  {row['formula'][:14]:<14}"
         )
@@ -170,7 +185,7 @@ def write_csv(rows, path):
     if not rows:
         print(f"No data, not writing {path}")
         return
-    fields = ["pk", "label", "ctime", "status", "physics_ok", "physics_issues", "wall_s", "formula", "nwarnings"]
+    fields = ["pk", "calc", "label", "ctime", "status", "physics_ok", "physics_issues", "wall_s", "formula", "nwarnings"]
     fields += list(GAP_KEYS.values()) + ["g0w0_vbm", "g0w0_cbm", "energy"]
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")

@@ -46,7 +46,8 @@ def has_nan_error(calc):
         logs = list(calc.log_messages)
     except Exception:
         logs = []
-    return any("nan and inf/-inf" in (log.message or "") for log in logs)
+    needle = ("nan and inf/-inf", "can not be serialized", "ValidationError")
+    return any(any(n in (log.message or "") for n in needle) for log in logs)
 
 
 def has_output(calc, label):
