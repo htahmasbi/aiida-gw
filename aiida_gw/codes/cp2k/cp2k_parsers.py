@@ -23,6 +23,40 @@ from aiida_gw.codes.cp2k.parsers import (
 
 StructureData = DataFactory("structure")
 
+def _sanitize_outputs(result_dict, logger):
+    """Replace NaN/inf floats recursively with None.
+
+    AiiDA raises ``ValidationError: nan and inf/-inf can not be serialized``
+    when a parsed value is non-finite, which excepts the whole calcjob even
+    though CP2K finished successfully. This guarantees the remaining data is
+    still stored so the run completes with a non-zero physics result.
+    """
+    affected = set()
+
+    def _clean(obj, path):
+        if isinstance(obj, dict):
+            return {k: _clean(v, f"{path}.{k}") for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_clean(v, f"{path}[{i}]") for i, v in enumerate(obj)]
+        if isinstance(obj, np.ndarray):
+            return _clean(obj.tolist(), path)
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, float):
+            if not np.isfinite(obj):
+                affected.add(path)
+                return None
+            return obj
+        return obj
+
+    cleaned = _clean(result_dict, "output_parameters")
+    if affected:
+        logger.warning(
+            "Replaced %d non-finite value(s) with None in output_parameters: %s.",
+            len(affected), ", ".join(sorted(affected)),
+        )
+    return cleaned
+
 class Cp2kSimpleParser(Cp2kBaseParser):
     """ AiiDA parser class for the output of CP2K
         Modified for SIRIUS
@@ -65,7 +99,7 @@ class Cp2kSimpleParser(Cp2kBaseParser):
         if exit_code:
             return exit_code
         result_dict = parse_cp2k_output_simple(output_string)
-        self.out("output_parameters", Dict(dict=result_dict))
+        self.out("output_parameters", Dict(dict=_sanitize_outputs(result_dict, self.logger)))
         return None
 
 class Cp2kEFSParser(Cp2kBaseParser):
@@ -165,7 +199,7 @@ class Cp2kEFSParser(Cp2kBaseParser):
 
         self._parse_gw_outputs(result_dict)
 
-        self.out("output_parameters", Dict(dict=result_dict))
+        self.out("output_parameters", Dict(dict=_sanitize_outputs(result_dict, self.logger)))
         return None
 
     def _parse_gw_outputs(self, result_dict):

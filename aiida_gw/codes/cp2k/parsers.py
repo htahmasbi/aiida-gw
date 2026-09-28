@@ -1,6 +1,20 @@
 import re
 import numpy as np
 
+def _safe_float(token):
+    """Parse a float token, returning None for malformed or NaN/inf values.
+
+    AiiDA cannot serialize NaN/inf to the database; returning None lets callers
+    skip the offending value instead of crashing the whole calcjob.
+    """
+    try:
+        value = float(token)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(value):
+        return None
+    return value
+
 def read_structure(content):
     """ Parse the structure from the restart file
     """
@@ -75,30 +89,33 @@ def parse_cp2k_output_simple(fstring):
             result_dict["run_type"] = line.split()[-1]
 
         if line.startswith("[unit cell] lattice vectors"):
-            lattice_vertor_A = [bohr2ang*float(lines[i_line+1].split()[4]),
-                                bohr2ang*float(lines[i_line+1].split()[5]),
-                                bohr2ang*float(lines[i_line+1].split()[6])]
-            lattice_vertor_B = [bohr2ang*float(lines[i_line+2].split()[4]),
-                                bohr2ang*float(lines[i_line+2].split()[5]),
-                                bohr2ang*float(lines[i_line+2].split()[6])]
-            lattice_vertor_C = [bohr2ang*float(lines[i_line+3].split()[4]),
-                                bohr2ang*float(lines[i_line+3].split()[5]),
-                                bohr2ang*float(lines[i_line+3].split()[6])]
-            result_dict["lattice_vectors"] = np.array([lattice_vertor_A,
-                                                       lattice_vertor_B,
-                                                       lattice_vertor_C], np.float64)
+            try:
+                a = [_safe_float(tok) for tok in lines[i_line+1].split()[4:7]]
+                b = [_safe_float(tok) for tok in lines[i_line+2].split()[4:7]]
+                c = [_safe_float(tok) for tok in lines[i_line+3].split()[4:7]]
+            except IndexError:
+                continue
+            if None in a or None in b or None in c:
+                continue
+            result_dict["lattice_vectors"] = np.array([a, b, c], np.float64) * bohr2ang
         if "The number of warnings for this run is" in line:
             result_dict["nwarnings"] = int(line.split()[-1])
 
         if line.startswith(" ENERGY| ") and "free" in line and "SIRIUS" in line:
-            energy = float(line.split()[9])
-            result_dict["energy"] = energy*Eh2eV
-            result_dict["energy_units"] = "eV"
+            tokens = line.split()
+            if len(tokens) > 9:
+                energy = _safe_float(tokens[9])
+                if energy is not None:
+                    result_dict["energy"] = energy*Eh2eV
+                    result_dict["energy_units"] = "eV"
 
         if line.startswith(" ENERGY| ") and "energy" in line and "QS" in line:
-            energy = float(line.split()[8])
-            result_dict["energy"] = energy*Eh2eV
-            result_dict["energy_units"] = "eV"
+            tokens = line.split()
+            if len(tokens) > 8:
+                energy = _safe_float(tokens[8])
+                if energy is not None:
+                    result_dict["energy"] = energy*Eh2eV
+                    result_dict["energy_units"] = "eV"
 
         if line.startswith(" "):
             for level, level_key in _bs_levels.items():
@@ -106,7 +123,9 @@ def parse_cp2k_output_simple(fstring):
                     continue
                 for quantity, quantity_key in _bs_quantities.items():
                     if f"{quantity} (eV)" in line:
-                        result_dict[f"{level_key}_{quantity_key}"] = float(line.split()[-1])
+                        value = _safe_float(line.split()[-1])
+                        if value is not None:
+                            result_dict[f"{level_key}_{quantity_key}"] = value
                 break
 
         if "run_type" in result_dict.keys():
@@ -158,7 +177,39 @@ def parse_cp2k_output_simple(fstring):
                     scf_converged = False
                 else:
                     scf_converged = True
+    result_dict["physics_flags"] = parse_physics_flags(result_dict, fstring)
     return result_dict
+
+def parse_physics_flags(result_dict, output_string):
+    """Derive physics-validity flags from parsed quantities and the raw stdout.
+
+    A run can parse without error yet still be physically broken (e.g. a
+    diverged G0W0 that yields a negative gap). These flags capture that so
+    results reporting can separate trustworthy runs from suspect ones.
+    """
+    flags = {"scf_converged": "SCF run NOT converged" not in output_string}
+    flags["aborted"] = bool(re.search(r"\bABORT\b", output_string))
+    flagged = []
+    for level_key in ("scf", "scf_soc", "g0w0", "g0w0_soc", "hf"):
+        vbm = result_dict.get(f"{level_key}_vbm")
+        cbm = result_dict.get(f"{level_key}_cbm")
+        gap_direct = result_dict.get(f"{level_key}_gap_direct")
+        gap_indirect = result_dict.get(f"{level_key}_gap_indirect")
+        level_flags = []
+        if vbm is not None and cbm is not None and cbm <= vbm:
+            level_flags.append("cbm_at_or_below_vbm")
+        for name, gap in (("direct", gap_direct), ("indirect", gap_indirect)):
+            if gap is None:
+                continue
+            if gap < 0.0:
+                level_flags.append(f"negative_{name}_gap")
+            elif gap < 1e-3:
+                level_flags.append(f"zero_{name}_gap")
+        if level_flags:
+            flags[level_key] = level_flags
+            flagged.extend(level_flags)
+    flags["physics_ok"] = bool(flags["scf_converged"]) and not flags["aborted"] and not flagged
+    return flags
 
 def parse_lines(lines, start, end):
     parsed_lines = []
@@ -345,7 +396,10 @@ def read_bandstructure(content):
         match = _KPOINT_HEADER_RE.search(line_stripped)
         if match is not None:
             _flush()
-            kpoints.append([float(match.group(i)) for i in (1, 2, 3)])
+            coords = [_safe_float(match.group(i)) for i in (1, 2, 3)]
+            if None in coords:
+                continue
+            kpoints.append(coords)
             kpoint_labels.append("")
             open_kpt = True
             continue
@@ -354,9 +408,9 @@ def read_bandstructure(content):
             upper = line_stripped.upper()
             if "KPOINT" in upper:
                 _flush()
-                coords = _DAT_COORDS_RE.findall(line_stripped.split(":")[-1])
-                if len(coords) >= 3:
-                    kpoints.append([float(c) for c in coords[:3]])
+                coords = [_safe_float(c) for c in _DAT_COORDS_RE.findall(line_stripped.split(":")[-1])[:3]]
+                if len(coords) >= 3 and None not in coords:
+                    kpoints.append(coords)
                     kpoint_labels.append("")
                     open_kpt = True
             else:
@@ -374,24 +428,34 @@ def read_bandstructure(content):
 
         band_match = _BAND_ROW_RE.match(line_stripped)
         if band_match is not None and open_kpt:
-            try:
-                vals = [float(tok) for tok in band_match.group(4).split()]
-            except ValueError:
-                continue
+            vals = [_safe_float(tok) for tok in band_match.group(4).split()]
             if len(vals) != n_value_cols:
                 raise ValueError(
                     f"Band row has {len(vals)} value(s), expected {n_value_cols}: "
                     f"'{line_stripped}'"
                 )
+            if any(v is None for v in vals):
+                pending.clear()
+                if kpoints:
+                    kpoints.pop()
+                if kpoint_labels:
+                    kpoint_labels.pop()
+                open_kpt = False
+                continue
             for tag, val in zip(level_columns, vals):
                 if tag is not None:
                     pending.setdefault(tag, []).append(val)
             continue
 
         if open_kpt:
-            try:
-                vals = [float(tok) for tok in tokens]
-            except ValueError:
+            vals = [_safe_float(tok) for tok in tokens]
+            if any(v is None for v in vals):
+                pending.clear()
+                if kpoints:
+                    kpoints.pop()
+                if kpoint_labels:
+                    kpoint_labels.pop()
+                open_kpt = False
                 continue
             if vals:
                 level = current_spin or "default"
@@ -442,29 +506,24 @@ def read_dos_pdos(content):
             continue
 
         if "Fermi energy" in line_stripped or "Fermi" in line_stripped:
-            try:
-                fermi_energy = float(line_stripped.split()[-1])
-            except (ValueError, IndexError):
-                pass
+            fermi_energy = _safe_float(line_stripped.split()[-1])
             continue
 
         tokens = line_stripped.split()
         if len(tokens) >= 2:
-            try:
-                energy.append(float(tokens[0]))
-                total_dos.append(float(tokens[1]))
-            except ValueError:
-                pass
+            e = _safe_float(tokens[0])
+            d = _safe_float(tokens[1])
+            if e is not None and d is not None:
+                energy.append(e)
+                total_dos.append(d)
 
         if len(tokens) >= 4 and not tokens[0].replace(".", "").replace("-", "").isdigit():
             label = " ".join(tokens[:-2])
-            try:
-                val = float(tokens[-1])
+            val = _safe_float(tokens[-1])
+            if val is not None:
                 if label not in pdos:
                     pdos[label] = []
                 pdos[label].append(val)
-            except ValueError:
-                pass
 
     result = {
         "energy": np.array(energy),

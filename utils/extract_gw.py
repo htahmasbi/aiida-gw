@@ -34,6 +34,7 @@ GAP_KEYS = {
     "hf_gap_direct": "hf_gap",
 }
 EXTRA_PARAM_KEYS = ("g0w0_vbm", "g0w0_cbm", "energy", "nwarnings")
+PHYSICS_LEVELS = ("scf", "scf_soc", "g0w0", "g0w0_soc", "hf")
 
 
 def _calcjob_params(wc):
@@ -45,6 +46,47 @@ def _calcjob_params(wc):
         return {}
 
 
+def _physics_summary(params):
+    """Return (ok, issues) for a run from its physics_flags or stored gaps.
+
+    Runs re-parsed with the current code carry an explicit physics_flags dict;
+    older runs are judged from the stored gap values (negative/zero gap ->
+    physically suspect) so they are not silently reported as clean.
+    """
+    flags = params.get("physics_flags") or {}
+    issues = []
+    if "physics_ok" in flags:
+        ok = bool(flags.get("physics_ok"))
+        for level in PHYSICS_LEVELS:
+            for issue in flags.get(level) or []:
+                issues.append(f"{level}:{issue}")
+        if not flags.get("scf_converged", True):
+            issues.append("scf_not_converged")
+        if flags.get("aborted"):
+            issues.append("aborted")
+    else:
+        ok = True
+        for level in PHYSICS_LEVELS:
+            gap_direct = params.get(f"{level}_gap_direct")
+            gap_indirect = params.get(f"{level}_gap_indirect")
+            vbm = params.get(f"{level}_vbm")
+            cbm = params.get(f"{level}_cbm")
+            if gap_direct is not None:
+                if gap_direct < 0.0:
+                    issues.append(f"{level}:negative_direct_gap")
+                elif gap_direct < 1e-3:
+                    issues.append(f"{level}:zero_direct_gap")
+            if gap_indirect is not None:
+                if gap_indirect < 0.0:
+                    issues.append(f"{level}:negative_indirect_gap")
+                elif gap_indirect < 1e-3:
+                    issues.append(f"{level}:zero_indirect_gap")
+            if vbm is not None and cbm is not None and cbm <= vbm:
+                issues.append(f"{level}:cbm_at_or_below_vbm")
+        ok = not issues
+    return ok, ",".join(issues)
+
+
 def _formula(wc):
     try:
         cj = next(n for n in wc.called_descendants if isinstance(n, CalcJobNode))
@@ -53,7 +95,7 @@ def _formula(wc):
         return ""
 
 
-def collect_runs(pks=None, group_label=None, include_running=False):
+def collect_runs(pks=None, group_label=None, include_running=False, ok_only=False):
     """Query the profile and return one summary dict per GwWorkChain."""
     builder = QueryBuilder().append(
         ProcessNode,
@@ -73,6 +115,9 @@ def collect_runs(pks=None, group_label=None, include_running=False):
         if running and not include_running:
             continue
         params = _calcjob_params(wc)
+        physics_ok, physics_issues = _physics_summary(params)
+        if ok_only and not physics_ok:
+            continue
         wall_seconds = None
         if not running:
             wall_seconds = (wc.mtime - wc.ctime).total_seconds()
@@ -83,6 +128,8 @@ def collect_runs(pks=None, group_label=None, include_running=False):
             "wall_s": wall_seconds,
             "label": wc.label,
             "formula": _formula(wc),
+            "physics_ok": physics_ok,
+            "physics_issues": physics_issues,
         }
         for key, col in GAP_KEYS.items():
             value = params.get(key)
@@ -95,24 +142,35 @@ def collect_runs(pks=None, group_label=None, include_running=False):
 
 
 def print_table(rows):
-    cols = ["pk", "status", "wall_h"] + list(GAP_KEYS.values()) + ["energy", "formula"]
-    header = f"{'PK':>7}  {'status':<9} {'wall_h':>7}  " + " ".join(f"{c:>10}" for c in list(GAP_KEYS.values()) + ["energy"]) + f"  {'formula':<14}"
+    figs = list(GAP_KEYS.values()) + ["energy"]
+    header = (
+        f"{'PK':>7}  {'status':<9} {'physics':<44} {'wall_h':>7}  "
+        + " ".join(f"{c:>10}" for c in figs)
+        + f"  {'formula':<14}"
+    )
     print(header)
     print("-" * len(header))
     for row in rows:
         wall = f"{row['wall_s'] / 3600:.2f}" if row["wall_s"] is not None else "-"
+        physics = "ok" if row["physics_ok"] else "BAD"
+        if row["physics_issues"]:
+            physics = "BAD:" + row["physics_issues"][:40]
         values = []
-        for key in list(GAP_KEYS.values()) + ["energy"]:
+        for key in figs:
             v = row.get(key)
             values.append(f"{v:>10.3f}" if isinstance(v, float) else " " * 9 + "-")
-        print(f"{row['pk']:>7}  {row['status']:<9} {wall:>7}  " + " ".join(values) + f"  {row['formula'][:14]:<14}")
+        print(
+            f"{row['pk']:>7}  {row['status']:<9} {physics:<44} {wall:>7}  "
+            + " ".join(values)
+            + f"  {row['formula'][:14]:<14}"
+        )
 
 
 def write_csv(rows, path):
     if not rows:
         print(f"No data, not writing {path}")
         return
-    fields = ["pk", "label", "ctime", "status", "wall_s", "formula", "nwarnings"]
+    fields = ["pk", "label", "ctime", "status", "physics_ok", "physics_issues", "wall_s", "formula", "nwarnings"]
     fields += list(GAP_KEYS.values()) + ["g0w0_vbm", "g0w0_cbm", "energy"]
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
@@ -132,11 +190,12 @@ def main(argv=None):
     parser.add_argument("--pks", nargs="+", type=int, help="restrict to these workchain PKs")
     parser.add_argument("--group", help="only workchains belonging to this Group label")
     parser.add_argument("--running", action="store_true", help="include still-running workchains")
+    parser.add_argument("--ok-only", action="store_true", help="only show runs whose physics flags are clean")
     parser.add_argument("--csv", metavar="PATH", help="also write results to CSV file")
     parser.add_argument("--json", dest="json_path", metavar="PATH", help="also write results to JSON file")
     args = parser.parse_args(argv)
 
-    rows = collect_runs(pks=args.pks, group_label=args.group, include_running=args.running)
+    rows = collect_runs(pks=args.pks, group_label=args.group, include_running=args.running, ok_only=args.ok_only)
     if not rows:
         print("No matching GwWorkChain nodes found.")
         return 1
