@@ -54,12 +54,10 @@ def has_output(calc, label):
 
 
 def find_calcjobs(gw):
-    calcjobs = []
-    for called in gw.called:
-        process_type = called.process_type or ""
-        if process_type.endswith("Cp2kCalculation"):
-            calcjobs.append(called)
-    return sorted(calcjobs, key=lambda c: c.ctime)
+    return sorted(
+        (n for n in gw.called_descendants if (n.process_type or "").endswith("Cp2kCalculation")),
+        key=lambda c: c.ctime,
+    )
 
 
 def main():
@@ -101,7 +99,12 @@ def main():
         has_params = has_output(calc, "output_parameters")
 
         if job_exit == 0:
-            cls = "RECOVERABLE" if (nan_err or not has_params) else "RAN-OK (no params?)"
+            if has_params:
+                cls = "DONE-OK"
+            elif nan_err:
+                cls = "RECOVERABLE (nan crash)"
+            else:
+                cls = "RECOVERABLE (no params?)"
         elif job_exit is None:
             cls = "UNKNOWN (no scheduler stdout)"
         else:
