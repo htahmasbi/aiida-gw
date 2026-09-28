@@ -23,7 +23,7 @@ from aiida.orm import QueryBuilder
 
 
 def get_retrieved(calc):
-    for out in calc.get_outgoing().all():
+    for out in calc.base.links.get_outgoing():
         if out.link_label == "retrieved":
             return out.node
     return None
@@ -50,7 +50,7 @@ def has_nan_error(calc):
 
 
 def has_output(calc, label):
-    return any(out.link_label == label for out in calc.get_outgoing().all())
+    return any(out.link_label == label for out in calc.base.links.get_outgoing())
 
 
 def find_calcjobs(gw):
