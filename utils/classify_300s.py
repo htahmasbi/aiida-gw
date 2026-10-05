@@ -12,11 +12,15 @@ Cp2kCalculation and report why it did not finish-ok:
   TIMEOUT / TRUNCATED   : no output_parameters although the wrapper reported
                          exit 0. SLURM keeps that 0 when it kills a job at the
                          walltime limit, so the kill is detected from the
-                         scheduler job state or from a truncated aiida.out.
+                         scheduler job state, and the last line CP2K printed is
+                         reported as direct evidence of where it stopped.
                          Raise max_wallclock_seconds and re-run.
 
 The scheduler wrapper exit code alone cannot distinguish a parser crash from a
-walltime kill, so both are cross-checked against the retrieved files.
+walltime kill, so both are cross-checked against the retrieved files. Output
+nodes are resolved through the links API rather than ``node.outputs.<label>``,
+because that accessor rebuilds the whole output mapping and raises on any
+duplicate link label, which the resume/replay bug does produce.
 
 Run inside the aiida environment on casusvm:
 
@@ -29,9 +33,6 @@ import sys
 
 from aiida import load_profile, orm
 from aiida.orm import QueryBuilder
-
-# Markers written by CP2K at the very end of a cleanly finished run.
-CP2K_END_MARKERS = ("Program ended normally", "ABORT")
 
 # Keywords the SLURM scheduler uses for a job that was cut short.
 TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "CANCELLED", "CANCELED", "NODE_FAIL", "PREEMPTED")
@@ -46,6 +47,7 @@ PARSER_ERROR_NEEDLES = (
 )
 
 TAIL_BYTES = 65536
+TAIL_LINE_WIDTH = 28
 
 
 def _as_text(content):
@@ -56,11 +58,13 @@ def _as_text(content):
     return content
 
 
-def get_retrieved(calc):
-    for out in calc.base.links.get_outgoing():
-        if out.link_label == "retrieved":
-            return out.node
-    return None
+def get_retrieved_nodes(calc):
+    """Every folder linked as ``retrieved`` from ``calc``.
+
+    The workchain resume/replay bug can leave two RETURN links with the same
+    label, so the folder is searched as a list rather than assumed singular.
+    """
+    return [out.node for out in calc.base.links.get_outgoing() if out.link_label == "retrieved"]
 
 
 def _repo_text(retrieved, name):
@@ -88,19 +92,23 @@ def _repo_tail(retrieved, name, nbytes=TAIL_BYTES):
 
 
 def get_scheduler_exit_code(calc):
-    retrieved = get_retrieved(calc)
-    match = re.search(r"Exit code:\s*(\d+)", _repo_text(retrieved, "_scheduler-stdout.txt") or "")
-    return int(match.group(1)) if match else None
+    for retrieved in get_retrieved_nodes(calc):
+        stdout = _repo_text(retrieved, "_scheduler-stdout.txt")
+        match = re.search(r"Exit code:\s*(\d+)", stdout or "")
+        if match:
+            return int(match.group(1))
+    return None
 
 
 def get_scheduler_text(calc):
     """Combined stdout+stderr of the scheduler wrapper, as text."""
-    retrieved = get_retrieved(calc)
-    parts = [
-        _repo_text(retrieved, "_scheduler-stdout.txt"),
-        _repo_text(retrieved, "_scheduler-stderr.txt"),
-    ]
-    return "\n".join(part for part in parts if part)
+    parts = []
+    for retrieved in get_retrieved_nodes(calc):
+        for name in ("_scheduler-stdout.txt", "_scheduler-stderr.txt"):
+            text = _repo_text(retrieved, name)
+            if text:
+                parts.append(text)
+    return "\n".join(parts)
 
 
 def scheduler_timed_out(calc):
@@ -108,16 +116,21 @@ def scheduler_timed_out(calc):
     return any(keyword in text for keyword in TIMEOUT_KEYWORDS)
 
 
-def aiida_out_ended_normally(calc):
-    """True/False if aiida.out was readable, None if it was not retrievable.
+def aiida_out_tail(calc):
+    """Last non-empty line of aiida.out, or None if it was not retrievable.
 
-    False means the CP2K output stops mid-run, which is what a scheduler kill
-    looks like on disk: the job died before printing its termination marker.
+    Reported instead of guessing a termination marker: where CP2K stopped
+    printing is direct evidence of a kill, and a marker string would have to
+    match this CP2K build exactly to be trustworthy.
     """
-    tail = _repo_tail(get_retrieved(calc), "aiida.out")
-    if tail is None:
-        return None
-    return any(marker in tail for marker in CP2K_END_MARKERS)
+    for retrieved in get_retrieved_nodes(calc):
+        tail = _repo_tail(retrieved, "aiida.out")
+        if tail is None:
+            continue
+        for line in reversed(tail.splitlines()):
+            if line.strip():
+                return line.strip()[:TAIL_LINE_WIDTH]
+    return None
 
 
 def has_parser_error(calc):
@@ -182,7 +195,7 @@ def main():
                 chains.append(node)
 
     header = (f"{'gw':>7} {'calc':>7} {'calc_state':<18} {'job_exit':>8} "
-              f"{'err?':>4} {'parms':>5} {'cp2k_end':>8}  class")
+              f"{'err?':>4} {'parms':>5} {'out_tail':<28}  class")
     print(header)
     print("-" * len(header))
 
@@ -191,7 +204,7 @@ def main():
             continue
         calcjobs = find_calcjobs(gw)
         if not calcjobs:
-            print(f"{gw.pk:>7} {'-':>7} {'-':<18} {'-':>8} {'-':>4} {'-':>5} {'-':>8}  NO CALCJOB")
+            print(f"{gw.pk:>7} {'-':>7} {'-':<18} {'-':>8} {'-':>4} {'-':>5} {'-':<28}  NO CALCJOB")
             continue
         calc = calcjobs[-1]
         if calc.is_excepted:
@@ -203,26 +216,24 @@ def main():
         job_exit = get_scheduler_exit_code(calc)
         parser_err = has_parser_error(calc)
         parms = params_state(calc)
-        ended = aiida_out_ended_normally(calc)
+        tail = aiida_out_tail(calc) or "-"
         timed_out = scheduler_timed_out(calc)
 
         if parms == "Y":
             cls = "DONE-OK"
         elif timed_out:
             cls = "TIMEOUT (raise max_wallclock_seconds)"
-        elif ended is False:
-            cls = "TRUNCATED (walltime kill? check sacct Elapsed)"
         elif job_exit == 0 and parser_err:
             cls = "RECOVERABLE (parser crash)"
         elif job_exit == 0:
-            cls = "RECOVERABLE (no params?)"
+            cls = "TRUNCATED? (no params, exit 0)"
         elif job_exit is None:
             cls = "UNKNOWN (no scheduler stdout)"
         else:
             cls = f"CP2K FAILED (exit {job_exit})"
 
         print(f"{gw.pk:>7} {calc.pk:>7} {state:<18} {str(job_exit):>8} "
-              f"{'Y' if parser_err else 'n':>4} {parms:>5} {str(ended):>8}  {cls}")
+              f"{'Y' if parser_err else 'n':>4} {parms:>5} {tail:<28}  {cls}")
 
 
 if __name__ == "__main__":

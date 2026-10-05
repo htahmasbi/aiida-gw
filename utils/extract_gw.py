@@ -42,6 +42,21 @@ def _last_calcjob(wc):
     return max(calcs, key=lambda c: c.ctime) if calcs else None
 
 
+def _output_nodes(cj, label):
+    """All nodes linked as ``label`` from ``cj``, resolved through the links API.
+
+    The ``node.outputs.<label>`` accessor rebuilds the full output mapping and
+    raises on *any* duplicate link label, so a single duplicated ``retrieved``
+    link (an artifact of the workchain resume/replay bug) made a perfectly
+    readable ``output_parameters`` unreachable. Reading the label directly is
+    immune to that, and a list is returned because such a duplicate can leave
+    several candidates for the same label.
+    """
+    if cj is None:
+        return []
+    return [link.node for link in cj.base.links.get_outgoing() if link.link_label == label]
+
+
 def _calcjob_params(wc):
     """Return (calc_pk, params, note) from the workchain's last CalcJobNode.
 
@@ -61,17 +76,23 @@ def _calcjob_params(wc):
     cj = _last_calcjob(wc)
     if cj is None:
         return None, {}, "no_calcjob"
-    try:
-        node = cj.outputs.output_parameters
-    except Exception as exc:
-        return cj.pk, {}, f"read_error:{type(exc).__name__}:{exc}"
-    try:
-        params = node.get_dict()
-    except Exception as exc:
-        return cj.pk, {}, f"read_error:{type(exc).__name__}:{exc}"
-    if not params:
-        return cj.pk, {}, "empty"
-    return cj.pk, params, ""
+
+    candidates = _output_nodes(cj, "output_parameters")
+    if not candidates:
+        return cj.pk, {}, "no_link"
+
+    errors = []
+    for node in candidates:
+        try:
+            params = node.get_dict()
+        except Exception as exc:
+            errors.append(f"{type(exc).__name__}:{exc}")
+            continue
+        if params:
+            return cj.pk, params, ""
+    if errors:
+        return cj.pk, {}, "read_error:" + ";".join(errors)
+    return cj.pk, {}, "empty"
 
 
 def _physics_summary(params):
@@ -120,13 +141,12 @@ def _physics_summary(params):
 
 
 def _formula(wc):
-    cj = _last_calcjob(wc)
-    if cj is None:
-        return ""
-    try:
-        return cj.outputs.output_structure.get_formula()
-    except Exception:
-        return ""
+    for node in _output_nodes(_last_calcjob(wc), "output_structure"):
+        try:
+            return node.get_formula()
+        except Exception:
+            continue
+    return ""
 
 
 def collect_runs(pks=None, group_label=None, include_running=False, ok_only=False):
