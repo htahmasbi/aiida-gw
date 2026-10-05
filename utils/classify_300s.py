@@ -33,7 +33,6 @@ Run inside the aiida environment on casusvm:
   python3 utils/classify_300s.py --pks 3058 --include-zombies
 """
 import argparse
-import os
 import re
 import sys
 
@@ -52,7 +51,7 @@ PARSER_ERROR_NEEDLES = (
     "parsererror",
 )
 
-TAIL_BYTES = 65536
+MAX_TAIL_BYTES = 4 * 1024 * 1024
 TAIL_LINE_WIDTH = 28
 
 
@@ -82,19 +81,41 @@ def _repo_text(retrieved, name):
         return None
 
 
-def _repo_tail(retrieved, name, nbytes=TAIL_BYTES):
-    """Read the last ``nbytes`` of a retrieved file, or None if unreadable."""
+def _repo_object_size(retrieved, name):
+    """Size in bytes of a retrieved file, or None if it cannot be determined."""
     if retrieved is None:
         return None
     try:
-        with retrieved.base.repository.open(name, mode="rb") as handle:
-            handle.seek(0, os.SEEK_END)
-            size = handle.tell()
-            handle.seek(max(0, size - nbytes), os.SEEK_SET)
-            data = handle.read()
+        for obj in retrieved.base.list_objects():
+            if obj.name == name:
+                return obj.size
     except Exception:
         return None
-    return _as_text(data)
+    return None
+
+
+def _repo_tail(retrieved, name, max_bytes=MAX_TAIL_BYTES):
+    """Last non-empty line of a retrieved file, or None if it is unusable.
+
+    Reading through ``get_object_content`` keeps this on the same code path as
+    the scheduler files, which is known to work. An earlier version seeked on
+    ``repository.open(mode="rb")`` to avoid loading the whole file; that
+    returned binary garbage for the large aiida.out of a completed run while
+    appearing to work for the small ones, so any file above ``max_bytes`` is now
+    skipped outright rather than misreported.
+    """
+    if retrieved is None:
+        return None
+    size = _repo_object_size(retrieved, name)
+    if size is None or size > max_bytes:
+        return None
+    text = _repo_text(retrieved, name)
+    if text is None:
+        return None
+    for line in reversed(text.splitlines()):
+        if line.strip():
+            return line.strip()[:TAIL_LINE_WIDTH]
+    return None
 
 
 def get_scheduler_exit_code(calc):
@@ -123,19 +144,18 @@ def scheduler_timed_out(calc):
 
 
 def aiida_out_tail(calc):
-    """Last non-empty line of aiida.out, or None if it was not retrievable.
+    """Last non-empty line of aiida.out, or None if it is not readable.
 
     Reported instead of guessing a termination marker: where CP2K stopped
     printing is direct evidence of a kill, and a marker string would have to
-    match this CP2K build exactly to be trustworthy.
+    match this CP2K build exactly to be trustworthy. Returns "-" for the
+    completed runs whose aiida.out is too large to read safely, so a silent
+    skip is never mistaken for a truncation.
     """
     for retrieved in get_retrieved_nodes(calc):
         tail = _repo_tail(retrieved, "aiida.out")
-        if tail is None:
-            continue
-        for line in reversed(tail.splitlines()):
-            if line.strip():
-                return line.strip()[:TAIL_LINE_WIDTH]
+        if tail is not None:
+            return tail
     return None
 
 
