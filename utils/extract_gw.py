@@ -43,14 +43,35 @@ def _last_calcjob(wc):
 
 
 def _calcjob_params(wc):
-    """Return (calc_pk, params) from the workchain's last CalcJobNode."""
+    """Return (calc_pk, params, note) from the workchain's last CalcJobNode.
+
+    ``note`` records *why* no parameters could be read, so a run whose results
+    exist but could not be deserialized is never reported as data-less:
+
+      ``""``           - parameters read successfully
+      ``"no_calcjob"`` - the workchain has no CalcJobNode descendant
+      ``"no_link"``    - the calcjob never stored output_parameters
+      ``"empty"``      - output_parameters exists but the Dict holds nothing
+      ``"read_error"`` - resolving or deserializing the Dict raised; the
+                         exception type and message are appended
+
+    A bare ``except`` here previously turned every failure into an empty dict,
+    which made healthy runs look like ``BAD:no_data``.
+    """
     cj = _last_calcjob(wc)
     if cj is None:
-        return None, {}
+        return None, {}, "no_calcjob"
     try:
-        return cj.pk, cj.outputs.output_parameters.get_dict()
-    except Exception:
-        return cj.pk, {}
+        node = cj.outputs.output_parameters
+    except Exception as exc:
+        return cj.pk, {}, f"read_error:{type(exc).__name__}:{exc}"
+    try:
+        params = node.get_dict()
+    except Exception as exc:
+        return cj.pk, {}, f"read_error:{type(exc).__name__}:{exc}"
+    if not params:
+        return cj.pk, {}, "empty"
+    return cj.pk, params, ""
 
 
 def _physics_summary(params):
@@ -127,8 +148,11 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
         running = not wc.is_finished
         if running and not include_running:
             continue
-        calc_pk, params = _calcjob_params(wc)
-        physics_ok, physics_issues = _physics_summary(params)
+        calc_pk, params, note = _calcjob_params(wc)
+        if note:
+            physics_ok, physics_issues = False, note
+        else:
+            physics_ok, physics_issues = _physics_summary(params)
         if ok_only and not physics_ok:
             continue
         wall_seconds = None
@@ -144,6 +168,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
             "formula": _formula(wc),
             "physics_ok": physics_ok,
             "physics_issues": physics_issues,
+            "params_note": note,
         }
         for key, col in GAP_KEYS.items():
             value = params.get(key)
@@ -158,7 +183,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
 def print_table(rows):
     figs = list(GAP_KEYS.values()) + ["energy"]
     header = (
-        f"{'PK':>7}  {'calc':>7} {'status':<9} {'physics':<44} {'wall_h':>7}  "
+        f"{'PK':>7}  {'calc':>7} {'status':<9} {'physics':<48} {'wall_h':>7}  "
         + " ".join(f"{c:>10}" for c in figs)
         + f"  {'formula':<14}"
     )
@@ -168,14 +193,14 @@ def print_table(rows):
         wall = f"{row['wall_s'] / 3600:.2f}" if row["wall_s"] is not None else "-"
         physics = "ok" if row["physics_ok"] else "BAD"
         if row["physics_issues"]:
-            physics = "BAD:" + row["physics_issues"][:40]
+            physics = "BAD:" + row["physics_issues"][:44]
         values = []
         for key in figs:
             v = row.get(key)
             values.append(f"{v:>10.3f}" if isinstance(v, float) else " " * 9 + "-")
         calc = row["calc"] if row["calc"] is not None else "-"
         print(
-            f"{row['pk']:>7}  {calc:>7}  {row['status']:<9} {physics:<44} {wall:>7}  "
+            f"{row['pk']:>7}  {calc:>7}  {row['status']:<9} {physics:<48} {wall:>7}  "
             + " ".join(values)
             + f"  {row['formula'][:14]:<14}"
         )
@@ -185,7 +210,7 @@ def write_csv(rows, path):
     if not rows:
         print(f"No data, not writing {path}")
         return
-    fields = ["pk", "calc", "label", "ctime", "status", "physics_ok", "physics_issues", "wall_s", "formula", "nwarnings"]
+    fields = ["pk", "calc", "label", "ctime", "status", "physics_ok", "physics_issues", "params_note", "wall_s", "formula", "nwarnings"]
     fields += list(GAP_KEYS.values()) + ["g0w0_vbm", "g0w0_cbm", "energy"]
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
