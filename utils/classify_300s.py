@@ -15,6 +15,11 @@ Cp2kCalculation and report why it did not finish-ok:
                          scheduler job state, and the last line CP2K printed is
                          reported as direct evidence of where it stopped.
                          Raise max_wallclock_seconds and re-run.
+  ZOMBIE                : only with --include-zombies. The workchain never
+                         reached a terminal state because finalization excepted
+                         on an already-stored RETURN link, so it sits in Running
+                         forever. Its calcjob may still hold complete results,
+                         which the ZOMBIE variants report explicitly.
 
 The scheduler wrapper exit code alone cannot distinguish a parser crash from a
 walltime kill, so both are cross-checked against the retrieved files. Output
@@ -25,6 +30,7 @@ duplicate link label, which the resume/replay bug does produce.
 Run inside the aiida environment on casusvm:
 
   python3 utils/classify_300s.py [--group gw_runs_2el2] [--pks 2092 2304]
+  python3 utils/classify_300s.py --pks 3058 --include-zombies
 """
 import argparse
 import os
@@ -178,6 +184,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--group", default="gw_runs_2el2")
     parser.add_argument("--pks", nargs="*", type=int, default=None)
+    parser.add_argument(
+        "--include-zombies",
+        action="store_true",
+        help="also classify workchains that never reached a terminal state, i.e. are stuck "
+        "in Running because finalization excepted on an already-stored RETURN link",
+    )
     args = parser.parse_args()
 
     load_profile()
@@ -200,7 +212,10 @@ def main():
     print("-" * len(header))
 
     for gw in sorted(chains, key=lambda n: n.pk):
-        if gw.exit_status != 300:
+        zombie = gw.exit_status is None
+        if not zombie and gw.exit_status != 300:
+            continue
+        if zombie and not args.include_zombies:
             continue
         calcjobs = find_calcjobs(gw)
         if not calcjobs:
@@ -219,7 +234,14 @@ def main():
         tail = aiida_out_tail(calc) or "-"
         timed_out = scheduler_timed_out(calc)
 
-        if parms == "Y":
+        if zombie:
+            if parms == "Y":
+                cls = "ZOMBIE: stuck workchain, calcjob data valid"
+            elif timed_out:
+                cls = "ZOMBIE: stuck workchain, TIMEOUT"
+            else:
+                cls = "ZOMBIE: stuck workchain, no calcjob data"
+        elif parms == "Y":
             cls = "DONE-OK"
         elif timed_out:
             cls = "TIMEOUT (raise max_wallclock_seconds)"

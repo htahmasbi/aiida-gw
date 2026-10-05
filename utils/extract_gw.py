@@ -150,7 +150,12 @@ def _formula(wc):
 
 
 def collect_runs(pks=None, group_label=None, include_running=False, ok_only=False):
-    """Query the profile and return one summary dict per GwWorkChain."""
+    """Query the profile and return one summary dict per GwWorkChain.
+
+    ``pks`` overrides ``group_label`` rather than intersecting with it, so a
+    single stuck workchain can be inspected without knowing which group holds
+    it. This matches how classify_300s.py treats the two options.
+    """
     builder = QueryBuilder().append(
         ProcessNode,
         filters={"attributes.process_label": WORKCHAIN_LABEL},
@@ -159,7 +164,7 @@ def collect_runs(pks=None, group_label=None, include_running=False, ok_only=Fals
     )
     if pks:
         builder.add_filter("wc", {"id": {"in": list(pks)}})
-    if group_label:
+    elif group_label:
         builder.append(Group, filters={"label": group_label}, with_node="wc")
     builder.order_by({ProcessNode: {"ctime": "asc"}})
 
