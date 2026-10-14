@@ -14,6 +14,14 @@ the surviving retrieved folder and attaches the resulting ``output_parameters``
 normal links API already tolerates the duplicate ``retrieved`` link, so existing
 tooling picks the results up afterwards without any further repair.
 
+Because the node is terminal it is already *sealed*, and AiiDA forbids adding an
+outgoing link to a sealed ``ProcessNode`` (``ProcessNode.validate_outgoing``).
+There is no ``unseal()`` in aiida-core 2.8, so when the public links API refuses
+the link the code falls back to the storage backend's ``add_incoming``
+(``SqlaNode.add_incoming``), which validates only that both nodes are stored. This
+deliberately bypasses the provenance-immutability guard for a one-off repair and
+is logged as a warning; use ``--dry-run`` first.
+
 The parser class is not instantiated directly because ``Parser.__init__`` /
 ``parse`` resolve ``self.node.outputs.retrieved``, which raises on the duplicate
 label. Instead a small shim supplies the attributes ``_parse_efs`` needs
@@ -121,10 +129,28 @@ def reparse_calcjob(calc, retrieved):
     return shim.outputs
 
 
-def attach_outputs(calc, outputs, dry_run=False):
-    """Store and link the parsed outputs onto ``calc``; return the labels handled."""
+def _link_create(calc, node, label):
+    """Link ``calc -> node`` as a ``CREATE`` link, tolerating the sealed CalcJob.
+
+    The public API (``NodeLinks.add_incoming``) raises
+    ``ModificationNotAllowed: Cannot add a link from a sealed node`` for a sealed
+    ``ProcessNode``. The backend node method performs the same insert without that
+    check, so it is used as a fallback for this repair.
+    """
+    from aiida.common import exceptions
     from aiida.common.links import LinkType
 
+    try:
+        node.base.links.add_incoming(calc, LinkType.CREATE, label)
+    except exceptions.ModificationNotAllowed:
+        LOGGER.warning(
+            "    calc %s is sealed; inserting '%s' link via the storage backend", calc.pk, label
+        )
+        node.backend_entity.add_incoming(calc.backend_entity, LinkType.CREATE, label)
+
+
+def attach_outputs(calc, outputs, dry_run=False):
+    """Store and link the parsed outputs onto ``calc``; return the labels handled."""
     existing = {link.link_label for link in calc.base.links.get_outgoing()}
     attached = []
     for label, node in outputs.items():
@@ -135,7 +161,7 @@ def attach_outputs(calc, outputs, dry_run=False):
             attached.append(label)
             continue
         node.store()
-        node.base.links.add_incoming(calc, LinkType.CREATE, label)
+        _link_create(calc, node, label)
         attached.append(label)
     return attached
 
