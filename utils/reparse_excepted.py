@@ -59,10 +59,19 @@ def _retrieved_nodes(calc):
 
 
 def _aiida_out_size(retrieved):
-    for obj in retrieved.base.list_objects():
-        if obj.name == "aiida.out":
-            return obj.size
-    return None
+    repository = retrieved.base.repository
+    try:
+        for obj in repository.list_objects():
+            if obj.name == "aiida.out":
+                size = getattr(obj, "size", None)
+                if size is not None:
+                    return size
+    except Exception:
+        pass
+    try:
+        return len(repository.get_object_content("aiida.out"))
+    except Exception:
+        return None
 
 
 def _pick_retrieved(calc):
