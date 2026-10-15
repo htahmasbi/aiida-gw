@@ -84,7 +84,7 @@ def main():
     args = parser.parse_args()
 
     load_profile()
-    session = get_manager().get_backend().get_session()
+    session = get_manager().get_profile_storage().get_session()
 
     groups = find_duplicate_groups(session)
     if args.pk:
