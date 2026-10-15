@@ -324,3 +324,18 @@ def reset_config() -> None:
     global _config
     with _config_lock:
         _config = None
+
+
+def config_from_inputs(inputs) -> ProjectConfig:
+    """Resolve the run configuration for a workchain from its inputs.
+
+    When the ``config`` input is present it carries a snapshot captured by the
+    submitting process (the CLI), so the daemon never has to re-read
+    ``config.toml`` at execution time. This is what makes edits to ``config.toml``
+    take effect for new submissions without a daemon restart, and it records the
+    exact configuration used in the provenance. Falls back to the ambient file
+    for callers that do not pass ``config`` (e.g. older submissions).
+    """
+    if "config" in inputs:
+        return ProjectConfig.model_validate(inputs.config.get_dict())
+    return get_config()

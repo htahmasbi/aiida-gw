@@ -6,7 +6,7 @@ from aiida.engine import WorkChain, submit
 from aiida.orm import Code, Dict, Int, List, Str
 from aiida.plugins import WorkflowFactory
 
-from aiida_gw.core.config import ProjectConfig, get_config
+from aiida_gw.core.config import ProjectConfig, config_from_inputs, get_config
 from aiida_gw.core.exceptions import WorkflowError
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ class SinglePointWorkChain(WorkChain):
         spec.input("section", valid_type=Str, default=Str("single_point"))
         spec.input("kpoints_mesh", valid_type=List, required=False)
         spec.input("metadata_options", valid_type=Dict, required=False)
+        spec.input("config", valid_type=Dict, required=False)
         spec.outline(
             cls.setup,
             cls.run_cp2k,
@@ -41,7 +42,7 @@ class SinglePointWorkChain(WorkChain):
         spec.output("output_parameters", valid_type=Dict)
 
     def setup(self):
-        self.ctx.config = get_config()
+        self.ctx.config = config_from_inputs(self.inputs)
 
     def run_cp2k(self):
         from aiida_gw.core.builders import Cp2kBuilder
@@ -101,6 +102,7 @@ def run_single_point(
     builder.code = code
     builder.protocol_name = Str("protocol_SIRIUS.yml")
     builder.section = Str("single_point")
+    builder.config = Dict(dict=cfg.model_dump())
 
     node = submit(builder)
     logger.info(f"Submitted SinglePointWorkChain<{node.pk}>")

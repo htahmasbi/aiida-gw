@@ -6,7 +6,7 @@ from aiida.engine import WorkChain
 from aiida.orm import Code, Dict, Float, Int, List, Str
 from aiida.plugins import WorkflowFactory
 
-from aiida_gw.core.config import get_config
+from aiida_gw.core.config import config_from_inputs
 from aiida_gw.core.exceptions import WorkflowError
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ class GwWorkChain(WorkChain):
         spec.input("kpoints_w_mesh", valid_type=List, required=False)
         spec.input("bandstructure_path", valid_type=List, required=False)
         spec.input("ri_basis_accuracy_target", valid_type=Float, required=False)
+        spec.input("config", valid_type=Dict, required=False)
         spec.outline(
             cls.setup,
             cls.run_gw,
@@ -37,7 +38,7 @@ class GwWorkChain(WorkChain):
         spec.output("output_parameters", valid_type=Dict, required=False)
 
     def setup(self):
-        self.ctx.config = get_config()
+        self.ctx.config = config_from_inputs(self.inputs)
 
     def run_gw(self):
         from aiida_gw.core.builders import Cp2kBuilder

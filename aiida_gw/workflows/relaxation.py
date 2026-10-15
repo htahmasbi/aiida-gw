@@ -6,7 +6,7 @@ from aiida.engine import WorkChain
 from aiida.orm import Bool, Code, Dict, List, Str
 from aiida.plugins import WorkflowFactory
 
-from aiida_gw.core.config import get_config
+from aiida_gw.core.config import config_from_inputs
 from aiida_gw.core.exceptions import WorkflowError
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ class RelaxWorkChain(WorkChain):
         spec.input("section", valid_type=Str, default=Str("opt1vc"))
         spec.input("cell_opt", valid_type=Bool, default=Bool(True))
         spec.input("kpoints_mesh", valid_type=List, required=False)
+        spec.input("config", valid_type=Dict, required=False)
         spec.outline(
             cls.setup,
             cls.run_relax,
@@ -39,7 +40,7 @@ class RelaxWorkChain(WorkChain):
         spec.output("output_parameters", valid_type=Dict)
 
     def setup(self):
-        self.ctx.config = get_config()
+        self.ctx.config = config_from_inputs(self.inputs)
 
     def run_relax(self):
         from aiida_gw.core.builders import Cp2kBuilder

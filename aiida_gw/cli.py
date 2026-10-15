@@ -230,7 +230,7 @@ def run(
     """Run a calculation workflow."""
     from aiida import load_profile
     from aiida.engine import submit
-    from aiida.orm import Float, List, load_code, Str, StructureData
+    from aiida.orm import Dict, Float, List, load_code, Str, StructureData
     from aiida.plugins import DataFactory
 
     from aiida_gw.transformations.structures import prepare_2d_structure
@@ -386,6 +386,7 @@ def run(
                 builder = GwWorkChain.get_builder()
                 builder.structure = prepared_node
                 builder.code = code
+                builder.config = Dict(dict=config.model_dump())
                 builder.protocol_name = Str("protocol_GW.yml")
                 if kpoints_mesh:
                     builder.kpoints_mesh = List(list=kpoints_mesh)
@@ -424,6 +425,7 @@ def run(
         builder = SinglePointWorkChain.get_builder()
         builder.structure = structure
         builder.code = code
+        builder.config = Dict(dict=config.model_dump())
         if kpoints_mesh:
             builder.kpoints_mesh = List(list=kpoints_mesh)
 
@@ -446,6 +448,7 @@ def run(
         builder = RelaxWorkChain.get_builder()
         builder.structure = structure
         builder.code = code
+        builder.config = Dict(dict=config.model_dump())
         if kpoints_mesh:
             builder.kpoints_mesh = List(list=kpoints_mesh)
 
