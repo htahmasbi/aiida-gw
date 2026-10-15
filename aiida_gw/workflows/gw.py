@@ -8,6 +8,7 @@ from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import config_from_inputs
 from aiida_gw.core.exceptions import WorkflowError
+from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +84,13 @@ class GwWorkChain(WorkChain):
             return self.exit_codes.ERROR_GW_FAILED
         logger.info("GW calculation finished successfully")
 
-        if hasattr(self.ctx.gw_calc.outputs, "output_structure"):
-            self.out("output_structure", self.ctx.gw_calc.outputs.output_structure)
+        output_structure = get_output_node(self.ctx.gw_calc, "output_structure")
+        if output_structure is not None:
+            self.out("output_structure", output_structure)
         else:
             logger.info("GW calculation produced no output structure; emitting input structure")
             self.out("output_structure", self.inputs.structure)
-        if hasattr(self.ctx.gw_calc.outputs, "output_parameters"):
-            self.out("output_parameters", self.ctx.gw_calc.outputs.output_parameters)
+
+        output_parameters = get_output_node(self.ctx.gw_calc, "output_parameters")
+        if output_parameters is not None:
+            self.out("output_parameters", output_parameters)

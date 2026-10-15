@@ -3,7 +3,14 @@
 import pytest
 from pydantic import ValidationError
 
-from aiida_gw.core.config import Cp2kConfig, ElementOverride, GwConfig, MetadataOptions
+from aiida_gw.core.config import (
+    Cp2kConfig,
+    ElementOverride,
+    GwConfig,
+    MetadataOptions,
+    ProjectConfig,
+    config_from_inputs,
+)
 
 
 class TestMetadataOptions:
@@ -136,5 +143,46 @@ class TestGwConfigCubeFiles:
 
         cfg = ProjectConfig(gw={"cube_files": ["V_HARTREE_CUBE"]})
         assert cfg.gw.cube_files == ["V_HARTREE_CUBE"]
+
+
+class _FakeConfigNode:
+    """Mimics an AiiDA ``Dict`` node carrying the project config snapshot."""
+
+    def __init__(self, data: dict):
+        self._data = data
+
+    def get_dict(self) -> dict:
+        return self._data
+
+
+class _FakeInputs:
+    """Minimal stand-in for a ``ProcessInputs`` mapping."""
+
+    def __init__(self, config: _FakeConfigNode | None = None):
+        if config is not None:
+            self.config = config
+
+    def __contains__(self, key: str) -> bool:
+        return key == "config" and hasattr(self, "config")
+
+
+class TestConfigFromInputs:
+    def test_snapshot_from_input(self):
+        original = ProjectConfig(cp2k={"kpoints_mesh": [4, 1, 4]}, code_label="cp2k@rosi7")
+        inputs = _FakeInputs(_FakeConfigNode(original.model_dump()))
+        assert config_from_inputs(inputs) == original
+
+    def test_input_takes_precedence_over_file(self, monkeypatch):
+        def _boom():
+            raise AssertionError("get_config() must not be called when config is an input")
+
+        monkeypatch.setattr("aiida_gw.core.config.get_config", _boom)
+        node = _FakeConfigNode(ProjectConfig().model_dump())
+        assert config_from_inputs(_FakeInputs(node)) == ProjectConfig()
+
+    def test_falls_back_to_file_when_absent(self, monkeypatch):
+        sentinel = ProjectConfig(cp2k={"kpoints_mesh": [2, 1, 2]})
+        monkeypatch.setattr("aiida_gw.core.config.get_config", lambda: sentinel)
+        assert config_from_inputs(_FakeInputs()) is sentinel
 
 

@@ -8,6 +8,7 @@ from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import ProjectConfig, config_from_inputs, get_config
 from aiida_gw.core.exceptions import WorkflowError
+from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +76,19 @@ class SinglePointWorkChain(WorkChain):
             logger.error("CP2K calculation failed with exit code %s", self.ctx.cp2k_calc.exit_status)
             return self.exit_codes.ERROR_CALCULATION_FAILED
         logger.info("Single-point calculation finished successfully")
-        if hasattr(self.ctx.cp2k_calc.outputs, "output_structure"):
-            self.out("output_structure", self.ctx.cp2k_calc.outputs.output_structure)
+
+        output_structure = get_output_node(self.ctx.cp2k_calc, "output_structure")
+        if output_structure is not None:
+            self.out("output_structure", output_structure)
         else:
             logger.info("CP2K calculation produced no output structure; emitting input structure")
             self.out("output_structure", self.inputs.structure)
-        self.out("output_parameters", self.ctx.cp2k_calc.outputs.output_parameters)
+
+        output_parameters = get_output_node(self.ctx.cp2k_calc, "output_parameters")
+        if output_parameters is None:
+            logger.error("CP2K calculation produced no output_parameters")
+            return self.exit_codes.ERROR_CALCULATION_FAILED
+        self.out("output_parameters", output_parameters)
 
 
 def run_single_point(

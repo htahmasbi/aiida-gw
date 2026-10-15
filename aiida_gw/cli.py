@@ -592,6 +592,8 @@ def results(
     from aiida import load_profile
     from aiida.orm import Dict, Group, WorkChainNode
 
+    from aiida_gw.core.nodes import get_output_node
+
     load_profile()
 
     try:
@@ -646,7 +648,7 @@ def results(
             "label": node.label,
         }
         try:
-            params = node.outputs.output_parameters
+            params = get_output_node(node, "output_parameters")
             if isinstance(params, Dict):
                 params = params.get_dict()
             for key in result_keys:

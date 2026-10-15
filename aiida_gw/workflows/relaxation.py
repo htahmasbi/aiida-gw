@@ -8,6 +8,7 @@ from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import config_from_inputs
 from aiida_gw.core.exceptions import WorkflowError
+from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,10 @@ class RelaxWorkChain(WorkChain):
             if "kpoints_mesh" in self.inputs
             else cp2k_cfg.kpoints_mesh
         )
-        if not hasattr(self.ctx.relax_calc.outputs, "output_structure"):
+        relaxed_structure = get_output_node(self.ctx.relax_calc, "output_structure")
+        if relaxed_structure is None:
             logger.error("Relax calculation missing output_structure")
             return self.exit_codes.ERROR_RELAX_FAILED
-        relaxed_structure = self.ctx.relax_calc.outputs.output_structure
         builder = Cp2kBuilder(self.ctx.config)
         inputs = builder.build_scf_inputs(
             structure=relaxed_structure,
@@ -100,9 +101,19 @@ class RelaxWorkChain(WorkChain):
             logger.error("Post-relax SCF failed with exit code %s", self.ctx.scf_calc.exit_status)
             return self.exit_codes.ERROR_SCF_FAILED
         logger.info("Post-relax SCF finished successfully")
-        if hasattr(self.ctx.scf_calc.outputs, "output_structure"):
-            self.out("output_structure", self.ctx.scf_calc.outputs.output_structure)
+        output_structure = get_output_node(self.ctx.scf_calc, "output_structure")
+        if output_structure is not None:
+            self.out("output_structure", output_structure)
         else:
             logger.info("SCF calculation produced no output structure; emitting relaxed structure")
-            self.out("output_structure", self.ctx.relax_calc.outputs.output_structure)
-        self.out("output_parameters", self.ctx.scf_calc.outputs.output_parameters)
+            relaxed_structure = get_output_node(self.ctx.relax_calc, "output_structure")
+            if relaxed_structure is not None:
+                self.out("output_structure", relaxed_structure)
+            else:
+                self.out("output_structure", self.inputs.structure)
+
+        output_parameters = get_output_node(self.ctx.scf_calc, "output_parameters")
+        if output_parameters is None:
+            logger.error("Post-relax SCF produced no output_parameters")
+            return self.exit_codes.ERROR_SCF_FAILED
+        self.out("output_parameters", output_parameters)
