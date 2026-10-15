@@ -86,12 +86,9 @@ def _repo_object_size(retrieved, name):
     if retrieved is None:
         return None
     try:
-        for obj in retrieved.base.list_objects():
-            if obj.name == name:
-                return obj.size
+        return retrieved.base.repository.get_object_size(name)
     except Exception:
         return None
-    return None
 
 
 def _repo_tail(retrieved, name, max_bytes=MAX_TAIL_BYTES):
