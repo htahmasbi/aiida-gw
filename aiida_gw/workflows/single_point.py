@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain, submit
-from aiida.orm import Code, Dict, Int, List, Str
+from aiida.orm import Code, Dict, List, Str, StructureData
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import ProjectConfig, config_from_inputs, get_config
-from aiida_gw.core.exceptions import WorkflowError
 from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class SinglePointWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.input("structure", valid_type=Cp2kBaseWorkChain._spec.inputs["structure"])
+        spec.input("structure", valid_type=StructureData)
         spec.input("code", valid_type=Code)
         spec.input("parameters", valid_type=Dict, required=False)
         spec.input(
@@ -39,7 +38,7 @@ class SinglePointWorkChain(WorkChain):
             cls.finalize,
         )
         spec.exit_code(300, "ERROR_CALCULATION_FAILED", message="CP2K calculation failed")
-        spec.output("output_structure", valid_type=Cp2kBaseWorkChain._spec.inputs["structure"])
+        spec.output("output_structure", valid_type=StructureData)
         spec.output("output_parameters", valid_type=Dict)
 
     def setup(self):
@@ -67,26 +66,26 @@ class SinglePointWorkChain(WorkChain):
         if self.inputs.metadata_options is not None:
             inputs.cp2k.metadata.options = self.inputs.metadata_options.get_dict()
 
-        logger.info("Submitting SinglePointWorkChain for structure %s", self.inputs.structure.label)
+        self.report("Submitting SinglePointWorkChain for structure %s", self.inputs.structure.label)
         future = self.submit(inputs)
         self.to_context(cp2k_calc=future)
 
     def finalize(self):
         if not self.ctx.cp2k_calc.is_finished_ok:
-            logger.error("CP2K calculation failed with exit code %s", self.ctx.cp2k_calc.exit_status)
+            self.logger.error("CP2K calculation failed with exit code %s", self.ctx.cp2k_calc.exit_status)
             return self.exit_codes.ERROR_CALCULATION_FAILED
-        logger.info("Single-point calculation finished successfully")
+        self.report("Single-point calculation finished successfully")
 
         output_structure = get_output_node(self.ctx.cp2k_calc, "output_structure")
         if output_structure is not None:
             self.out("output_structure", output_structure)
         else:
-            logger.info("CP2K calculation produced no output structure; emitting input structure")
+            self.report("CP2K calculation produced no output structure; emitting input structure")
             self.out("output_structure", self.inputs.structure)
 
         output_parameters = get_output_node(self.ctx.cp2k_calc, "output_parameters")
         if output_parameters is None:
-            logger.error("CP2K calculation produced no output_parameters")
+            self.logger.error("CP2K calculation produced no output_parameters")
             return self.exit_codes.ERROR_CALCULATION_FAILED
         self.out("output_parameters", output_parameters)
 
@@ -113,5 +112,5 @@ def run_single_point(
     builder.config = Dict(dict=cfg.model_dump())
 
     node = submit(builder)
-    logger.info(f"Submitted SinglePointWorkChain<{node.pk}>")
+    self.report(f"Submitted SinglePointWorkChain<{node.pk}>")
     return node.pk

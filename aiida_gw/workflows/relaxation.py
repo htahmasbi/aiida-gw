@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain
-from aiida.orm import Bool, Code, Dict, List, Str
+from aiida.orm import Bool, Code, Dict, List, Str, StructureData
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import config_from_inputs
-from aiida_gw.core.exceptions import WorkflowError
 from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class RelaxWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.input("structure")
+        spec.input("structure", valid_type=StructureData)
         spec.input("code", valid_type=Code)
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_SIRIUS.yml"))
         spec.input("section", valid_type=Str, default=Str("opt1vc"))
@@ -37,7 +36,7 @@ class RelaxWorkChain(WorkChain):
         )
         spec.exit_code(300, "ERROR_RELAX_FAILED", message="Relaxation calculation failed")
         spec.exit_code(301, "ERROR_SCF_FAILED", message="Post-relax SCF failed")
-        spec.output("output_structure")
+        spec.output("output_structure", valid_type=StructureData)
         spec.output("output_parameters", valid_type=Dict)
 
     def setup(self):
@@ -67,9 +66,9 @@ class RelaxWorkChain(WorkChain):
 
     def inspect_relax(self):
         if not self.ctx.relax_calc.is_finished_ok:
-            logger.error("Relax calculation failed with exit code %s", self.ctx.relax_calc.exit_status)
+            self.logger.error("Relax calculation failed with exit code %s", self.ctx.relax_calc.exit_status)
             return self.exit_codes.ERROR_RELAX_FAILED
-        logger.info("Relaxation finished successfully")
+        self.report("Relaxation finished successfully")
 
     def run_scf(self):
         from aiida_gw.core.builders import Cp2kBuilder
@@ -82,7 +81,7 @@ class RelaxWorkChain(WorkChain):
         )
         relaxed_structure = get_output_node(self.ctx.relax_calc, "output_structure")
         if relaxed_structure is None:
-            logger.error("Relax calculation missing output_structure")
+            self.logger.error("Relax calculation missing output_structure")
             return self.exit_codes.ERROR_RELAX_FAILED
         builder = Cp2kBuilder(self.ctx.config)
         inputs = builder.build_scf_inputs(
@@ -98,14 +97,14 @@ class RelaxWorkChain(WorkChain):
 
     def inspect_scf(self):
         if not self.ctx.scf_calc.is_finished_ok:
-            logger.error("Post-relax SCF failed with exit code %s", self.ctx.scf_calc.exit_status)
+            self.logger.error("Post-relax SCF failed with exit code %s", self.ctx.scf_calc.exit_status)
             return self.exit_codes.ERROR_SCF_FAILED
-        logger.info("Post-relax SCF finished successfully")
+        self.report("Post-relax SCF finished successfully")
         output_structure = get_output_node(self.ctx.scf_calc, "output_structure")
         if output_structure is not None:
             self.out("output_structure", output_structure)
         else:
-            logger.info("SCF calculation produced no output structure; emitting relaxed structure")
+            self.report("SCF calculation produced no output structure; emitting relaxed structure")
             relaxed_structure = get_output_node(self.ctx.relax_calc, "output_structure")
             if relaxed_structure is not None:
                 self.out("output_structure", relaxed_structure)
@@ -114,6 +113,6 @@ class RelaxWorkChain(WorkChain):
 
         output_parameters = get_output_node(self.ctx.scf_calc, "output_parameters")
         if output_parameters is None:
-            logger.error("Post-relax SCF produced no output_parameters")
+            self.logger.error("Post-relax SCF produced no output_parameters")
             return self.exit_codes.ERROR_SCF_FAILED
         self.out("output_parameters", output_parameters)

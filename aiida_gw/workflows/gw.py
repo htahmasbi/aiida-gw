@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 
 from aiida.engine import WorkChain
-from aiida.orm import Code, Dict, Float, Int, List, Str
+from aiida.orm import Code, Dict, Float, List, Str, StructureData
 from aiida.plugins import WorkflowFactory
 
 from aiida_gw.core.config import config_from_inputs
-from aiida_gw.core.exceptions import WorkflowError
 from aiida_gw.core.nodes import get_output_node
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class GwWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.input("structure")
+        spec.input("structure", valid_type=StructureData)
         spec.input("code", valid_type=Code)
         spec.input("protocol_name", valid_type=Str, default=Str("protocol_GW.yml"))
         spec.input("kpoints_mesh", valid_type=List, required=False)
@@ -35,7 +34,7 @@ class GwWorkChain(WorkChain):
             cls.finalize,
         )
         spec.exit_code(300, "ERROR_GW_FAILED", message="GW calculation failed")
-        spec.output("output_structure")
+        spec.output("output_structure", valid_type=StructureData)
         spec.output("output_parameters", valid_type=Dict, required=False)
 
     def setup(self):
@@ -74,21 +73,21 @@ class GwWorkChain(WorkChain):
             kpoints_w_distance=gw_config.kpoints_w_distance,
             bandstructure_path=bs_path,
         )
-        logger.info("Submitting GwWorkChain for structure %s", self.inputs.structure.label)
+        self.report("Submitting GwWorkChain for structure %s", self.inputs.structure.label)
         future = self.submit(inputs)
         self.to_context(gw_calc=future)
 
     def finalize(self):
         if not self.ctx.gw_calc.is_finished_ok:
-            logger.error("GW calculation failed with exit code %s", self.ctx.gw_calc.exit_status)
+            self.logger.error("GW calculation failed with exit code %s", self.ctx.gw_calc.exit_status)
             return self.exit_codes.ERROR_GW_FAILED
-        logger.info("GW calculation finished successfully")
+        self.report("GW calculation finished successfully")
 
         output_structure = get_output_node(self.ctx.gw_calc, "output_structure")
         if output_structure is not None:
             self.out("output_structure", output_structure)
         else:
-            logger.info("GW calculation produced no output structure; emitting input structure")
+            self.report("GW calculation produced no output structure; emitting input structure")
             self.out("output_structure", self.inputs.structure)
 
         output_parameters = get_output_node(self.ctx.gw_calc, "output_parameters")
