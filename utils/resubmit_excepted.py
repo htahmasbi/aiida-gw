@@ -95,7 +95,7 @@ def _failed_workflows(group=None, pks=None):
         project="id",
     )
     if group is not None:
-        builder.append(orm.Group, filters={"id": group.pk}, with_group="node")
+        builder.append(orm.Group, filters={"id": group.pk}, with_node="node")
     for (pk,) in builder.all():
         yield orm.load_node(pk)
 
