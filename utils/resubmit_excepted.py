@@ -118,7 +118,7 @@ def _resubmit(node, run_group=None, dry_run=False):
 
     new_node = submit(builder)
     if run_group is not None:
-        run_group.nodes = list(run_group.nodes) + [new_node]
+        run_group.add_nodes([new_node])
     LOGGER.info("  -> new pk %s", new_node.pk)
     return True
 
