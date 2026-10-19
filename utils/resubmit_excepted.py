@@ -114,13 +114,13 @@ def _resubmit(node, run_group=None, dry_run=False):
         "%s: resubmit %s%s", node.pk, node.process_type, f" (label '{label}')" if label else ""
     )
     if dry_run:
-        return None
+        return True
 
     new_node = submit(builder)
     if run_group is not None:
         run_group.nodes = list(run_group.nodes) + [new_node]
     LOGGER.info("  -> new pk %s", new_node.pk)
-    return new_node
+    return True
 
 
 def main(argv=None):
