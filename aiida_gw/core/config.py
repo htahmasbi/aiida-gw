@@ -225,15 +225,18 @@ class GwConfig(BaseModel):
     bs_npoints: int = Field(default=20, ge=1)
     basis_set_file: str = Field(
         default="BASIS_GTH_MOLOPT_AUG_for_excited_states",
-        description="Path to augmented basis set file (on cluster)",
+        description="Path to the augmented basis set file on the submitting host. "
+        "It is shipped to the calculation directory and referenced by file name in the CP2K input.",
     )
     ri_basis_set_file: str = Field(
         default="BASIS_GTH_MOLOPT_AUG_for_excited_states_RI",
-        description="Path to RI auxiliary basis set file (on cluster)",
+        description="Path to the RI auxiliary basis set file on the submitting host. "
+        "It is shipped to the calculation directory and referenced by file name in the CP2K input.",
     )
     potential_file: str = Field(
         default="POTENTIAL_UZH",
-        description="Path to CP2K potential file (on cluster)",
+        description="Path to the CP2K potential file on the submitting host. "
+        "It is shipped to the calculation directory and referenced by file name in the CP2K input.",
     )
     orb_basis: str = Field(default="aug-SZV-MOLOPT-GTH-tier-1")
     resolve_from_files: bool = Field(

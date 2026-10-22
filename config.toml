@@ -59,6 +59,9 @@ orb_basis = "aug-SZV-MOLOPT-GTH-tier-2"
 # [] - no cubes, 
 cube_files = ["V_HARTREE_CUBE"]
 
+# Basis/potential files must be readable on the machine that submits the run.
+# Each file that is found locally is uploaded to the calculation directory, and CP2K
+# is given its file name only — so the same settings work on every cluster.
 basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states"
 ri_basis_set_file = "/home/tahmas41/work/GW_2D/BASIS_AUG_MOLOPT/BASIS_GTH_MOLOPT_AUG_for_excited_states_RI"
 potential_file = "/home/tahmas41/work/GW_2D/cp2k/data/GTH_SOC_POTENTIALS"

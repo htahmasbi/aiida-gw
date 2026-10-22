@@ -1,5 +1,6 @@
 """Tests for pure builder functions and Cp2kBuilder."""
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +13,9 @@ from aiida_gw.core.builders import (
     _is_cp2k_key,
     _strip_invalid_keys,
     dict_merge,
+    get_config_file_section,
     get_cube_print_section,
+    shipped_file_name,
 )
 
 
@@ -175,6 +178,78 @@ class TestGetCubePrintSection:
         section = get_cube_print_section(["V_HARTREE_CUBE", "FAKE_CUBE"])
         assert "V_HARTREE_CUBE" in section["PRINT"]
         assert "FAKE_CUBE" not in section["PRINT"]
+
+
+class TestConfigFileSection:
+    """Tests for shipping the configured CP2K data files to the calculation directory."""
+
+    @staticmethod
+    def _gw_cfg(basis="", ri_basis="", potential=""):
+        from aiida_gw.core.config import GwConfig
+
+        return GwConfig(
+            basis_set_file=basis,
+            ri_basis_set_file=ri_basis,
+            potential_file=potential,
+            resolve_from_files=False,
+        )
+
+    @staticmethod
+    def _make_files(tmp_path, *names):
+        paths = []
+        for name in names:
+            path = tmp_path / name
+            path.write_text(f"# data for {name}\n")
+            paths.append(str(path))
+        return paths
+
+    def test_ships_each_configured_file_under_its_name(self, tmp_path):
+        basis, ri_basis, potential = self._make_files(
+            tmp_path,
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states",
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states_RI",
+            "GTH_SOC_POTENTIALS",
+        )
+        cfg = self._gw_cfg(basis=basis, ri_basis=ri_basis, potential=potential)
+        # SinglefileData nodes require a profile; the key is what ends up in the input.
+        with patch("aiida_gw.core.builders.SinglefileData", side_effect=lambda file: file):
+            files = get_config_file_section(cfg)
+        assert set(files) == {
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states",
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states_RI",
+            "GTH_SOC_POTENTIALS",
+        }
+
+    def test_unreadable_path_is_not_shipped(self, tmp_path, caplog):
+        basis, ri_basis = self._make_files(
+            tmp_path,
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states",
+            "BASIS_GTH_MOLOPT_AUG_for_excited_states_RI",
+        )
+        cfg = self._gw_cfg(
+            basis=basis,
+            ri_basis=ri_basis,
+            potential="/cluster/only/GTH_SOC_POTENTIALS",
+        )
+        with patch("aiida_gw.core.builders.SinglefileData", side_effect=lambda file: file):
+            with caplog.at_level(logging.WARNING, logger="aiida_gw.core.builders"):
+                files = get_config_file_section(cfg)
+        assert "GTH_SOC_POTENTIALS" not in files
+        assert "not readable on this host" in caplog.text
+
+    def test_no_configured_files_falls_back_to_standard_set(self):
+        cfg = self._gw_cfg()
+        sentinel = {"GTH_POTENTIALS": object()}
+        with patch("aiida_gw.core.builders.get_file_section_qs", return_value=sentinel):
+            assert get_config_file_section(cfg) is sentinel
+
+    def test_shipped_name_is_bare(self):
+        shipped = {"BASIS_MOLOPT": object()}
+        assert shipped_file_name("/anywhere/BASIS_MOLOPT", shipped) == "BASIS_MOLOPT"
+        assert shipped_file_name("BASIS_MOLOPT", shipped) == "BASIS_MOLOPT"
+
+    def test_unshipped_name_keeps_configured_path(self):
+        assert shipped_file_name("/cluster/only/GTH_POTENTIALS", {}) == "/cluster/only/GTH_POTENTIALS"
 
 
 class TestClassifyFromVectors:

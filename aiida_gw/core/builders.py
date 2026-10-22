@@ -257,6 +257,53 @@ def get_file_section_qs() -> dict:
     return files
 
 
+def get_config_file_section(gw_cfg) -> dict:
+    """Get CP2K ``file`` inputs for the basis/potential files configured in the project.
+
+    Each configured file readable on the submitting host is attached as a
+    :class:`SinglefileData`, which aiida-cp2k ships into the calculation directory
+    through ``local_copy_list``. CP2K then resolves the bare names written into
+    ``BASIS_SET_FILE_NAME``/``POTENTIAL_FILE_NAME`` there, so the input never depends
+    on the cluster filesystem layout.
+
+    A configured path that cannot be read locally is not shipped: the caller keeps the
+    value as configured and CP2K reads it on the cluster directly.
+    """
+    configured = [p for p in (gw_cfg.basis_set_file, gw_cfg.ri_basis_set_file, gw_cfg.potential_file) if p]
+    if not configured:
+        return get_file_section_qs()
+
+    files = {}
+    for path in configured:
+        fpath = Path(path)
+        if not fpath.is_file():
+            logger.warning(
+                "Configured CP2K data file %s is not readable on this host; keeping '%s' in the "
+                "input, which must then be readable by CP2K itself.",
+                path,
+                path,
+            )
+            continue
+        if fpath.name in files:
+            logger.warning(
+                "%s shares its file name with another configured file; only one of them is shipped.",
+                path,
+            )
+            continue
+        files[fpath.name] = SinglefileData(file=fpath)
+    return files
+
+
+def shipped_file_name(path: str, shipped: dict) -> str:
+    """Return the value to write for *path* in the CP2K input.
+
+    Bare file name when the file is shipped to the calculation directory, otherwise the
+    value as configured (an absolute cluster path CP2K can read directly).
+    """
+    name = Path(path).name
+    return name if name in shipped else path
+
+
 def _force_periodic_mesh(kp_obj: KpointsData, periodic: str) -> None:
     """Force k-point mesh to 1 in non-periodic directions (vacuum)."""
     kmesh = list(kp_obj.get_kpoints_mesh()[0])
@@ -561,30 +608,26 @@ class Cp2kBuilder:
 
             # Load basis/potential filenames and MGRID from config
             gw_cfg = self.config.gw
+            shipped = get_config_file_section(gw_cfg)
             dft = params["FORCE_EVAL"].setdefault("DFT", {})
             dft.setdefault("BASIS_SET_FILE_NAME", [])
             dft.setdefault("POTENTIAL_FILE_NAME", "")
             dft.setdefault("MGRID", {})
 
-            # Set basis set file names (cluster paths)
-            if gw_cfg.basis_set_file:
-                file_list = dft["BASIS_SET_FILE_NAME"]
-                if not isinstance(file_list, list):
-                    file_list = [file_list]
-                if gw_cfg.basis_set_file not in file_list:
-                    file_list.append(gw_cfg.basis_set_file)
-                dft["BASIS_SET_FILE_NAME"] = file_list
-
-            if gw_cfg.ri_basis_set_file:
-                file_list = dft["BASIS_SET_FILE_NAME"]
-                if not isinstance(file_list, list):
-                    file_list = [file_list]
-                if gw_cfg.ri_basis_set_file not in file_list:
-                    file_list.append(gw_cfg.ri_basis_set_file)
-                dft["BASIS_SET_FILE_NAME"] = file_list
+            # Set basis set file names. Files shipped to the calculation directory are
+            # referenced by their bare name; anything else keeps the configured path.
+            file_list = dft["BASIS_SET_FILE_NAME"]
+            if not isinstance(file_list, list):
+                file_list = [file_list]
+            for cfg_path in (gw_cfg.basis_set_file, gw_cfg.ri_basis_set_file):
+                if cfg_path:
+                    name = shipped_file_name(cfg_path, shipped)
+                    if name not in file_list:
+                        file_list.append(name)
+            dft["BASIS_SET_FILE_NAME"] = file_list
 
             if gw_cfg.potential_file:
-                dft["POTENTIAL_FILE_NAME"] = gw_cfg.potential_file
+                dft["POTENTIAL_FILE_NAME"] = shipped_file_name(gw_cfg.potential_file, shipped)
 
             # Set MGRID cutoff from config
             dft["MGRID"]["CUTOFF"] = self.config.gw.cutoff
@@ -638,8 +681,8 @@ class Cp2kBuilder:
             # Generate KIND sections from atom_data (includes RI_AUX if available)
             if atom_data:
                 dict_merge(params, get_kinds_section_qs(structure, atom_data, gw_config=self.config.gw, xc_functional=xc_functional))
-                if not dft.get("BASIS_SET_FILE_NAME"):
-                    builder.cp2k.file = get_file_section_qs()
+                if shipped:
+                    builder.cp2k.file = shipped
 
         # --- Set cell vectors from structure ---
         fe = params.get("FORCE_EVAL", {})
