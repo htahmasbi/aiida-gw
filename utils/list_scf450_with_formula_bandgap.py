@@ -20,7 +20,6 @@ WORKCHAIN_LABELS = {"GwWorkChain"}
 
 
 def _last_calcjob(node):
-    """Return the most recent CalcJobNode descendant of node."""
     calcs = [n for n in node.called_descendants if isinstance(n, orm.CalcJobNode)]
     if not calcs:
         return None
@@ -28,25 +27,21 @@ def _last_calcjob(node):
 
 
 def _get_structure(node):
-    """Get the input structure of a GwWorkChain."""
     try:
         if "structure" in node.inputs:
             return node.inputs.structure
     except Exception:
         pass
-    # fallback to ctx
     return None
 
 
 def _get_bandgap(struct):
-    """Try to extract bandgap from structure extras/attributes."""
     if struct is None:
         return None
     try:
         extras = struct.base.extras.all
     except Exception:
         extras = {}
-    # common keys used by MC2D/OPTIMADE
     for key in [
         "band_gap",
         "bandgap",
@@ -55,10 +50,11 @@ def _get_bandgap(struct):
         "indirect_band_gap",
         "direct_band_gap",
         "electronic_band_gap",
+        "hse_gap",
+        "pbe_gap",
     ]:
         if key in extras and extras[key] is not None:
             return extras[key]
-    # sometimes stored as nested
     for key in extras:
         if "gap" in key.lower():
             val = extras[key]
@@ -90,7 +86,7 @@ def _get_optimade_id(struct):
         return ""
     try:
         extras = struct.base.extras.all
-        for key in ["optimade_id", "mc2d_id", "id"]:
+        for key in ["optimade_id", "mc2d_id", "id", "optimade-id"]:
             if extras.get(key):
                 return extras[key]
     except Exception:
@@ -146,7 +142,7 @@ def main(argv=None):
     parser.add_argument("--group", help="AiiDA group label to search in")
     parser.add_argument("--pks", nargs="+", type=int, help="Specific GwWorkChain PKs to check")
     parser.add_argument("--csv", help="Write results to CSV file")
-    parser.add_argument("--all", action="store_true", help="Search across ALL groups (slow)")
+    parser.add_argument("--all", action="store_true", help="Search across ALL groups")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -174,11 +170,11 @@ def main(argv=None):
         mc2d_id = _get_optimade_id(struct)
         bandgap = _get_bandgap(struct)
 
-        # also check groups
         groups = []
-        try for g in node.base.groups:
-            if g.label != node.label and not g.label.startswith("autogroup"):
-                groups.append(g.label)
+        try:
+            for g in node.base.groups:
+                if g.label != node.label and not g.label.startswith("autogroup"):
+                    groups.append(g.label)
         except Exception:
             pass
 
@@ -194,11 +190,10 @@ def main(argv=None):
             }
         )
 
-    # sort by formula
     rows.sort(key=lambda x: (x["formula"], x["gw_pk"]))
 
     print(f"{'GW PK':<8} {'CalcJob':<10} {'Formula':<12} {'MC2D ID':<30} {'Bandgap':<12} {'Group':<20}")
-    print("-" 90)
+    print("-" * 90)
     for r in rows:
         bg = r["bandgap"] if r["bandgap"] is not None else "N/A"
         grp = r["groups"][:20]
