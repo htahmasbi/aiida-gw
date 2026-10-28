@@ -11,7 +11,7 @@ from aiida import orm
 load_profile()
 
 LOGGER = logging.getLogger("make_2el_bandgap_table")
-WORKCHAIN_LABELS = {"GwWorkChain"}
+WORKCHAIN_LABELS = {"GwWorkChain", "GWWorkChain", "gw_workchain"}
 
 FAILURE_REASONS = {
     200: "ERROR_NO_RETRIEVED_FOLDER",
@@ -129,6 +129,7 @@ def main(argv=None):
     parser.add_argument("--groups", nargs="+", default=["gw_runs"], help="AiiDA groups containing GwWorkChain nodes")
     parser.add_argument("--out", default="2elements_bandgap_comparison.csv", help="Output CSV")
     parser.add_argument("--only-2elements", action="store_true", help="Try to filter to 2-element formulas")
+    parser.add_argument("--all-workflows", action="store_true", help="Include all WorkflowNode regardless of label")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -146,7 +147,7 @@ def main(argv=None):
         for node in group.nodes:
             if not isinstance(node, orm.WorkflowNode):
                 continue
-            if node.process_label not in WORKCHAIN_LABELS:
+            if not args.all_workflows and node.process_label not in WORKCHAIN_LABELS:
                 continue
 
             struct = _get_structure(node)
