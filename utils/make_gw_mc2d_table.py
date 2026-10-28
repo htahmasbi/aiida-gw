@@ -170,15 +170,26 @@ def _load_mc2d_lookup(csv_path):
     return lookup_by_id, lookup_by_formula
 
 
-def collect_rows(mc2d_csv, groups, all_workflows=False, debug=False):
+def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, debug=False):
     lookup_by_id, lookup_by_formula = _load_mc2d_lookup(mc2d_csv)
     rows = []
     
-    for gname in groups:
+    if all_groups:
+        try:
+            groups_to_scan = [g.label for g in Group.collection.all()]
+            LOGGER.info("Scanning all groups (%d groups)", len(groups_to_scan))
+        except Exception as exc:
+            LOGGER.warning("Failed to get all groups: %s", exc)
+            groups_to_scan = groups or []
+    else:
+        groups_to_scan = groups or []
+    
+    for gname in groups_to_scan:
         try:
             group = Group.collection.get(label=gname)
         except Exception as exc:
-            LOGGER.warning("Group %s not found: %s", gname, exc)
+            if debug:
+                LOGGER.warning("Group %s not found: %s", gname, exc)
             continue
         LOGGER.info("Scanning group %s (%d nodes)", gname, len(group.nodes))
         
@@ -309,6 +320,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--group", action="append", help="Group label (can use multiple times)")
     parser.add_argument("--groups", nargs="+", help="Group labels")
+    parser.add_argument("--all-groups", action="store_true", help="Scan all groups")
     parser.add_argument("--mc2d-csv", help="MC2D CSV file")
     parser.add_argument("--all-workflows", action="store_true", help="Include all WorkflowNode")
     parser.add_argument("--csv", help="Write CSV")
@@ -318,12 +330,12 @@ def main(argv=None):
     groups = args.groups or []
     if args.group:
         groups.extend(args.group)
-    if not groups:
+    if not groups and not args.all_groups:
         groups = ["gw_runs_2el8"]
     
     mc2d_csv = args.mc2d_csv or ""
     
-    rows = collect_rows(mc2d_csv, groups, all_workflows=args.all_workflows, debug=args.debug)
+    rows = collect_rows(mc2d_csv, groups, all_groups=args.all_groups, all_workflows=args.all_workflows, debug=args.debug)
     print_table(rows)
     if args.csv:
         write_csv(rows, args.csv)
