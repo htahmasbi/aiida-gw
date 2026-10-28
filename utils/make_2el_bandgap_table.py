@@ -147,7 +147,7 @@ def main(argv=None):
         for node in group.nodes:
             if not isinstance(node, orm.WorkflowNode):
                 continue
-            if not args.all_workflows and node.process_label not in WORKCHAIN_LABELS:
+            if not args.all_workflows and getattr(node, 'process_label', '') not in WORKCHAIN_LABELS:
                 continue
 
             struct = _get_structure(node)
@@ -168,11 +168,17 @@ def main(argv=None):
             gw_gaps = _get_gw_gaps(node)
             last_calc = _get_last_calcjob(node)
             exit_status = node.exit_status if node.exit_status is not None else (last_calc.exit_status if last_calc else "")
-            state = node.process_state.value if node.process_state else ""
+            try:
+                state = node.process_state.value if node.process_state else ""
+            except Exception:
+                state = str(getattr(node, 'process_state', ''))
 
             failure_reason = ""
-            if exit_status and int(exit_status) != 0:
-                failure_reason = FAILURE_REASONS.get(int(exit_status), f"EXIT_{exit_status}")
+            try:
+                if exit_status is not None and int(exit_status) != 0:
+                    failure_reason = FAILURE_REASONS.get(int(exit_status), f"EXIT_{exit_status}")
+            except Exception:
+                pass
 
             rows.append(
                 {
@@ -192,7 +198,7 @@ def main(argv=None):
                     "exit_status": exit_status,
                     "failure_reason": failure_reason,
                     "last_calcjob_pk": last_calc.pk if last_calc else "",
-                    "label": node.label or "",
+                    "label": getattr(node, 'label', '') or "",
                 }
             )
 
