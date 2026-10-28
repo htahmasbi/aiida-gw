@@ -46,11 +46,18 @@ def fetch_core_base(mc2d_id, timeout=30):
         return None
 
 
-def build_uuid_lookup(overview, sleep=0.05):
-    """Build mapping from structure_relaxed_uuid/extracted_uuid -> bandgap."""
+def build_mappings(overview, opt_set, sleep=0.05):
+    """Build UUID->bandgap by only checking core_base for entries that could match our OPTIMADE IDs."""
     uuid_to_bg = {}
     uuid_to_mc2d = {}
-    LOGGER.info(f"Fetching core_base details for {len(overview)} entries to build UUID mapping...")
+    by_rf = {}
+    for entry in overview:
+        formula = entry.get("formula")
+        rf = _norm_formula(formula)
+        if rf:
+            by_rf.setdefault(rf, []).append(entry)
+
+    LOGGER.info(f"Checking core_base for {len(overview)} entries to find matches to {len(opt_set)} OPTIMADE structures...")
     for i, entry in enumerate(overview):
         mc2d_id = entry.get("id")
         if not mc2d_id:
@@ -69,29 +76,20 @@ def build_uuid_lookup(overview, sleep=0.05):
             pass
         if bg is None:
             bg = entry.get("bg")
-        if relaxed_uuid and bg is not None:
+        if bg is None:
+            continue
+        if relaxed_uuid and relaxed_uuid in opt_set:
             uuid_to_bg[relaxed_uuid] = bg
             uuid_to_mc2d[relaxed_uuid] = mc2d_id
-        if extracted_uuid and bg is not None:
+        if extracted_uuid and extracted_uuid in opt_set and extracted_uuid not in uuid_to_bg:
             uuid_to_bg[extracted_uuid] = bg
             uuid_to_mc2d[extracted_uuid] = mc2d_id
-        if (i + 1) % 100 == 0:
-            LOGGER.info(f"Fetched {i + 1}/{len(overview)}")
+        if (i + 1) % 50 == 0:
+            LOGGER.info(f"Checked {i + 1}/{len(overview)} (found {len(uuid_to_bg)} matches so far)")
         if sleep > 0:
             time.sleep(sleep)
-    LOGGER.info(f"Built UUID lookup with {len(uuid_to_bg)} entries")
-    return uuid_to_bg, uuid_to_mc2d
-
-
-def build_formula_lookup(overview):
-    by_rf = {}
-    for entry in overview:
-        formula = entry.get("formula")
-        rf = _norm_formula(formula)
-        if not rf:
-            continue
-        by_rf.setdefault(rf, []).append(entry)
-    return by_rf
+    LOGGER.info(f"UUID matches: {len(uuid_to_bg)}")
+    return uuid_to_bg, uuid_to_mc2d, by_rf
 
 
 def main(argv=None):
@@ -99,14 +97,10 @@ def main(argv=None):
     parser.add_argument("--json-dir", default=".", help="Directory containing mc2d_*elements*.json files")
     parser.add_argument("--out", default="mc2d_bandgaps_all.csv", help="Output CSV file")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of structures (for testing)")
-    parser.add_argument("--sleep", type=float, default=0.05, help="Delay between core_base requests")
+    parser.add_argument("--sleep", type=float, default=0.03, help="Delay between core_base requests")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-
-    overview = fetch_overview()
-    uuid_to_bg, uuid_to_mc2d = build_uuid_lookup(overview, sleep=args.sleep)
-    by_rf = build_formula_lookup(overview)
 
     patterns = [
         os.path.join(args.json_dir, "mc2d_*elements*.json"),
@@ -142,6 +136,10 @@ def main(argv=None):
         all_structs = all_structs[:args.limit]
     LOGGER.info(f"Total unique structures: {len(all_structs)}")
 
+    opt_set = set(s.get("id") for s in all_structs if s.get("id"))
+    overview = fetch_overview()
+    uuid_to_bg, uuid_to_mc2d, by_rf = build_mappings(overview, opt_set, sleep=args.sleep)
+
     rows = []
     for i, item in enumerate(all_structs):
         opt_id = item.get("id", "")
@@ -151,22 +149,18 @@ def main(argv=None):
         matched_mc2d = ""
         match_reason = ""
 
-        # Try UUID match first (most accurate)
         if opt_id in uuid_to_bg and uuid_to_bg[opt_id] is not None:
             bandgap = uuid_to_bg[opt_id]
             matched_mc2d = uuid_to_mc2d.get(opt_id, "")
             match_reason = "uuid_match"
         else:
-            # Fallback to formula matching
             candidates = by_rf.get(rf, []) if rf else []
             if len(candidates) == 1:
                 cand = candidates[0]
                 bandgap = cand.get("bg")
                 matched_mc2d = cand.get("id", "")
-                match_reason = "formula_unique_fallback"
+                match_reason = "formula_unique"
             elif len(candidates) > 1:
-                # For polymorphs, we can't disambiguate without structure
-                # but keep them as ambiguous to be honest
                 bandgaps_list = []
                 mc2d_list = []
                 for c in candidates:
@@ -177,7 +171,7 @@ def main(argv=None):
                 if bandgaps_list:
                     bandgap = ";".join(bandgaps_list)
                     matched_mc2d = ";".join(mc2d_list)
-                    match_reason = "ambiguous_fallback"
+                    match_reason = "ambiguous"
                 else:
                     bandgap = None
                     match_reason = "not_found"
