@@ -50,7 +50,7 @@ def fetch_core_base(mc2d_id, timeout=20):
         return None
 
 
-def build_mappings(overview, opt_set, needed_rfs=None, sleep=0.01):
+def build_mappings(overview, opt_set, needed_rfs=None, opt_to_rf=None, sleep=0.01):
     """Build UUID->bandgap by only checking core_base for relevant entries."""
     uuid_to_bg = {}
     uuid_to_mc2d = {}
@@ -63,6 +63,8 @@ def build_mappings(overview, opt_set, needed_rfs=None, sleep=0.01):
 
     # Filter to only entries we might need
     to_check = []
+    if opt_to_rf is not None:
+        needed_rfs = set(opt_to_rf.values()) if opt_to_rf else needed_rfs
     for entry in overview:
         rf = _norm_formula(entry.get("formula"))
         if needed_rfs and rf not in needed_rfs:
@@ -149,8 +151,12 @@ def main(argv=None):
     LOGGER.info(f"Total unique structures: {len(all_structs)}")
 
     opt_set = set(s.get("id") for s in all_structs if s.get("id"))
+    opt_to_rf = {}
+    for s in all_structs:
+        if s.get("id"):
+            opt_to_rf[s.get("id")] = _norm_formula(s.get("formula"))
     overview = fetch_overview()
-    uuid_to_bg, uuid_to_mc2d, by_rf = build_mappings(overview, opt_set, sleep=args.sleep)
+    uuid_to_bg, uuid_to_mc2d, by_rf = build_mappings(overview, opt_set, opt_to_rf=opt_to_rf, sleep=args.sleep)
 
     rows = []
     for i, item in enumerate(all_structs):
@@ -173,20 +179,39 @@ def main(argv=None):
                 matched_mc2d = cand.get("id", "")
                 match_reason = "formula_unique"
             elif len(candidates) > 1:
-                bandgaps_list = []
-                mc2d_list = []
+                # Try to find which candidate's UUID matches this opt_id
+                matched_cand = None
                 for c in candidates:
-                    if c.get("bg") is not None:
-                        bandgaps_list.append(str(c.get("bg")))
-                    if c.get("id"):
-                        mc2d_list.append(str(c.get("id")))
-                if bandgaps_list:
-                    bandgap = ";".join(bandgaps_list)
-                    matched_mc2d = ";".join(mc2d_list)
-                    match_reason = "ambiguous"
+                    c_id = c.get("id")
+                    if not c_id:
+                        continue
+                    c_data = fetch_core_base(c_id)
+                    if not c_data:
+                        continue
+                    c_gen = c_data.get("general", {}) if isinstance(c_data, dict) else {}
+                    if c_gen.get("structure_relaxed_uuid") == opt_id or c_gen.get("structure_extracted_uuid") == opt_id:
+                        matched_cand = c
+                        break
+                if matched_cand is not None:
+                    bandgap = matched_cand.get("bg")
+                    matched_mc2d = matched_cand.get("id", "")
+                    match_reason = "uuid_match"
                 else:
-                    bandgap = None
-                    match_reason = "not_found"
+                    bandgaps_list = []
+                    mc2d_list = []
+                    for c in candidates:
+                        if c.get("bg") is not None:
+                            bandgaps_list.append(str(c.get("bg")))
+                        if c.get("id"):
+                            mc2d_list.append(str(c.get("id")))
+                    if bandgaps_list:
+                        bandgap = ";".join(bandgaps_list)
+                        matched_mc2d = ";".join(mc2d_list)
+                        match_reason = "ambiguous"
+                    else:
+                        bandgap = None
+                        matched_mc2d = ";".join([str(c.get("id","")) for c in candidates if c.get("id")])
+                        match_reason = "not_found"
             else:
                 bandgap = None
                 match_reason = "not_found"
