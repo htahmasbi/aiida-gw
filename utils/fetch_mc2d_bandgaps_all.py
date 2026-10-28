@@ -105,7 +105,7 @@ def main(argv=None):
             time.sleep(args.sleep)
 
     rows.sort(key=lambda x: (str(x["bandgap"]), x["formula"]))
-    with open(args.out, "w", newline="", encoding="utf-utf-8") as f:
+    with open(args.out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["mc2d_id", "formula", "nelements", "bandgap"])
         w.writeheader()
         w.writerows(rows)
