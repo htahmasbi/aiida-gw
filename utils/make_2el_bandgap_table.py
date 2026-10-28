@@ -207,14 +207,21 @@ def main(argv=None):
         LOGGER.info("Scanning group %s (%d nodes)", gname, len(group.nodes))
         for node in group.nodes:
             try:
-                if not isinstance(node, orm.WorkflowNode):
+                from aiida.orm import WorkflowNode, WorkChainNode
+                if not (isinstance(node, WorkflowNode) or isinstance(node, WorkChainNode)):
                     if args.debug:
                         print(f"skip non-workflow {node.pk} {type(node)}")
                     continue
             except Exception:
-                continue
+                try:
+                    if not isinstance(node, orm.WorkflowNode):
+                        if args.debug:
+                            print(f"skip non-workflow {node.pk} {type(node)}")
+                        continue
+                except Exception:
+                    pass
             pl = getattr(node, 'process_label', '') or ''
-            if not args.all_workflows and pl not in WORKCHAIN_LABELS and 'Gw' not in str(pl):
+            if not args.all_workflows and pl not in WORKCHAIN_LABELS and 'Gw' not in str(pl) and 'GW' not in str(pl):
                 if args.debug:
                     print(f"skip label {node.pk} {pl}")
                 continue
