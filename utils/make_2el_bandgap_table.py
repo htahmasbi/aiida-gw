@@ -5,13 +5,22 @@ import csv
 import logging
 import sys
 
-from aiida.manage.configuration import load_profile
-from aiida import orm
-
-load_profile()
+try:
+    from aiida import load_profile
+    from aiida import orm
+    load_profile()
+except Exception:
+    try:
+        from aiida.manage.configuration import load_profile
+        from aiida import orm
+        load_profile()
+    except Exception as exc:
+        print(f"ERROR: Could not load AiiDA: {exc}", file=sys.stderr)
+        print("Make sure you're in the correct AiiDA environment.", file=sys.stderr)
+        sys.exit(1)
 
 LOGGER = logging.getLogger("make_2el_bandgap_table")
-WORKCHAIN_LABELS = {"GwWorkChain", "GWWorkChain", "gw_workchain"}
+WORKCHAIN_LABELS = {"GwWorkChain", "GWWorkChain", "gw_workchain", "GwBaseWorkChain"}
 
 FAILURE_REASONS = {
     200: "ERROR_NO_RETRIEVED_FOLDER",
@@ -51,6 +60,13 @@ def _get_structure(node):
             return node.inputs.structure
     except Exception:
         pass
+    # try common names
+    for name in ["structure", "input_structure", "initial_structure"]:
+        try:
+            if name in node.inputs:
+                return node.inputs[name]
+        except Exception:
+            continue
     return None
 
 
@@ -77,7 +93,7 @@ def _get_mc2d_id(struct):
         return ""
     try:
         extras = struct.base.extras.all
-        for key in ["optimade_id", "mc2d_id", "id", "material_id"]:
+        for key in ["optimade_id", "mc2d_id", "id", "material_id", "mc2d-id"]:
             if extras.get(key):
                 return str(extras[key]).strip()
     except Exception:
@@ -98,26 +114,35 @@ def _get_last_calcjob(node):
 def _get_gw_gaps(node):
     gaps = {}
     try:
-        if "output_parameters" in node.outputs:
-            out = node.outputs.output_parameters
-            if isinstance(out, orm.Dict):
-                d = out.get_dict()
-            elif hasattr(out, "get_dict"):
-                d = out.get_dict()
-            else:
-                return gaps
-            for k in [
-                "g0w0_gap_direct",
-                "g0w0_gap_indirect",
-                "scf_gap_direct",
-                "scf_gap_indirect",
-                "hf_gap_direct",
-                "hf_gap_indirect",
-                "g0w0_soc_gap_direct",
-                "g0w0_soc_gap_indirect",
-            ]:
-                if k in d and d[k] is not None:
-                    gaps[k] = d[k]
+        # check outputs
+        for outname in ["output_parameters", "results", "output"]:
+            try:
+                if outname in node.outputs:
+                    out = node.outputs[outname]
+                    if isinstance(out, orm.Dict):
+                        d = out.get_dict()
+                    elif hasattr(out, "get_dict"):
+                        d = out.get_dict()
+                    else:
+                        continue
+                    for k in [
+                        "g0w0_gap_direct",
+                        "g0w0_gap_indirect",
+                        "scf_gap_direct",
+                        "scf_gap_indirect",
+                        "hf_gap_direct",
+                        "hf_gap_indirect",
+                        "g0w0_soc_gap_direct",
+                        "g0w0_soc_gap_indirect",
+                        "gap_direct",
+                        "gap_indirect",
+                        "band_gap",
+                    ]:
+                        if k in d and d[k] is not None:
+                            gaps[k] = d[k]
+                    break
+            except Exception:
+                continue
     except Exception:
         pass
     return gaps
@@ -130,6 +155,7 @@ def main(argv=None):
     parser.add_argument("--out", default="2elements_bandgap_comparison.csv", help="Output CSV")
     parser.add_argument("--only-2elements", action="store_true", help="Try to filter to 2-element formulas")
     parser.add_argument("--all-workflows", action="store_true", help="Include all WorkflowNode regardless of label")
+    parser.add_argument("--debug", action="store_true", help="Debug output")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -145,9 +171,17 @@ def main(argv=None):
             continue
         LOGGER.info("Scanning group %s (%d nodes)", gname, len(group.nodes))
         for node in group.nodes:
-            if not isinstance(node, orm.WorkflowNode):
+            try:
+                if not isinstance(node, orm.WorkflowNode):
+                    if args.debug:
+                        print(f"skip non-workflow {node.pk} {type(node)}")
+                    continue
+            except Exception:
                 continue
-            if not args.all_workflows and getattr(node, 'process_label', '') not in WORKCHAIN_LABELS:
+            pl = getattr(node, 'process_label', '') or ''
+            if not args.all_workflows and pl not in WORKCHAIN_LABELS and 'Gw' not in str(pl):
+                if args.debug:
+                    print(f"skip label {node.pk} {pl}")
                 continue
 
             struct = _get_structure(node)
@@ -160,7 +194,7 @@ def main(argv=None):
             except Exception:
                 pass
 
-            if args.only_2elements and nelements != "2":
+            if args.only_2elements and nelements != 2 and nelements != "2":
                 continue
 
             bg_mc2d = lookup_by_id.get(mc2d_id) or lookup_by_formula.get(formula) or ""
@@ -175,7 +209,7 @@ def main(argv=None):
 
             failure_reason = ""
             try:
-                if exit_status is not None and int(exit_status) != 0:
+                if exit_status is not None and str(exit_status) != '0' and str(exit_status) != '':
                     failure_reason = FAILURE_REASONS.get(int(exit_status), f"EXIT_{exit_status}")
             except Exception:
                 pass
@@ -190,7 +224,7 @@ def main(argv=None):
                     "bandgap_mc2d_overview_eV": bg_mc2d,
                     "g0w0_gap_direct_eV": gw_gaps.get("g0w0_gap_direct", ""),
                     "g0w0_gap_indirect_eV": gw_gaps.get("g0w0_gap_indirect", ""),
-                    "scf_gap_direct_eV": gw_gaps.get("scf_gap_direct", ""),
+                    "scf_gap_direct_eV": gw_gaps.get("scf_gap_direct", gw_gaps.get("scf_gap_direct", "")),
                     "scf_gap_indirect_eV": gw_gaps.get("scf_gap_indirect", ""),
                     "hf_gap_direct_eV": gw_gaps.get("hf_gap_direct", ""),
                     "hf_gap_indirect_eV": gw_gaps.get("hf_gap_indirect", ""),
