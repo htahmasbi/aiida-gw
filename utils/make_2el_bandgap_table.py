@@ -56,17 +56,52 @@ def _load_mc2d_lookup(csv_path):
 
 def _get_structure(node):
     try:
-        if "structure" in node.inputs:
-            return node.inputs.structure
+        inp = node.inputs
     except Exception:
-        pass
-    # try common names
-    for name in ["structure", "input_structure", "initial_structure"]:
+        return None
+    # try direct
+    for name in ["structure", "input_structure", "initial_structure", "base_structure"]:
         try:
-            if name in node.inputs:
-                return node.inputs[name]
+            if name in inp:
+                return inp[name]
         except Exception:
             continue
+    # search recursively
+    def search(d, depth=0):
+        if depth > 4:
+            return None
+        try:
+            if hasattr(d, 'get_dict') and 'structure' in d:
+                return search(d['structure'], depth+1)
+        except Exception:
+            pass
+        try:
+            for k in d:
+                try:
+                    v = d[k]
+                    if hasattr(v, 'get_pymatgen') and hasattr(v, 'pk'):
+                        # could be structure
+                        try:
+                            from aiida.orm import StructureData
+                            if isinstance(v, StructureData):
+                                return v
+                        except Exception:
+                            pass
+                    r = search(v, depth+1)
+                    if r is not None:
+                        return r
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return None
+    try:
+        from aiida.orm import StructureData
+        r = search(inp)
+        if isinstance(r, StructureData):
+            return r
+    except Exception:
+        pass
     return None
 
 
