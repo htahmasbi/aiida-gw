@@ -34,10 +34,14 @@ def fetch_overview(timeout=60):
     return data
 
 
-def fetch_core_base(mc2d_id, timeout=30):
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
+
+
+def fetch_core_base(mc2d_id, timeout=20):
     url = f"https://mcxd-api.materialscloud.org/mc2d/pbe-v1/core_base/{mc2d_id}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
+        resp = SESSION.get(url, timeout=timeout, allow_redirects=True)
         if resp.status_code != 200:
             return None
         return resp.json()
@@ -46,8 +50,8 @@ def fetch_core_base(mc2d_id, timeout=30):
         return None
 
 
-def build_mappings(overview, opt_set, sleep=0.05):
-    """Build UUID->bandgap by only checking core_base for entries that could match our OPTIMADE IDs."""
+def build_mappings(overview, opt_set, needed_rfs=None, sleep=0.01):
+    """Build UUID->bandgap by only checking core_base for relevant entries."""
     uuid_to_bg = {}
     uuid_to_mc2d = {}
     by_rf = {}
@@ -57,8 +61,16 @@ def build_mappings(overview, opt_set, sleep=0.05):
         if rf:
             by_rf.setdefault(rf, []).append(entry)
 
-    LOGGER.info(f"Checking core_base for {len(overview)} entries to find matches to {len(opt_set)} OPTIMADE structures...")
-    for i, entry in enumerate(overview):
+    # Filter to only entries we might need
+    to_check = []
+    for entry in overview:
+        rf = _norm_formula(entry.get("formula"))
+        if needed_rfs and rf not in needed_rfs:
+            continue
+        to_check.append(entry)
+
+    LOGGER.info(f"Checking core_base for {len(to_check)}/{len(overview)} relevant entries to find matches to {len(opt_set)} OPTIMADE structures...")
+    for i, entry in enumerate(to_check):
         mc2d_id = entry.get("id")
         if not mc2d_id:
             continue
@@ -84,8 +96,8 @@ def build_mappings(overview, opt_set, sleep=0.05):
         if extracted_uuid and extracted_uuid in opt_set and extracted_uuid not in uuid_to_bg:
             uuid_to_bg[extracted_uuid] = bg
             uuid_to_mc2d[extracted_uuid] = mc2d_id
-        if (i + 1) % 50 == 0:
-            LOGGER.info(f"Checked {i + 1}/{len(overview)} (found {len(uuid_to_bg)} matches so far)")
+        if (i + 1) % 25 == 0:
+            LOGGER.info(f"Checked {i + 1}/{len(to_check)} (found {len(uuid_to_bg)} matches so far)")
         if sleep > 0:
             time.sleep(sleep)
     LOGGER.info(f"UUID matches: {len(uuid_to_bg)}")
@@ -181,7 +193,6 @@ def main(argv=None):
 
         if bandgap is None:
             bandgap = "NOT_FOUND"
-            matched_mc2d = ""
         else:
             bandgap = str(bandgap)
 
