@@ -8,10 +8,20 @@ import logging
 import os
 
 import requests
+from pymatgen.core import Composition
 
 LOGGER = logging.getLogger("fetch_mc2d_bandgaps_overview")
 MC2D_OVERVIEW = "https://mcxd-api.materialscloud.org/mc2d/pbe-v1/overview"
 HEADERS = {"User-Agent": "aiida-gw-bandgap-fetcher/1.0", "Accept": "application/json"}
+
+
+def _norm_formula(formula):
+    if not formula:
+        return None
+    try:
+        return Composition(formula).reduced_formula
+    except Exception:
+        return str(formula).strip()
 
 
 def fetch_overview(timeout=60):
@@ -30,8 +40,11 @@ def build_lookup(overview):
         bg = entry.get("bg")
         if not formula:
             continue
-        if formula not in lookup or (lookup[formula] is None and bg is not None):
-            lookup[formula] = bg
+        rf = _norm_formula(formula)
+        if rf:
+            if rf not in lookup or (lookup[rf] is None and bg is not None):
+                lookup[rf] = bg
+        lookup.setdefault(formula, bg)
     return lookup
 
 
@@ -86,21 +99,27 @@ def main(argv=None):
     for i, item in enumerate(all_structs):
         mc2d_id = item.get("id", "")
         formula = item.get("formula", "")
-        bandgap = lookup.get(formula)
+        rf = _norm_formula(formula)
+        bandgap = None
+        if rf and rf in lookup:
+            bandgap = lookup[rf]
+        elif formula in lookup:
+            bandgap = lookup[formula]
         if bandgap is None:
             bandgap = "NOT_FOUND"
         rows.append({
             "mc2d_id": mc2d_id,
             "formula": formula,
+            "reduced_formula": rf or "",
             "nelements": item.get("nelements", ""),
             "bandgap": bandgap,
         })
         if (i + 1) % 100 == 0:
             LOGGER.info(f"Processed {i + 1}/{len(all_structs)}")
 
-    rows.sort(key=lambda x: (x["formula"], x["mc2d_id"]))
+    rows.sort(key=lambda x: (x["reduced_formula"] or x["formula"], x["mc2d_id"]))
     with open(args.out, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["mc2d_id", "formula", "nelements", "bandgap"])
+        w = csv.DictWriter(f, fieldnames=["mc2d_id", "formula", "reduced_formula", "nelements", "bandgap"])
         w.writeheader()
         w.writerows(rows)
 
