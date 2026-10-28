@@ -148,8 +148,8 @@ def _get_last_calcjob(node):
 
 def _get_gw_gaps(node):
     gaps = {}
+    # First check workflow outputs
     try:
-        # check outputs
         for outname in ["output_parameters", "results", "output"]:
             try:
                 if outname in node.outputs:
@@ -180,6 +180,42 @@ def _get_gw_gaps(node):
                 continue
     except Exception:
         pass
+    
+    # Also check last calcjob output_parameters (like extract_gw.py)
+    if not gaps:
+        try:
+            last_calc = _get_last_calcjob(node)
+            if last_calc:
+                try:
+                    candidates = [link.node for link in last_calc.base.links.get_outgoing() if link.link_label == "output_parameters"]
+                    for cand in candidates:
+                        try:
+                            d = cand.get_dict() if hasattr(cand, 'get_dict') else {}
+                            if not d:
+                                continue
+                            for k in [
+                                "g0w0_gap_direct",
+                                "g0w0_gap_indirect",
+                                "scf_gap_direct",
+                                "scf_gap_indirect",
+                                "hf_gap_direct",
+                                "hf_gap_indirect",
+                                "g0w0_soc_gap_direct",
+                                "g0w0_soc_gap_indirect",
+                                "gap_direct",
+                                "gap_indirect",
+                                "band_gap",
+                            ]:
+                                if k in d and d[k] is not None:
+                                    gaps[k] = d[k]
+                            break
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    
     return gaps
 
 
