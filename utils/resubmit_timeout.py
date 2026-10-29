@@ -96,6 +96,11 @@ def _get_candidates(group=None, groups=None, pks=None):
                 LOGGER.warning("%s: %s is not a GwWorkChain, skipping", pk, getattr(node, "process_label"))
                 continue
             if not node.is_finished:
+                # Even if not finished, if calcjob was killed by timeout, still try
+                calc = _last_calcjob(node)
+                if calc and _is_timeout(calc):
+                    candidates.append((node, None))
+                    continue
                 LOGGER.warning("%s: not finished yet, skipping", pk)
                 continue
             calc = _last_calcjob(node)
