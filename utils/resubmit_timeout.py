@@ -198,8 +198,12 @@ def main(argv=None):
     LOGGER.info("Found %d candidate(s)", len(candidates))
     submitted = 0
     for node, src_group in candidates:
-        if not node.is_sealed:
+        if not node.is_sealed and node.is_finished:
             LOGGER.warning("%s: still active, skipping", node.pk)
+            continue
+        # If not finished but calcjob timed out, we might still be able to submit fresh one
+        if not node.is_sealed and not node.is_finished:
+            LOGGER.warning("%s: not finished/active, may need to kill first or submit manually", node.pk)
             continue
         if _resubmit(node, run_group=run_group, dry_run=args.dry_run):
             submitted += 1
@@ -211,3 +215,27 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def _resubmit(node, run_group=None, dry_run=False):
+    from aiida.orm import Dict
+    from aiida_gw.core.config import load_config
+
+    builder = node.process_class.get_builder()
+    for port in node.inputs:
+        if port == "config":
+            continue
+        builder[port] = node.inputs[port]
+
+    cfg = load_config()
+    builder.config = Dict(dict=cfg.model_dump())
+
+    LOGGER.info("%s: resubmit GwWorkChain (time limit)", node.pk)
+    if dry_run:
+        return True
+
+    new_node = submit(builder)
+    if run_group is not None:
+        run_group.add_nodes([new_node])
+    LOGGER.info("  -> new pk %s", new_node.pk)
+    return True
