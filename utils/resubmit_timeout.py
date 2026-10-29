@@ -13,7 +13,7 @@ load_profile()
 
 LOGGER = logging.getLogger("resubmit_timeout")
 WORKCHAIN_LABELS = {"GwWorkChain"}
-TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "CANCELLED", "CANCELED", "NODE_FAIL", "PREEMPTED", "DUE TO TIME", "WALLTIME")
+TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "DUE TO TIME", "WALLTIME", "WALL TIME", "TIME LIMIT", "CANCELLED BY WALLTIME")
 
 
 def _last_calcjob(node):
@@ -39,8 +39,14 @@ def _is_timeout(calc):
                 content = retrieved.base.repository.get_object_content(name)
                 if isinstance(content, bytes):
                     content = content.decode("utf-8", errors="replace")
-                if content and any(k in content.upper() for k in TIMEOUT_KEYWORDS):
-                    return True
+                if content:
+                    c = content.upper()
+                    # Must have timeout/walltime/time limit but NOT be SCF convergence
+                    if any(k in c for k in TIMEOUT_KEYWORDS):
+                        # Exclude if it's clearly SCF convergence failure
+                        if "SCF" in c and ("NOT CONVERGED" in c or "FAILED TO CONVERGE" in c) and "TIME" not in c:
+                            continue
+                        return True
             except Exception:
                 continue
         try:
@@ -49,11 +55,19 @@ def _is_timeout(calc):
                 content = content.decode("utf-8", errors="replace")
             if content:
                 c = content.upper()
-                if "TIME" in c and "LIMIT" in c:
-                    return True
-                lines = [l.strip() for l in content.splitlines() if l.strip()]
-                if lines and "TIME" in lines[-1].upper() and "LIMIT" in lines[-1].upper():
-                    return True
+                if any(k in c for k in TIMEOUT_KEYWORDS):
+                    # Check if it's actually timeout vs SCF not converged
+                    if "SCF RUN NOT CONVERGED" in c and "TIME LIMIT" not in c and "WALLTIME" not in c:
+                        continue
+                    lines = [l.strip() for l in content.splitlines() if l.strip()]
+                    if lines:
+                        tail = " ".join(lines[-10:]).upper()
+                        if any(k in tail for k in TIMEOUT_KEYWORDS):
+                            if "SCF" in tail and "NOT CONVERGED" in tail and "TIME" not in tail:
+                                continue
+                            return True
+                    elif any(k in c for k in ["TIME LIMIT", "WALLTIME", "DUE TO TIME"]):
+                        return True
         except Exception:
             continue
     return False
