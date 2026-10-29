@@ -11,13 +11,14 @@ from aiida.manage.configuration import load_profile
 
 load_profile()
 
+from aiida import orm
 from aiida.orm import CalcJobNode, Dict, Group, QueryBuilder, StructureData, WorkflowNode
 
 LOGGER = logging.getLogger(__name__)
 
 
 def _last_calcjob(node):
-    calcs = [n for n in node.called_descendants if isinstance(n, orm.CalcJobNode)]
+    calcs = [n for n in node.called_descendants if isinstance(n, CalcJobNode)]
     return max(calcs, key=lambda c: c.ctime) if calcs else None
 
 
