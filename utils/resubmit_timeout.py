@@ -133,17 +133,28 @@ def _get_candidates(group=None, groups=None, pks=None):
 
 
 def _resubmit(node, run_group=None, dry_run=False):
-    from aiida.orm import Dict
+    from aiida.orm import Dict, load_code
     from aiida_gw.core.config import load_config
 
     builder = node.process_class.get_builder()
     for port in node.inputs:
         if port == "config":
             continue
+        if port == "code":
+            continue
         builder[port] = node.inputs[port]
 
     cfg = load_config()
     builder.config = Dict(dict=cfg.model_dump())
+
+    try:
+        code = load_code(cfg.code_label)
+        builder.code = code
+        LOGGER.info("%s: resubmitting with code %s", node.pk, cfg.code_label)
+    except Exception as exc:
+        LOGGER.warning("%s: failed to load code '%s': %s", node.pk, cfg.code_label, exc)
+        if "code" in node.inputs:
+            builder.code = node.inputs.code
 
     LOGGER.info("%s: resubmit GwWorkChain (time limit)", node.pk)
     if dry_run:
