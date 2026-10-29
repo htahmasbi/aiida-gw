@@ -13,7 +13,6 @@ load_profile()
 
 LOGGER = logging.getLogger("resubmit_timeout")
 WORKCHAIN_LABELS = {"GwWorkChain"}
-TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "DUE TO TIME", "WALLTIME", "WALL TIME", "TIME LIMIT", "CANCELLED BY WALLTIME", "EXCEEDED")
 
 
 def _last_calcjob(node):
@@ -34,45 +33,40 @@ def _is_timeout(calc):
     if calc is None:
         return False
     for retrieved in _get_retrieved(calc):
+        for name in ("_scheduler-stderr.txt", "_scheduler-stdout.txt", "_scheduler-stderr", "_scheduler-stdout"):
+            try:
+                content = retrieved.base.repository.get_object_content(name)
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8", errors="replace")
+                if content:
+                    c = content.upper()
+                    if "SLURMSTEPD" in c and "CANCELLED" in c and ("TIME LIMIT" in c or "DUE TO TIME" in c):
+                        return True
+                    if "TIME LIMIT" in c or "WALLTIME" in c or "TIMED OUT" in c or "DUE TO TIME" in c:
+                        # Make sure it's not just SCF convergence
+                        if "SCF RUN NOT CONVERGED" in c and "TIME" not in c:
+                            continue
+                        return True
+            except Exception:
+                continue
         try:
-            for filename in retrieved.list_object_names():
-                if filename.startswith('_scheduler') or filename.endswith('.out') or filename == 'aiida.out':
-                    try:
-                        content = retrieved.base.repository.get_object_content(filename)
-                        if isinstance(content, bytes):
-                            content = content.decode("utf-8", errors="replace")
-                        if content:
-                            c = content.upper()
-                            if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "EXCEEDED TIME", "WALL TIME LIMIT", "CANCELLED AT", "JOB .* CANCELLED", "CANCELLED BY WALLTIME"]):
-                                return True
-                            if "SLURM" in c and ("TIMEOUT" in c or ("CANCELLED" in c and "TIME" in c)):
-                                return True
-                            if "SLURMSTEPD" in c and "CANCELLED" in c and ("TIME" in c or "LIMIT" in c):
-                                return True
-                            lines = content.splitlines()
-                            for l in lines[-50:]:
-                                lu = l.upper()
-                                if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT", "CANCELLED.*TIME", "SLURMSTEPD"]):
-                                    return True
-                    except Exception:
-                        continue
-        except Exception:
-            for name in ("_scheduler-stderr.txt", "_scheduler-stdout.txt", "_scheduler-stderr", "_scheduler-stdout", "aiida.out"):
-                try:
-                    content = retrieved.base.repository.get_object_content(name)
-                    if isinstance(content, bytes):
-                        content = content.decode("utf-8", errors="replace")
-                    if content:
-                        c = content.upper()
-                        if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT", "SLURMSTEPD", "CANCELLED BY"]):
+            content = retrieved.base.repository.get_object_content("aiida.out")
+            if isinstance(content, bytes):
+                content = content.decode("utf-8", errors="replace")
+            if content:
+                c = content.upper()
+                if "SLURMSTEPD" in c and "CANCELLED" in c and ("TIME LIMIT" in c or "DUE TO TIME" in c):
+                    return True
+                if "TIME LIMIT" in c or "WALLTIME" in c or "TIMED OUT" in c or "DUE TO TIME" in c:
+                    lines = content.splitlines()
+                    for l in lines[-30:]:
+                        lu = l.upper()
+                        if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
+                            if "SCF RUN NOT CONVERGED" in lu and "TIME" not in lu:
+                                continue
                             return True
-                        lines = content.splitlines()
-                        for l in lines[-50:]:
-                            lu = l.upper()
-                            if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT", "SLURMSTEPD"]):
-                                return True
-                except Exception:
-                    continue
+        except Exception:
+            continue
     return False
 
 
@@ -90,13 +84,10 @@ def _get_candidates(group=None, groups=None, pks=None):
             if getattr(node, "process_label") not in WORKCHAIN_LABELS:
                 LOGGER.warning("%s: %s is not a GwWorkChain, skipping", pk, getattr(node, "process_label"))
                 continue
-            calc = _last_calcjob(node)
             if not node.is_finished:
-                if calc and _is_timeout(calc):
-                    candidates.append((node, None))
-                    continue
                 LOGGER.warning("%s: not finished yet, skipping", pk)
                 continue
+            calc = _last_calcjob(node)
             if _is_timeout(calc):
                 candidates.append((node, None))
             else:
@@ -191,10 +182,7 @@ def main(argv=None):
     LOGGER.info("Found %d candidate(s)", len(candidates))
     submitted = 0
     for node, src_group in candidates:
-        if not node.is_sealed and not node.is_finished:
-            LOGGER.warning("%s: not finished/active, may need to kill first or submit manually", node.pk)
-            continue
-        if not node.is_sealed and node.is_finished:
+        if not node.is_sealed:
             LOGGER.warning("%s: still active, skipping", node.pk)
             continue
         if _resubmit(node, run_group=run_group, dry_run=args.dry_run):
