@@ -35,8 +35,8 @@ def _is_timeout(calc):
         return False
     # Check all retrieved folders
     for retrieved in _get_retrieved(calc):
-        # Check scheduler files
-        for name in ("_scheduler-stderr.txt", "_scheduler-stdout.txt", "_scheduler-stderr", "_scheduler-stdout"):
+        # Check scheduler files first
+        for name in ("_scheduler-stderr.txt", "_scheduler-stderr", "_scheduler-stdout.txt", "_scheduler-stdout"):
             try:
                 content = retrieved.base.repository.get_object_content(name)
                 if isinstance(content, bytes):
@@ -44,9 +44,12 @@ def _is_timeout(calc):
                 if content:
                     c = content.upper()
                     if any(k in c for k in TIMEOUT_KEYWORDS):
-                        if "SCF" in c and ("NOT CONVERGED" in c) and "TIME LIMIT" not in c and "WALLTIME" not in c and "TIMED_OUT" not in c and "DUE TO TIME" not in c:
-                            continue
-                        return True
+                        # If it's explicitly timeout/time limit/walltime, accept it
+                        if any(k in c for k in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "EXCEEDED"]):
+                            return True
+                        # Other timeout keywords
+                        if any(k in c for k in ["TIMEOUT"]) and "NOT CONVERGED" not in c:
+                            return True
             except Exception:
                 continue
         # Check aiida.out
@@ -58,20 +61,13 @@ def _is_timeout(calc):
                 c = content.upper()
                 if any(k in c for k in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
                     lines = content.splitlines()
-                    for l in lines[-80:]:
+                    for l in lines[-100:]:
                         lu = l.upper()
                         if any(k in lu for k in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
-                            # Don't reject just because SCF mentioned elsewhere
-                            if "SCF RUN NOT CONVERGED" in lu and "TIME" not in lu:
-                                continue
                             return True
-                    if "SLURM" in c and ("TIMEOUT" in c or "CANCEL" in c and "TIME" in c):
-                        return True
+                    return True  # if found anywhere
         except Exception:
             continue
-        # Check slurm files
-        for name in [n for n in []]:
-            pass
     return False
 
 
