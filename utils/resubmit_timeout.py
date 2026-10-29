@@ -114,6 +114,7 @@ def _get_candidates(group=None, groups=None, pks=None):
             calc = _last_calcjob(node)
             if _is_timeout(calc):
                 candidates.append((node, gobj.label))
+    return candidates
 
 
 def _resubmit(node, run_group=None, dry_run=False):
