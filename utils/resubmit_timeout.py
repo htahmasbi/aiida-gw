@@ -13,7 +13,7 @@ load_profile()
 
 LOGGER = logging.getLogger("resubmit_timeout")
 WORKCHAIN_LABELS = {"GwWorkChain"}
-TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "DUE TO TIME", "WALLTIME", "WALL TIME", "TIME LIMIT", "CANCELLED BY WALLTIME", "EXCEEDED", "SLURM.*TIME")
+TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "DUE TO TIME", "WALLTIME", "WALL TIME", "TIME LIMIT", "CANCELLED BY WALLTIME", "EXCEEDED")
 
 
 def _last_calcjob(node):
@@ -34,7 +34,6 @@ def _is_timeout(calc):
     if calc is None:
         return False
     for retrieved in _get_retrieved(calc):
-        # Check all files in retrieved
         try:
             for filename in retrieved.list_object_names():
                 if filename.startswith('_scheduler') or filename.endswith('.out') or filename == 'aiida.out':
@@ -44,15 +43,12 @@ def _is_timeout(calc):
                             content = content.decode("utf-8", errors="replace")
                         if content:
                             c = content.upper()
-                            # Look for explicit timeout indicators
                             if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "EXCEEDED TIME", "WALL TIME LIMIT", "CANCELLED AT", "JOB .* CANCELLED", "CANCELLED BY WALLTIME"]):
                                 return True
-                            # SLURM timeout patterns
                             if "SLURM" in c and ("TIMEOUT" in c or ("CANCELLED" in c and "TIME" in c)):
                                 return True
                             if "SLURMSTEPD" in c and "CANCELLED" in c and ("TIME" in c or "LIMIT" in c):
                                 return True
-                            # Check last 30 lines more specifically
                             lines = content.splitlines()
                             for l in lines[-50:]:
                                 lu = l.upper()
@@ -61,7 +57,6 @@ def _is_timeout(calc):
                     except Exception:
                         continue
         except Exception:
-            # Fallback to specific names
             for name in ("_scheduler-stderr.txt", "_scheduler-stdout.txt", "_scheduler-stderr", "_scheduler-stdout", "aiida.out"):
                 try:
                     content = retrieved.base.repository.get_object_content(name)
@@ -95,15 +90,13 @@ def _get_candidates(group=None, groups=None, pks=None):
             if getattr(node, "process_label") not in WORKCHAIN_LABELS:
                 LOGGER.warning("%s: %s is not a GwWorkChain, skipping", pk, getattr(node, "process_label"))
                 continue
+            calc = _last_calcjob(node)
             if not node.is_finished:
-                # Even if not finished, if calcjob was killed by timeout, still try
-                calc = _last_calcjob(node)
                 if calc and _is_timeout(calc):
                     candidates.append((node, None))
                     continue
                 LOGGER.warning("%s: not finished yet, skipping", pk)
                 continue
-            calc = _last_calcjob(node)
             if _is_timeout(calc):
                 candidates.append((node, None))
             else:
@@ -198,12 +191,11 @@ def main(argv=None):
     LOGGER.info("Found %d candidate(s)", len(candidates))
     submitted = 0
     for node, src_group in candidates:
-        if not node.is_sealed and node.is_finished:
-            LOGGER.warning("%s: still active, skipping", node.pk)
-            continue
-        # If not finished but calcjob timed out, we might still be able to submit fresh one
         if not node.is_sealed and not node.is_finished:
             LOGGER.warning("%s: not finished/active, may need to kill first or submit manually", node.pk)
+            continue
+        if not node.is_sealed and node.is_finished:
+            LOGGER.warning("%s: still active, skipping", node.pk)
             continue
         if _resubmit(node, run_group=run_group, dry_run=args.dry_run):
             submitted += 1
@@ -215,27 +207,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-def _resubmit(node, run_group=None, dry_run=False):
-    from aiida.orm import Dict
-    from aiida_gw.core.config import load_config
-
-    builder = node.process_class.get_builder()
-    for port in node.inputs:
-        if port == "config":
-            continue
-        builder[port] = node.inputs[port]
-
-    cfg = load_config()
-    builder.config = Dict(dict=cfg.model_dump())
-
-    LOGGER.info("%s: resubmit GwWorkChain (time limit)", node.pk)
-    if dry_run:
-        return True
-
-    new_node = submit(builder)
-    if run_group is not None:
-        run_group.add_nodes([new_node])
-    LOGGER.info("  -> new pk %s", new_node.pk)
-    return True
