@@ -94,7 +94,7 @@ def _get_candidates(group=None, groups=None, pks=None):
             if _is_timeout(calc):
                 candidates.append((node, None))
             else:
-                LOGGER.warning("%s: no timeout detected in scheduler logs, skipping", pk)
+                LOGGER.debug("%s: no timeout detected in scheduler logs, skipping", pk)
         return candidates
 
     group_objs = []
@@ -105,7 +105,11 @@ def _get_candidates(group=None, groups=None, pks=None):
             except Exception as exc:
                 LOGGER.warning("Group '%s' not found: %s", g, exc)
     elif group is not None:
-        group_objs = [orm.Group.collection.get(label=group)]
+        try:
+            group_objs = [orm.Group.collection.get(label=group)]
+        except Exception as exc:
+            LOGGER.error("Group '%s' not found: %s", group, exc)
+            return []
     else:
         parser = argparse.ArgumentParser()
         parser.error("Provide either --pks or --group/--groups")
