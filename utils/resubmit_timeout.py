@@ -45,16 +45,18 @@ def _is_timeout(calc):
                         if content:
                             c = content.upper()
                             # Look for explicit timeout indicators
-                            if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "EXCEEDED TIME", "WALL TIME LIMIT"]):
+                            if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "EXCEEDED TIME", "WALL TIME LIMIT", "CANCELLED AT", "JOB .* CANCELLED"]):
                                 return True
                             # SLURM timeout patterns
                             if "SLURM" in c and ("TIMEOUT" in c or ("CANCELLED" in c and "TIME" in c)):
                                 return True
+                            if "SLURMSTEPD" in c and "CANCELLED" in c and "TIME" in c:
+                                return True
                             # Check last 30 lines more specifically
                             lines = content.splitlines()
-                            for l in lines[-30:]:
+                            for l in lines[-40:]:
                                 lu = l.upper()
-                                if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
+                                if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT", "CANCELLED.*TIME"]):
                                     return True
                     except Exception:
                         continue
@@ -67,12 +69,12 @@ def _is_timeout(calc):
                         content = content.decode("utf-8", errors="replace")
                     if content:
                         c = content.upper()
-                        if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
+                        if any(x in c for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT", "SLURMSTEPD"]):
                             return True
                         lines = content.splitlines()
-                        for l in lines[-20:]:
+                        for l in lines[-30:]:
                             lu = l.upper()
-                            if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME"]):
+                            if any(x in lu for x in ["TIME LIMIT", "WALLTIME", "TIMED OUT", "DUE TO TIME", "CANCELLED AT"]):
                                 return True
                 except Exception:
                     continue
