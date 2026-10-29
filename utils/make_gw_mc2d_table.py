@@ -170,6 +170,50 @@ def _load_mc2d_lookup(csv_path):
     return lookup_by_id, lookup_by_formula
 
 
+TIMEOUT_KEYWORDS = ("TIMEOUT", "TIMED_OUT", "CANCELLED", "CANCELED", "NODE_FAIL", "PREEMPTED", "DUE TO TIME")
+
+
+def _get_scheduler_info(calc):
+    info = []
+    try:
+        for retrieved in [out.node for out in calc.base.links.get_outgoing() if out.link_label == "retrieved"]:
+            try:
+                for name in ("_scheduler-stdout.txt", "_scheduler-stderr.txt"):
+                    try:
+                        content = retrieved.base.repository.get_object_content(name)
+                        if isinstance(content, bytes):
+                            content = content.decode("utf-8", errors="replace")
+                        if content:
+                            c = content.upper()
+                            if any(k in c for k in TIMEOUT_KEYWORDS):
+                                info.append("TIME_LIMIT")
+                            m = __import__('re').search(r"EXIT CODE:\s*(\d+)", content)
+                            if m and m.group(1) != "0":
+                                info.append(f"SCHED_EXIT_{m.group(1)}")
+                    except Exception:
+                        continue
+                # check aiida.out tail
+                try:
+                    content = retrieved.base.repository.get_object_content("aiida.out")
+                    if isinstance(content, bytes):
+                        content = content.decode("utf-8", errors="replace")
+                    if content:
+                        lines = [l.strip() for l in content.splitlines() if l.strip()]
+                        if lines:
+                            tail = lines[-1][:60]
+                            if "not converged" in tail.lower() or "SCF run NOT converged" in content:
+                                info.append("SCF_NOT_CONVERGED")
+                            if "TIME" in tail.upper() and "LIMIT" in tail.upper():
+                                info.append("TIME_LIMIT")
+                except Exception:
+                    continue
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return info
+
+
 def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, debug=False):
     lookup_by_id, lookup_by_formula = _load_mc2d_lookup(mc2d_csv)
     rows = []
@@ -212,7 +256,44 @@ def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, d
             if note:
                 physics_issues = note
             else:
-                physics_issues = ""  # we just want gaps
+                physics_issues = ""
+            
+            # Check params for convergence issues
+            fail_reasons_extra = []
+            try:
+                if params:
+                    flags = params.get("physics_flags") or {}
+                    if not flags.get("scf_converged", True):
+                        fail_reasons_extra.append("SCF_NOT_CONVERGED")
+                    issues = []
+                    for level in ["scf", "scf_soc", "g0w0", "g0w0_soc", "hf"]:
+                        for issue in (flags.get(level) or []):
+                            issues.append(f"{level}:{issue}")
+                    if issues and not physics_issues:
+                        physics_issues = ";".join(issues)
+                    elif issues and physics_issues:
+                        physics_issues = physics_issues + ";" + ";".join(issues)
+                    # check gaps
+                    for level in ["scf", "scf_soc", "g0w0", "g0w0_soc"]:
+                        gd = params.get(f"{level}_gap_direct")
+                        gi = params.get(f"{level}_gap_indirect")
+                        if gd is not None and gd < 0:
+                            fail_reasons_extra.append(f"{level.upper()}:NEG_GAP")
+                        elif gd is not None and gd < 1e-3:
+                            fail_reasons_extra.append(f"{level.upper()}:ZERO_GAP")
+                        if gi is not None and gi < 0:
+                            fail_reasons_extra.append(f"{level.upper()}:NEG_GAP_IND")
+            except Exception:
+                pass
+            
+            # Check scheduler/calcjob for timeouts
+            try:
+                calc = _last_calcjob(wc)
+                if calc:
+                    sched_info = _get_scheduler_info(calc)
+                    fail_reasons_extra.extend(sched_info)
+            except Exception:
+                pass
             
             struct = _get_structure(wc)
             formula = _get_formula(struct)
@@ -239,6 +320,23 @@ def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, d
             except Exception:
                 pass
             
+            # Combine failure reasons
+            base_fail = FAILURE_REASONS.get(wc.exit_status, "") if wc.exit_status is not None and wc.exit_status != 0 else ""
+            all_fail = []
+            if base_fail:
+                all_fail.append(base_fail)
+            all_fail.extend(fail_reasons_extra)
+            if physics_issues and physics_issues not in ["no_link", "no_calcjob", "empty"] and not wc.is_finished_ok:
+                all_fail.append(physics_issues)
+            # deduplicate while preserving order
+            seen = set()
+            fail_str_list = []
+            for x in all_fail:
+                if x and x not in seen:
+                    fail_str_list.append(x)
+                    seen.add(x)
+            failure_detailed = "; ".join(fail_str_list) if fail_str_list else ""
+            
             row = {
                 "gw_pk": wc.pk,
                 "calc_pk": calc_pk,
@@ -263,7 +361,7 @@ def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, d
                 "nwarnings": params.get("nwarnings"),
                 "status": "running" if not wc.is_finished else ("ok" if wc.is_finished_ok else f"exit_{wc.exit_status}"),
                 "exit_status": wc.exit_status,
-                "failure_reason": FAILURE_REASONS.get(wc.exit_status, "") if wc.exit_status is not None and wc.exit_status != 0 else "",
+                "failure_reason": failure_detailed,
                 "physics_issues": physics_issues,
                 "wall_h": f"{wall_seconds / 3600:.2f}" if wall_seconds is not None else "-",
                 "label": getattr(wc, 'label', '') or "",
@@ -281,14 +379,16 @@ def print_table(rows):
     header = (
         f"{'PK':>7}  {'calc':>7} {'status':<9} {'physics':<48} {'wall_h':>7}  "
         + " ".join(f"{c.replace('_eV',''):>12}" for c in figs)
-        + f" {'mc2d_bg':>10} {'energy':>12}  {'formula':<14}"
+        + f" {'mc2d_bg':>10} {'energy':>12}  {'formula':<14}  {'reason':<60}"
     )
     print(header)
     print("-" * len(header))
     for row in rows:
-        physics = "ok" if not row["physics_issues"] or str(row["physics_issues"]) == "" else "BAD"
-        if row["physics_issues"] and str(row["physics_issues"]) != "":
+        physics = "ok" if (not row["physics_issues"] or str(row["physics_issues"]) == "") and (row.get("status") == "ok" or row.get("status") == "running") else "BAD"
+        if row["physics_issues"] and str(row["physics_issues"]) != "" and row.get("status") != "ok":
             physics = "BAD:" + str(row["physics_issues"])[:44]
+        elif row.get("failure_reason") and row.get("status") != "ok":
+            physics = "BAD"
         def fmt(v):
             if v is None or v == "":
                 return " " * 11 + "-"
@@ -297,10 +397,11 @@ def print_table(rows):
             except Exception:
                 return " " * 11 + "-"
         calc = row["calc_pk"] if row["calc_pk"] is not None else "-"
+        reason = str(row.get("failure_reason") or "")[:58]
         print(
             f"{row['gw_pk']:>7}  {calc:>7}  {row['status']:<9} {physics:<48} {row['wall_h']:>7}  "
             + " ".join(fmt(row.get(c)) for c in figs)
-            + f" {fmt(row.get('bandgap_mc2d_overview_eV'))} {fmt(row.get('energy'))}  {str(row['formula'])[:14]:<14}"
+            + f" {fmt(row.get('bandgap_mc2d_overview_eV'))} {fmt(row.get('energy'))}  {str(row['formula'])[:14]:<14}  {reason:<60}"
         )
 
 
