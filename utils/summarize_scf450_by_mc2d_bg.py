@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize SCF-not-converged (exit 450) GwWorkChains by MC2D bandgap."""
+"""Summarize SCF-not-converged GwWorkChains by MC2D bandgap."""
 
 import argparse
 import csv
@@ -12,7 +12,7 @@ from aiida.manage.configuration import load_profile
 load_profile()
 
 from aiida import orm
-from aiida.orm import CalcJobNode, Dict, Group, QueryBuilder, StructureData, WorkflowNode
+from aiida.orm import CalcJobNode, Dict, Group, StructureData, WorkflowNode
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,6 +20,67 @@ LOGGER = logging.getLogger(__name__)
 def _last_calcjob(node):
     calcs = [n for n in node.called_descendants if isinstance(n, CalcJobNode)]
     return max(calcs, key=lambda c: c.ctime) if calcs else None
+
+
+def _get_retrieved(calc):
+    try:
+        return [out.node for out in calc.base.links.get_outgoing() if out.link_label == "retrieved"]
+    except Exception:
+        return []
+
+
+def _output_nodes(cj, label):
+    if cj is None:
+        return []
+    try:
+        return [link.node for link in cj.base.links.get_outgoing() if link.link_label == label]
+    except Exception:
+        return []
+
+
+def _calcjob_params(cj):
+    if cj is None:
+        return {}
+    candidates = _output_nodes(cj, "output_parameters")
+    for node in candidates:
+        try:
+            if isinstance(node, Dict):
+                d = node.get_dict()
+                if d:
+                    return d
+            elif hasattr(node, "get_dict"):
+                d = node.get_dict()
+                if d:
+                    return d
+        except Exception:
+            continue
+    return {}
+
+
+def _is_scf_not_converged(wc):
+    calc = _last_calcjob(wc)
+    if calc and calc.exit_status == 450:
+        return True
+    params = _calcjob_params(calc)
+    if params:
+        flags = params.get("physics_flags") or {}
+        if "scf_converged" in flags and flags.get("scf_converged") is False:
+            return True
+        if flags.get("scf") and isinstance(flags.get("scf"), list):
+            for issue in flags.get("scf"):
+                if "converge" in str(issue).lower():
+                    return True
+    if calc:
+        for retrieved in _get_retrieved(calc):
+            try:
+                content = retrieved.base.repository.get_object_content("aiida.out")
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8", errors="replace")
+                if content and "SCF run NOT converged" in content:
+                    return True
+            except Exception:
+                continue
+    return False
 
 
 def _get_structure(node):
@@ -111,7 +172,7 @@ def _load_mc2d_lookup(csv_path):
 
 def collect_scf450(mc2d_csv, groups=None, all_groups=False):
     lookup_by_id, lookup_by_formula = _load_mc2d_lookup(mc2d_csv)
-    
+
     if all_groups:
         try:
             groups_to_scan = [g.label for g in Group.collection.all()]
@@ -119,9 +180,9 @@ def collect_scf450(mc2d_csv, groups=None, all_groups=False):
             groups_to_scan = groups or []
     else:
         groups_to_scan = groups or ["gw_runs_2el8"]
-    
+
     results = []
-    
+
     for gname in groups_to_scan:
         try:
             group = Group.collection.get(label=gname)
@@ -137,10 +198,11 @@ def collect_scf450(mc2d_csv, groups=None, all_groups=False):
                     continue
             except Exception:
                 continue
-            calc = _last_calcjob(node)
-            if not calc or calc.exit_status != 450:
+
+            if not _is_scf_not_converged(node):
                 continue
-            
+
+            calc = _last_calcjob(node)
             struct = _get_structure(node)
             formula = _get_formula(struct)
             mc2d_id = _get_mc2d_id(struct)
@@ -153,16 +215,17 @@ def collect_scf450(mc2d_csv, groups=None, all_groups=False):
                     bg_mc2d = lookup_by_formula.get(Composition(formula).reduced_formula)
             except Exception:
                 pass
-            
+
             results.append({
                 "gw_pk": node.pk,
-                "calc_pk": calc.pk,
+                "calc_pk": calc.pk if calc else None,
                 "group": gname,
                 "formula": formula,
                 "mc2d_id": mc2d_id,
                 "mc2d_bg": bg_mc2d,
+                "wc_exit": node.exit_status,
             })
-    
+
     return results
 
 
@@ -175,21 +238,20 @@ def main(argv=None):
     parser.add_argument("--csv", help="Write detailed CSV")
     parser.add_argument("--json", help="Write JSON")
     args = parser.parse_args(argv)
-    
+
     groups = args.groups or []
     if args.group:
         groups.extend(args.group)
-    
+
     results = collect_scf450(mc2d_csv=args.mc2d_csv, groups=groups, all_groups=args.all_groups)
-    
+
     total = len(results)
-    print(f"Total SCF-not-converged (exit 450): {total}")
-    
-    # Categorize by MC2D bg
+    print(f"Total SCF-not-converged: {total}")
+
     bg_zero = []
     bg_nonzero = []
     bg_missing = []
-    
+
     for r in results:
         bg = r["mc2d_bg"]
         if bg is None:
@@ -198,35 +260,35 @@ def main(argv=None):
             bg_zero.append(r)
         else:
             bg_nonzero.append(r)
-    
+
     print(f"\nMC2D bandgap == 0.0: {len(bg_zero)}")
     print(f"MC2D bandgap > 0.0: {len(bg_nonzero)}")
     print(f"MC2D bandgap missing: {len(bg_missing)}")
-    
+
     print("\n=== MC2D bg == 0.0 ===")
     for r in bg_zero:
-        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_bg={r['mc2d_bg']} [{r['group']}]")
-    
+        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_bg={r['mc2d_bg']} wc_exit={r['wc_exit']} [{r['group']}]")
+
     print("\n=== MC2D bg > 0.0 ===")
     for r in bg_nonzero:
-        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_bg={r['mc2d_bg']} [{r['group']}]")
-    
+        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_bg={r['mc2d_bg']} wc_exit={r['wc_exit']} [{r['group']}]")
+
     print("\n=== MC2D bg missing ===")
     for r in bg_missing:
-        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_id={r['mc2d_id']} [{r['group']}]")
-    
+        print(f"  PK {r['gw_pk']} ({r['calc_pk']}) {r['formula']} mc2d_id={r['mc2d_id']} wc_exit={r['wc_exit']} [{r['group']}]")
+
     if args.csv:
         with open(args.csv, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=["gw_pk", "calc_pk", "group", "formula", "mc2d_id", "mc2d_bg"])
+            w = csv.DictWriter(f, fieldnames=["gw_pk", "calc_pk", "group", "formula", "mc2d_id", "mc2d_bg", "wc_exit"])
             w.writeheader()
             w.writerows(results)
         print(f"\nWrote {args.csv}")
-    
+
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
         print(f"Wrote {args.json}")
-    
+
     return 0
 
 
