@@ -341,6 +341,7 @@ def collect_rows(mc2d_csv, groups=None, all_groups=False, all_workflows=False, d
                 "gw_pk": wc.pk,
                 "calc_pk": calc_pk,
                 "mc2d_id": mc2d_id,
+                "structure_uuid": struct.uuid if struct else None,
                 "formula": formula,
                 "nelements": nelements,
                 "group": gname,
@@ -481,33 +482,30 @@ def main(argv=None):
     if args.latest_only:
         from pymatgen.core import Composition
         best = {}
+        dropped = 0
         for r in rows:
-            key = r.get("mc2d_id") or ""
-            if not key:
-                f = r.get("formula") or ""
+            key = None
+            if r.get("structure_uuid"):
+                key = f"uuid:{r['structure_uuid']}"
+            elif r.get("mc2d_id"):
+                key = f"id:{r['mc2d_id']}"
+            elif r.get("formula"):
+                f = r.get("formula")
                 try:
-                    if f:
-                        key = Composition(f).reduced_formula
+                    key = f"form:{Composition(f).reduced_formula}"
                 except Exception:
-                    key = f
+                    key = f"form:{f}"
+            else:
+                key = None
             if not key:
-                key = str(r.get("structure_uuid") or r.get("label") or "")
-            if not key:
+                dropped += 1
                 continue
             pk = r.get("gw_pk") or 0
             existing = best.get(key)
-            if existing is None:
+            if existing is None or pk > (existing.get("gw_pk") or 0):
                 best[key] = r
-            else:
-                existing_pk = existing.get("gw_pk") or 0
-                if pk > existing_pk:
-                    best[key] = r
-                elif pk == existing_pk:
-                    pass
-                else:
-                    pass
         rows = list(best.values())
-        logging.getLogger(__name__).info("Deduplicated to %d unique structures (latest only)", len(rows))
+        logging.getLogger(__name__).info("Deduplicated to %d unique structures (latest only). Dropped %d rows with no key.", len(rows), dropped)
     
     print_table(rows)
     if args.csv:
