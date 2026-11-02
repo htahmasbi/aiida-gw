@@ -422,21 +422,93 @@ def main(argv=None):
     parser.add_argument("--group", action="append", help="Group label (can use multiple times)")
     parser.add_argument("--groups", nargs="+", help="Group labels")
     parser.add_argument("--all-groups", action="store_true", help="Scan all groups")
+    parser.add_argument("--original-only", action="store_true", help="Only include original gw_runs groups (exclude resubmits/timeouts/retries/tests)")
+    parser.add_argument("--exclude-groups", nargs="+", help="Additional groups to exclude")
+    parser.add_argument("--latest-only", action="store_true", help="Keep only the most recent workchain per structure (by mc2d_id or formula)")
     parser.add_argument("--mc2d-csv", help="MC2D CSV file")
     parser.add_argument("--all-workflows", action="store_true", help="Include all WorkflowNode")
     parser.add_argument("--csv", help="Write CSV")
     parser.add_argument("--debug", action="store_true", help="Debug")
     args = parser.parse_args(argv)
     
+    EXCLUDE_PATTERNS = ["_r2", "_r3", "_resub", "resub", "timeout", "_retry", "retry", "scf450", "1test", "2test", "wx2", "test"]
+    if args.exclude_groups:
+        EXCLUDE_PATTERNS.extend([g.lower() for g in args.exclude_groups])
+    
     groups = args.groups or []
     if args.group:
         groups.extend(args.group)
+    
+    if args.original_only and not groups and not args.all_groups:
+        args.all_groups = True
+    
+    if args.original_only:
+        if args.all_groups or not groups:
+            all_g = []
+            for g in Group.collection.all():
+                name = g.label
+                nlow = name.lower()
+                if not (name.lower().startswith("gw_runs") or args.all_groups):
+                    continue
+                skip = False
+                for p in EXCLUDE_PATTERNS:
+                    if p in nlow:
+                        skip = True
+                        break
+                if not skip:
+                    all_g.append(name)
+            groups = sorted(set(all_g))
+        else:
+            filtered = []
+            for name in groups:
+                nlow = name.lower()
+                skip = False
+                for p in EXCLUDE_PATTERNS:
+                    if p in nlow:
+                        skip = True
+                        break
+                if not skip:
+                    filtered.append(name)
+            groups = filtered
+    
     if not groups and not args.all_groups:
         groups = ["gw_runs_2el8"]
     
     mc2d_csv = args.mc2d_csv or ""
     
-    rows = collect_rows(mc2d_csv, groups, all_groups=args.all_groups, all_workflows=args.all_workflows, debug=args.debug)
+    rows = collect_rows(mc2d_csv, groups, all_groups=args.all_groups and not groups and not args.original_only, all_workflows=args.all_workflows, debug=args.debug)
+    
+    if args.latest_only:
+        from pymatgen.core import Composition
+        best = {}
+        for r in rows:
+            key = r.get("mc2d_id") or ""
+            if not key:
+                f = r.get("formula") or ""
+                try:
+                    if f:
+                        key = Composition(f).reduced_formula
+                except Exception:
+                    key = f
+            if not key:
+                key = str(r.get("structure_uuid") or r.get("label") or "")
+            if not key:
+                continue
+            pk = r.get("gw_pk") or 0
+            existing = best.get(key)
+            if existing is None:
+                best[key] = r
+            else:
+                existing_pk = existing.get("gw_pk") or 0
+                if pk > existing_pk:
+                    best[key] = r
+                elif pk == existing_pk:
+                    pass
+                else:
+                    pass
+        rows = list(best.values())
+        logging.getLogger(__name__).info("Deduplicated to %d unique structures (latest only)", len(rows))
+    
     print_table(rows)
     if args.csv:
         write_csv(rows, args.csv)
