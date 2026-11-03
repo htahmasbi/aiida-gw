@@ -22,7 +22,7 @@ try:
     from aiida_gw.core.config import load_config
 except Exception:
     try:
-        from aiida_gw.utils.config import load_config  # fallback
+        from aiida_gw.utils.config import load_config
     except Exception:
         load_config = None
 
@@ -34,7 +34,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 def _get_input_structure(wc):
     """Extract input StructureData from GwWorkChain."""
     try:
-        # Try common input links
         for inp in wc.inputs:
             try:
                 node = wc.inputs[inp]
@@ -45,7 +44,6 @@ def _get_input_structure(wc):
     except Exception:
         pass
     try:
-        # Try to find from predecessors/inputs
         for link in wc.base.links.get_incoming():
             node = link.node
             if isinstance(node, orm.StructureData):
@@ -81,12 +79,16 @@ def main(argv=None):
         LOGGER.error("Could not import load_config from aiida_gw.core.config or aiida_gw.utils.config")
         return 1
 
-    try:
-        run_group = orm.Group.collection.get_or_create(label=args.run_group)[0]
-        LOGGER.info("Using group: %s", args.run_group)
-    except Exception as exc:
-        LOGGER.error("Failed to get/create group: %s", exc)
-        return 1
+    run_group = None
+    if not args.dry_run:
+        try:
+            run_group = orm.Group.collection.get_or_create(label=args.run_group)[0]
+            LOGGER.info("Using group: %s", args.run_group)
+        except Exception as exc:
+            LOGGER.error("Failed to get/create group: %s", exc)
+            return 1
+    else:
+        LOGGER.info("[DRY RUN] Would use/create group: %s (not created now)", args.run_group)
 
     submitted = []
     skipped = []
@@ -99,8 +101,8 @@ def main(argv=None):
             skipped.append((pk, str(exc)))
             continue
 
-        if getattr(node, 'process_label', '') not in ["GwWorkChain"]:
-            LOGGER.warning("%s: process_label %s not GwWorkChain, skipping", pk, getattr(node, 'process_label', ''))
+        if getattr(node, "process_label", "") not in ["GwWorkChain"]:
+            LOGGER.warning("%s: process_label %s not GwWorkChain, skipping", pk, getattr(node, "process_label", ""))
             skipped.append((pk, f"not GwWorkChain ({getattr(node, 'process_label', '')})"))
             continue
 
@@ -116,13 +118,19 @@ def main(argv=None):
             except Exception:
                 formula = "N/A"
             LOGGER.info("[DRY RUN] Would submit fresh GwWorkChain from PK %s (struct %s, formula %s) with config %s into group %s",
-                        pk, getattr(struct, 'uuid', 'N/A'), formula, config_path, args.run_group)
+                        pk, getattr(struct, "uuid", "N/A"), formula, config_path, args.run_group)
             continue
 
         try:
             inputs = {"structure": struct}
             try:
-                inputs["config"] = orm.Dict(dict(config) if hasattr(config, '__dict__') is False else (config.model_dump() if hasattr(config, 'model_dump') else dict(config)))
+                if hasattr(config, "model_dump"):
+                    cfg_dict = config.model_dump()
+                elif hasattr(config, "__dict__"):
+                    cfg_dict = dict(config)
+                else:
+                    cfg_dict = config
+                inputs["config"] = orm.Dict(cfg_dict)
             except Exception:
                 try:
                     inputs["config"] = orm.Dict(config)
@@ -136,7 +144,8 @@ def main(argv=None):
                 except Exception:
                     formula = "N/A"
                 LOGGER.info("Submitted %s from %s -> new PK %s", formula, pk, node_new.pk)
-                run_group.add_nodes([node_new])
+                if run_group is not None:
+                    run_group.add_nodes([node_new])
                 submitted.append((pk, node_new.pk))
             except Exception as exc:
                 LOGGER.error("Failed to submit from %s: %s", pk, exc)
