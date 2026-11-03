@@ -7,7 +7,6 @@ input StructureData from old workchains and submits new ones with the new config
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -19,7 +18,14 @@ from aiida import orm
 from aiida.engine import submit
 
 from aiida_gw.workflows.gw import GwWorkChain
-from aiida_gw.utils.config import load_config
+try:
+    from aiida_gw.core.config import load_config
+except Exception:
+    try:
+        from aiida_gw.utils.config import load_config  # fallback
+    except Exception:
+        load_config = None
+
 
 LOGGER = logging.getLogger("resubmit_neg_gap_kdenser")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -30,7 +36,7 @@ def _get_input_structure(wc):
     try:
         # Try common input links
         for inp in wc.inputs:
-            try
+            try:
                 node = wc.inputs[inp]
                 if isinstance(node, orm.StructureData):
                     return node
@@ -44,23 +50,6 @@ def _get_input_structure(wc):
             node = link.node
             if isinstance(node, orm.StructureData):
                 return node
-    except Exception:
-        pass
-    return None
-
-
-def _get_old_config_dict(wc):
-    """Try to extract old config dict for reference."""
-    try:
-        for inp in wc.inputs:
-            try
-                node = wc.inputs[inp]
-                if isinstance(node, orm.Dict):
-                    d = node.get_dict()
-                    if d.get('cp2k') or d.get('kpoints') or d.get('gw'):
-                        return d
-            except Exception:
-                continue
     except Exception:
         pass
     return None
@@ -82,9 +71,16 @@ def main(argv=None):
         return 1
 
     LOGGER.info("Loading config from %s", config_path)
-    config = load_config(str(config_path))
+    if load_config is not None:
+        try:
+            config = load_config(str(config_path))
+        except Exception as exc:
+            LOGGER.error("Failed to load config via load_config: %s", exc)
+            return 1
+    else:
+        LOGGER.error("Could not import load_config from aiida_gw.core.config or aiida_gw.utils.config")
+        return 1
 
-    run_group = None
     try:
         run_group = orm.Group.collection.get_or_create(label=args.run_group)[0]
         LOGGER.info("Using group: %s", args.run_group)
@@ -96,15 +92,16 @@ def main(argv=None):
     skipped = []
 
     for pk in args.pks:
-        try            node = orm.load_node(pk)ná
+        try:
+            node = orm.load_node(pk)
         except Exception as exc:
             LOGGER.warning("Could not load PK %s: %s", pk, exc)
             skipped.append((pk, str(exc)))
             continue
 
-        if node.process_label not in ["GwWorkChain"]:
-            LOGGER.warning("%s: process_label %s not GwWorkChain, skipping", pk, node.process_label)
-            skipped.append((pk, f"not GwWorkChain ({node.process_label})"))
+        if getattr(node, 'process_label', '') not in ["GwWorkChain"]:
+            LOGGER.warning("%s: process_label %s not GwWorkChain, skipping", pk, getattr(node, 'process_label', ''))
+            skipped.append((pk, f"not GwWorkChain ({getattr(node, 'process_label', '')})"))
             continue
 
         struct = _get_input_structure(node)
@@ -113,31 +110,32 @@ def main(argv=None):
             skipped.append((pk, "no input StructureData"))
             continue
 
-        old_cfg = _get_old_config_dict(node)
-        if old_cfg and not args.dry_run:
-            LOGGER.info("Old config reference for %s found (kpoints/gw/cp2k present)", pk)
-
         if args.dry_run:
+            try:
+                formula = struct.get_formula()
+            except Exception:
+                formula = "N/A"
             LOGGER.info("[DRY RUN] Would submit fresh GwWorkChain from PK %s (struct %s, formula %s) with config %s into group %s",
-                        pk, struct.uuid, getattr(struct, "get_formula", lambda: "N/A")(), config_path, args.run_group)
+                        pk, getattr(struct, 'uuid', 'N/A'), formula, config_path, args.run_group)
             continue
 
         try:
-            # Build inputs - pass config dict/object as expected by GwWorkChain
             inputs = {"structure": struct}
-            # Try to pass config
             try:
-                inputs["config"] = orm.Dict(dict=config)
+                inputs["config"] = orm.Dict(dict(config) if hasattr(config, '__dict__') is False else (config.model_dump() if hasattr(config, 'model_dump') else dict(config)))
             except Exception:
                 try:
-                    inputs["config"] = config
+                    inputs["config"] = orm.Dict(config)
                 except Exception:
                     pass
 
-            # Also try to preserve code/computer if possible from config
             try:
                 node_new = submit(GwWorkChain, **inputs)
-                LOGGER.info("Submitted %s from %s -> new PK %s", struct.get_formula(), pk, node_new.pk)
+                try:
+                    formula = struct.get_formula()
+                except Exception:
+                    formula = "N/A"
+                LOGGER.info("Submitted %s from %s -> new PK %s", formula, pk, node_new.pk)
                 run_group.add_nodes([node_new])
                 submitted.append((pk, node_new.pk))
             except Exception as exc:
@@ -161,5 +159,5 @@ def main(argv=None):
     return 0
 
 
-if __name__ == "__main":
+if __name__ == "__main__":
     sys.exit(main())
