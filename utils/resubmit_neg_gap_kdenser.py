@@ -2,7 +2,7 @@
 """Submit fresh GwWorkChains for structures with negative GW gaps using a denser-k config.
 
 Does NOT copy old stored configs/inputs from failed workchains. Extracts the
-input StructureData from old workchains and submits new ones with the new config.
+input StructureData and Code from old workchains and submits new ones with the new config.
 """
 
 import argparse
@@ -16,6 +16,7 @@ load_profile()
 
 from aiida import orm
 from aiida.engine import submit
+from aiida.orm import Code, Dict, List, Str, load_code
 
 from aiida_gw.workflows.gw import GwWorkChain
 try:
@@ -51,6 +52,51 @@ def _get_input_structure(wc):
     except Exception:
         pass
     return None
+
+
+def _get_input_code(wc):
+    """Extract input Code from GwWorkChain."""
+    try:
+        for inp in wc.inputs:
+            try:
+                node = wc.inputs[inp]
+                if isinstance(node, Code):
+                    return node
+            except Exception:
+                continue
+    except Exception:
+        pass
+    try:
+        for link in wc.base.links.get_incoming():
+            node = link.node
+            if isinstance(node, Code):
+                return node
+    except Exception:
+        pass
+    return None
+
+
+def _get_code_from_config(config):
+    """Try to load code from config."""
+    code_label = None
+    try:
+        if hasattr(config, "code_label") and config.code_label:
+            code_label = config.code_label
+        elif isinstance(config, dict):
+            code_label = config.get("code_label") or config.get("code")
+        elif hasattr(config, "get"):
+            code_label = config.get("code_label")
+    except Exception:
+        pass
+
+    if not code_label:
+        return None
+
+    try:
+        return load_code(code_label)
+    except Exception as exc:
+        LOGGER.warning("Could not load code '%s' from config: %s", code_label, exc)
+        return None
 
 
 def main(argv=None):
@@ -112,30 +158,43 @@ def main(argv=None):
             skipped.append((pk, "no input StructureData"))
             continue
 
+        code = _get_input_code(node) or _get_code_from_config(config)
+        if not code:
+            LOGGER.warning("%s: could not find input Code (check old workchain or config.code_label), skipping", pk)
+            skipped.append((pk, "no code"))
+            continue
+
         if args.dry_run:
             try:
                 formula = struct.get_formula()
             except Exception:
                 formula = "N/A"
-            LOGGER.info("[DRY RUN] Would submit fresh GwWorkChain from PK %s (struct %s, formula %s) with config %s into group %s",
-                        pk, getattr(struct, "uuid", "N/A"), formula, config_path, args.run_group)
+            LOGGER.info("[DRY RUN] Would submit fresh GwWorkChain from PK %s (struct %s, formula %s, code %s) with config %s into group %s",
+                        pk, getattr(struct, "uuid", "N/A"), formula, code.label, config_path, args.run_group)
             continue
 
         try:
-            inputs = {"structure": struct}
+            inputs = {}
+            inputs["structure"] = struct
+            inputs["code"] = code
             try:
                 if hasattr(config, "model_dump"):
                     cfg_dict = config.model_dump()
+                elif isinstance(config, dict):
+                    cfg_dict = config
                 elif hasattr(config, "__dict__"):
                     cfg_dict = dict(config)
                 else:
                     cfg_dict = config
-                inputs["config"] = orm.Dict(cfg_dict)
+                inputs["config"] = Dict(cfg_dict)
+            except Exception as exc:
+                LOGGER.warning("%s: could not convert config to Dict: %s", pk, exc)
+
+            # Try to be compatible with how CLI submits
+            try:
+                inputs["protocol_name"] = Str("protocol_GW.yml")
             except Exception:
-                try:
-                    inputs["config"] = orm.Dict(config)
-                except Exception:
-                    pass
+                pass
 
             try:
                 node_new = submit(GwWorkChain, **inputs)
@@ -143,7 +202,7 @@ def main(argv=None):
                     formula = struct.get_formula()
                 except Exception:
                     formula = "N/A"
-                LOGGER.info("Submitted %s from %s -> new PK %s", formula, pk, node_new.pk)
+                LOGGER.info("Submitted %s from %s -> new PK %s (code %s)", formula, pk, node_new.pk, code.label)
                 if run_group is not None:
                     run_group.add_nodes([node_new])
                 submitted.append((pk, node_new.pk))
