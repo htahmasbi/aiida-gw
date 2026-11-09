@@ -29,6 +29,35 @@ def _parse_exclude_elements(exclude_str: str | None) -> set[str] | None:
     return None
 
 
+def _band_gap_allowed(
+    band_gap,
+    min_band_gap: float | None,
+    include_unknown_gap: bool,
+) -> bool:
+    """Return whether a structure passes the band-gap filter.
+
+    ``min_band_gap`` is exclusive: a structure is kept only when its gap is
+    strictly greater than this value. Structures with missing or unparseable
+    gap metadata are kept only when ``include_unknown_gap`` is true.
+    """
+    if min_band_gap is None:
+        return True
+    if band_gap is None:
+        return include_unknown_gap
+    try:
+        return float(band_gap) > min_band_gap
+    except (TypeError, ValueError):
+        return include_unknown_gap
+
+
+def _node_band_gap(node):
+    """Read the ``band_gap`` extra from a StructureData node, if present."""
+    try:
+        return node.base.extras.get("band_gap")
+    except Exception:
+        return None
+
+
 def _load_structures_from_json(
     file_paths: list[Path],
     formula: str | None,
@@ -37,6 +66,8 @@ def _load_structures_from_json(
     max_structures: int,
     config: ProjectConfig,
     not_found_msg: str,
+    min_band_gap: float | None = None,
+    include_unknown_gap: bool = False,
 ) -> list:
     """Load structures from JSON files, applying filters and storing as AiiDA nodes."""
     import json as _json
@@ -70,6 +101,16 @@ def _load_structures_from_json(
             if supported and not (elems <= supported):
                 logger.info(f"Skipping {entry.get('id', '')} — unsupported elements: {elems - supported}")
                 continue
+            if min_band_gap is not None:
+                band_gap = entry.get("band_gap")
+                if not _band_gap_allowed(band_gap, min_band_gap, include_unknown_gap):
+                    logger.info(
+                        "Skipping %s — band gap %s does not pass > %s eV",
+                        entry_formula or entry.get("id", ""),
+                        band_gap,
+                        min_band_gap,
+                    )
+                    continue
             try:
                 pmg_struct = Structure.from_dict(entry["structure"])
             except Exception as e:
@@ -81,6 +122,10 @@ def _load_structures_from_json(
                 node.base.extras.set("source", "mc2d_optimade")
                 node.base.extras.set("optimade_id", entry.get("id", ""))
                 node.base.extras.set("formula", entry.get("formula", ""))
+                for key in ("mc2d_id", "band_gap", "magnetic_state", "unstable", "band_gap_match", "mc2d_candidates"):
+                    value = entry.get(key)
+                    if value is not None:
+                        node.base.extras.set(key, value)
                 structures.append(node)
             except Exception as e:
                 logger.warning(f"Failed to store structure {entry.get('id', 'unknown')}: {e}")
@@ -210,6 +255,20 @@ def run(
         str | None,
         typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
     ] = None,
+    min_band_gap: Annotated[
+        float | None,
+        typer.Option(
+            "--min-band-gap",
+            help="Skip structures whose stored band gap is <= this value (eV); requires annotated input",
+        ),
+    ] = None,
+    include_unknown_gap: Annotated[
+        bool,
+        typer.Option(
+            "--include-unknown-gap",
+            help="With --min-band-gap, keep structures that have no band-gap metadata",
+        ),
+    ] = False,
     json_dir: Annotated[
         str | None,
         typer.Option("--json-dir", help="Directory with mc2d_*.json files from fetch-json"),
@@ -316,6 +375,8 @@ def run(
                 max_structures,
                 config,
                 f"No structure with formula '{formula}' found" if formula else "No valid structures found in JSON files",
+                min_band_gap=min_band_gap,
+                include_unknown_gap=include_unknown_gap,
             )
             console.print(f"[green]Loaded {len(structures)} structures from JSON files[/green]")
         elif json_files:
@@ -339,6 +400,8 @@ def run(
                 max_structures,
                 config,
                 f"No structure with formula '{formula}' found" if formula else "No valid structures found in specified files",
+                min_band_gap=min_band_gap,
+                include_unknown_gap=include_unknown_gap,
             )
             console.print(f"[green]Loaded {len(structures)} structures from specified files[/green]")
         else:
@@ -349,6 +412,35 @@ def run(
                 structures = [sm[0]]
             except Exception as e:
                 console.print(f"[red]Error:[/red] Failed to load structure: {e}")
+                raise typer.Exit(1)
+
+        if min_band_gap is not None and structures:
+            kept = []
+            skipped_unknown = 0
+            skipped_low = 0
+            for s in structures:
+                band_gap = _node_band_gap(s)
+                if _band_gap_allowed(band_gap, min_band_gap, include_unknown_gap):
+                    kept.append(s)
+                elif band_gap is None:
+                    skipped_unknown += 1
+                    logger.info("Skipping structure %s — band gap unknown", s.pk)
+                else:
+                    skipped_low += 1
+                    logger.info("Skipping structure %s — band gap %s <= %s eV", s.pk, band_gap, min_band_gap)
+            structures = kept
+            skipped = skipped_unknown + skipped_low
+            if skipped:
+                console.print(
+                    f"[yellow]Skipped {skipped} structure(s) by band-gap filter "
+                    f"({skipped_low} with gap <= {min_band_gap} eV, {skipped_unknown} unknown), "
+                    f"{len(structures)} remaining[/yellow]"
+                )
+            if not structures:
+                console.print(
+                    "[red]Error:[/red] No structures left after band-gap filtering. "
+                    "Annotate inputs with 'utils/annotate_mc2d_bandgaps.py' or use --include-unknown-gap."
+                )
                 raise typer.Exit(1)
 
         if structures:
@@ -567,6 +659,120 @@ def fetch_json(
                 console.print(f"[green]{n} element(s):[/green] {p}")
         else:
             console.print(f"[green]{n} element(s):[/green] {entry}")
+
+
+@app.command("fetch-pbev1")
+def fetch_pbev1(
+    output_dir: Annotated[str, typer.Option("--output", "-o", help="Output directory")] = "mc2d_json",
+    nelements: Annotated[int | None, typer.Option("--nelements", help="Exact number of elements (default: 3)")] = 3,
+    min_nelements: Annotated[int | None, typer.Option("--min-nelements", help="Minimum number of elements")] = None,
+    max_nelements: Annotated[int | None, typer.Option("--max-nelements", help="Maximum number of elements")] = None,
+    exclude_elements: Annotated[
+        str | None,
+        typer.Option("--exclude-elements", help="Comma-separated elements to exclude (e.g. La,Ce,Pr)"),
+    ] = None,
+    formula: Annotated[
+        str | None,
+        typer.Option("--formula", help="Comma-separated reduced formulas to keep (e.g. MoS2,WS2)"),
+    ] = None,
+    min_band_gap: Annotated[
+        float | None,
+        typer.Option("--min-band-gap", help="Keep only structures with pbe-v1 gap > this value (eV)"),
+    ] = None,
+    include_unknown_gap: Annotated[
+        bool,
+        typer.Option("--include-unknown-gap", help="With --min-band-gap, keep entries with no gap"),
+    ] = False,
+    exclude_unstable: Annotated[
+        bool,
+        typer.Option("--exclude-unstable", help="Skip entries explicitly marked unstable (keep unknown)"),
+    ] = False,
+    stable_only: Annotated[
+        bool,
+        typer.Option("--stable-only", help="Keep only entries explicitly marked stable (drops unknown)"),
+    ] = False,
+    limit: Annotated[int | None, typer.Option("--limit", help="Download at most this many structures")] = None,
+    sleep: Annotated[float, typer.Option("--sleep", help="Delay between CIF downloads (seconds)")] = 0.05,
+    structures_per_file: Annotated[
+        int | None,
+        typer.Option("--structures-per-file", help="Split large groups into numbered JSON files"),
+    ] = None,
+    overview_json: Annotated[
+        str | None,
+        typer.Option("--overview-json", help="Cache/reuse the pbe-v1 overview JSON"),
+    ] = None,
+    structure_uuids_json: Annotated[
+        str | None,
+        typer.Option("--structure-uuids-json", help="Cache/reuse the mc2d-N -> UUID mapping"),
+    ] = None,
+    manifest: Annotated[
+        str | None,
+        typer.Option("--manifest", help="Write a CSV manifest of the selected entries"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Only select and report; do not download structures"),
+    ] = False,
+) -> None:
+    """Fetch current MC2D pbe-v1 structures and metadata from the Materials Cloud APIs."""
+    from aiida_gw.datasets.mc2d_pbev1 import (
+        fetch_pbev1_entries,
+        load_or_fetch_overview,
+        load_or_fetch_structure_uuids,
+        save_by_nelements,
+        select_entries,
+        write_selection_manifest,
+    )
+
+    if min_nelements is not None or max_nelements is not None:
+        nelements = None
+
+    user_excl = _parse_exclude_elements(exclude_elements)
+    formulas = [item.strip() for item in formula.split(",")] if formula else None
+
+    overview = load_or_fetch_overview(overview_json)
+    structure_uuids = load_or_fetch_structure_uuids(structure_uuids_json)
+
+    selected = select_entries(
+        overview,
+        nelements=nelements,
+        min_nelements=min_nelements,
+        max_nelements=max_nelements,
+        exclude_elements=user_excl,
+        formulas=formulas,
+        min_band_gap=min_band_gap,
+        include_unknown_gap=include_unknown_gap,
+        stable_only=stable_only,
+        exclude_unstable=exclude_unstable,
+    )
+    if limit is not None:
+        selected = selected[:limit]
+
+    if manifest:
+        write_selection_manifest(selected, structure_uuids, manifest)
+        console.print(f"[green]Wrote manifest:[/green] {manifest}")
+
+    if dry_run:
+        known = sum(1 for entry in selected if entry.get("bg") is not None)
+        console.print(
+            f"[green]Selected {len(selected)} structures[/green] "
+            f"({known} with a known gap); no structures downloaded"
+        )
+        return
+
+    entries, stats = fetch_pbev1_entries(selected, structure_uuids, sleep=sleep)
+    paths = save_by_nelements(entries, output_dir, structures_per_file=structures_per_file)
+
+    for count, path in sorted(paths.items()):
+        if isinstance(path, list):
+            for item in path:
+                console.print(f"[green]{count} element(s):[/green] {item}")
+        else:
+            console.print(f"[green]{count} element(s):[/green] {path}")
+    console.print(
+        f"[green]Fetched {stats['fetched']}/{stats['selected']} pbe-v1 structures[/green] "
+        f"({stats['no_uuid']} without UUID, {stats['failed']} download failures)"
+    )
 
 
 @app.command()
