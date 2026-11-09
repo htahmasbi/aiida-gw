@@ -1,6 +1,8 @@
 """Tests for submission-time band-gap filtering in ``aiida_gw.cli``."""
 
 import json
+import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -49,6 +51,24 @@ class _FakeStructure:
 
 
 @pytest.fixture
+def aiida_orm(monkeypatch):
+    """Return ``aiida.orm``, installing a temporary stub when aiida is absent."""
+    try:
+        import aiida.orm as orm
+
+        return orm
+    except ImportError:
+        pass
+    aiida = types.ModuleType("aiida")
+    orm = types.ModuleType("aiida.orm")
+    orm.StructureData = object
+    aiida.orm = orm
+    monkeypatch.setitem(sys.modules, "aiida", aiida)
+    monkeypatch.setitem(sys.modules, "aiida.orm", orm)
+    return orm
+
+
+@pytest.fixture
 def sample_json(tmp_path):
     structure = Structure(Lattice.cubic(3.0), ["C"], [[0.0, 0.0, 0.0]]).as_dict()
     entries = [
@@ -61,10 +81,8 @@ def sample_json(tmp_path):
     return path
 
 
-def test_loader_filters_low_and_unknown_gaps(sample_json, monkeypatch):
-    import aiida.orm
-
-    monkeypatch.setattr(aiida.orm, "StructureData", _FakeStructure)
+def test_loader_filters_low_and_unknown_gaps(sample_json, monkeypatch, aiida_orm):
+    monkeypatch.setattr(aiida_orm, "StructureData", _FakeStructure)
 
     nodes = _load_structures_from_json(
         [sample_json],
@@ -83,10 +101,8 @@ def test_loader_filters_low_and_unknown_gaps(sample_json, monkeypatch):
     assert nodes[0].base.extras.get("band_gap") == 0.5
 
 
-def test_loader_keeps_unknown_when_requested(sample_json, monkeypatch):
-    import aiida.orm
-
-    monkeypatch.setattr(aiida.orm, "StructureData", _FakeStructure)
+def test_loader_keeps_unknown_when_requested(sample_json, monkeypatch, aiida_orm):
+    monkeypatch.setattr(aiida_orm, "StructureData", _FakeStructure)
 
     nodes = _load_structures_from_json(
         [sample_json],
@@ -106,10 +122,8 @@ def test_loader_keeps_unknown_when_requested(sample_json, monkeypatch):
     assert by_id["unknown"].base.extras.get("band_gap") is None
 
 
-def test_loader_without_filter_keeps_all(sample_json, monkeypatch):
-    import aiida.orm
-
-    monkeypatch.setattr(aiida.orm, "StructureData", _FakeStructure)
+def test_loader_without_filter_keeps_all(sample_json, monkeypatch, aiida_orm):
+    monkeypatch.setattr(aiida_orm, "StructureData", _FakeStructure)
 
     nodes = _load_structures_from_json([sample_json], None, None, "X", 10, object(), "no structures")
     assert len(nodes) == 3

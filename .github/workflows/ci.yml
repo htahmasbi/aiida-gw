@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pydantic pydantic-settings pyyaml pymatgen numpy pytest
+          pip install pydantic pydantic-settings pyyaml pymatgen numpy pytest typer rich requests
 
       - name: Run tests
         run: |
