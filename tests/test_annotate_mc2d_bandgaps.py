@@ -134,11 +134,16 @@ def test_geometry_ambiguity_uses_conservative_min_gap(structure, monkeypatch):
 
 
 class _Extras:
+    """Mimic AiiDA extras: ``get`` raises instead of returning a default."""
+
     def __init__(self):
         self._data = {}
 
-    def get(self, key, default=None):
-        return self._data.get(key, default)
+    def get(self, key):
+        try:
+            return self._data[key]
+        except KeyError as exception:
+            raise AttributeError(f"extra `{key}` does not exist") from exception
 
     def set(self, key, value):
         self._data[key] = value
@@ -164,6 +169,16 @@ def test_node_to_entry(structure):
     assert entry["id"] == "legacy-agi-uuid"
     assert entry["elements"] == ["C"]
     assert entry["nsites"] == 2
+    assert entry["_prepared"] is True
+
+
+def test_node_to_entry_without_extras(structure):
+    node = _FakeNode(structure, pk=7, uuid="prepared-uuid")
+    entry, structure_node = crosswalk.node_to_entry(node)
+    assert structure_node is node
+    assert entry["id"] == "prepared-uuid"
+    assert entry["formula"] == "C"
+    assert entry["elements"] == ["C"]
     assert entry["_prepared"] is True
 
 

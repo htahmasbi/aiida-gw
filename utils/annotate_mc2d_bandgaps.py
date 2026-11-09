@@ -537,6 +537,15 @@ def _node_structure(node):
     return search(inputs)
 
 
+def _get_extra(extras, key, default=None):
+    """Read an AiiDA extra, which raises instead of returning a default."""
+    try:
+        value = extras.get(key)
+    except (AttributeError, KeyError):
+        return default
+    return default if value is None else value
+
+
 def node_to_entry(node) -> tuple[dict | None, object | None]:
     structure_node = _node_structure(node)
     if structure_node is None:
@@ -546,8 +555,8 @@ def node_to_entry(node) -> tuple[dict | None, object | None]:
     except Exception:
         return None, structure_node
     extras = structure_node.base.extras
-    optimade_id = extras.get("optimade_id") or extras.get("mc2d_id") or ""
-    formula = extras.get("formula") or pymatgen_structure.composition.reduced_formula
+    optimade_id = _get_extra(extras, "optimade_id") or _get_extra(extras, "mc2d_id") or ""
+    formula = _get_extra(extras, "formula") or pymatgen_structure.composition.reduced_formula
     elements = sorted(str(element) for element in pymatgen_structure.composition.elements)
     entry = {
         "id": optimade_id or str(structure_node.uuid),
