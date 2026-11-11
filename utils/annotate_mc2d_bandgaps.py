@@ -298,7 +298,24 @@ def match_entry(
             direct_id,
             overview_by_id,
             match="uuid",
-            structure_uuid=legacy_id,
+            structure_uuid=legacy_id or entry.get("structure_uuid"),
+        )
+
+    known_id = entry.get("mc2d_id")
+    if isinstance(known_id, str) and known_id in overview_by_id:
+        return _annotation_from_overview(
+            known_id,
+            overview_by_id,
+            match="mc2d_id",
+            structure_uuid=entry.get("structure_uuid"),
+        )
+
+    if isinstance(legacy_id, str) and legacy_id in overview_by_id:
+        return _annotation_from_overview(
+            legacy_id,
+            overview_by_id,
+            match="mc2d_id",
+            structure_uuid=entry.get("structure_uuid"),
         )
 
     legacy_key, inplane = _entry_key(entry)
@@ -489,8 +506,12 @@ def annotate_json_file(path: Path, entries: list[dict], **match_kwargs) -> list[
     rows = []
     counts: dict[str, int] = {}
     for index, entry in enumerate(entries):
+        hints = {}
+        if entry.get("dataset_version") == "pbe-v1":
+            hints = {key: entry[key] for key in ("mc2d_id", "structure_uuid") if entry.get(key)}
         for key in ANNOTATION_KEYS:
             entry.pop(key, None)
+        entry.update(hints)
         annotation = match_entry(entry, **match_kwargs)
         entry.update(annotation)
         match_type = annotation.get("band_gap_match", "")
@@ -555,11 +576,15 @@ def node_to_entry(node) -> tuple[dict | None, object | None]:
     except Exception:
         return None, structure_node
     extras = structure_node.base.extras
-    optimade_id = _get_extra(extras, "optimade_id") or _get_extra(extras, "mc2d_id") or ""
+    optimade_id = _get_extra(extras, "optimade_id")
+    structure_uuid = _get_extra(extras, "structure_uuid")
+    mc2d_id = _get_extra(extras, "mc2d_id")
     formula = _get_extra(extras, "formula") or pymatgen_structure.composition.reduced_formula
     elements = sorted(str(element) for element in pymatgen_structure.composition.elements)
     entry = {
-        "id": optimade_id or str(structure_node.uuid),
+        "id": structure_uuid or optimade_id or mc2d_id or str(structure_node.uuid),
+        "mc2d_id": mc2d_id,
+        "structure_uuid": structure_uuid,
         "formula": formula,
         "elements": elements,
         "nelements": len(elements),

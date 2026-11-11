@@ -127,3 +127,34 @@ def test_loader_without_filter_keeps_all(sample_json, monkeypatch, aiida_orm):
 
     nodes = _load_structures_from_json([sample_json], None, None, "X", 10, object(), "no structures")
     assert len(nodes) == 3
+
+
+def test_loader_pbev1_extras(tmp_path, monkeypatch, aiida_orm):
+    monkeypatch.setattr(aiida_orm, "StructureData", _FakeStructure)
+    structure = Structure(Lattice.cubic(3.0), ["C"], [[0.0, 0.0, 0.0]]).as_dict()
+    entries = [
+        {
+            "id": "mc2d-9",
+            "dataset_version": "pbe-v1",
+            "mc2d_id": "mc2d-9",
+            "structure_uuid": "relaxed-uuid",
+            "formula": "C",
+            "elements": ["C"],
+            "structure": structure,
+            "band_gap": 1.5,
+            "magnetic_state": "non-magnetic",
+            "unstable": False,
+        }
+    ]
+    path = Path(tmp_path) / "mc2d_3elements.json"
+    path.write_text(json.dumps(entries))
+
+    nodes = _load_structures_from_json([path], None, None, "X", 10, object(), "no structures")
+
+    extras = nodes[0].base.extras._data
+    assert extras["source"] == "mc2d_pbev1"
+    assert extras["mc2d_id"] == "mc2d-9"
+    assert extras["structure_uuid"] == "relaxed-uuid"
+    assert extras["dataset_version"] == "pbe-v1"
+    assert extras["band_gap"] == 1.5
+    assert "optimade_id" not in extras

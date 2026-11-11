@@ -55,6 +55,31 @@ def test_direct_uuid_match_uses_overview_metadata():
     assert annotation["structure_uuid"] == "legacy-agi-uuid"
 
 
+def test_known_mc2d_id_short_circuits_geometry():
+    entry = {
+        "id": "not-a-known-uuid",
+        "mc2d_id": "mc2d-5",
+        "structure_uuid": "relaxed-uuid",
+        "formula": "AgI",
+        "elements": ["Ag", "I"],
+        "nsites": 4,
+    }
+    annotation = crosswalk.match_entry(
+        entry,
+        OVERVIEW_BY_ID,
+        UUID_TO_ID,
+        BY_ELEMENTS,
+        BY_FORMULA,
+        _cache(),
+        tolerance=0.02,
+        sleep=0.0,
+    )
+    assert annotation["mc2d_id"] == "mc2d-5"
+    assert annotation["band_gap"] == 2.15
+    assert annotation["structure_uuid"] == "relaxed-uuid"
+    assert annotation["band_gap_match"] == "mc2d_id"
+
+
 def test_geometry_fallback(structure, monkeypatch):
     core = {
         "general": {"structure_relaxed_uuid": "relaxed-uuid"},
@@ -182,6 +207,16 @@ def test_node_to_entry_without_extras(structure):
     assert entry["_prepared"] is True
 
 
+def test_node_to_entry_prefers_structure_uuid(structure):
+    node = _FakeNode(structure, optimade_id="mc2d-9", pk=8, uuid="prepared-uuid")
+    node.base.extras.set("mc2d_id", "mc2d-9")
+    node.base.extras.set("structure_uuid", "relaxed-uuid")
+    entry, _ = crosswalk.node_to_entry(node)
+    assert entry["id"] == "relaxed-uuid"
+    assert entry["mc2d_id"] == "mc2d-9"
+    assert entry["structure_uuid"] == "relaxed-uuid"
+
+
 def test_annotate_nodes_sidecar_row(structure):
     node = _FakeNode(structure, optimade_id="legacy-agi-uuid", pk=42, uuid="workflow-uuid")
     rows = crosswalk.annotate_nodes(
@@ -228,3 +263,34 @@ def test_annotate_json_file_clears_stale_fields(structure, tmp_path):
     assert "mc2d_candidates" not in entry
     assert entry["band_gap_match"] == "uuid"
     assert rows[0]["mc2d_id"] == "mc2d-5"
+
+
+def test_annotate_json_file_preserves_pbev1_fields(structure, tmp_path):
+    entry = {
+        "id": "mc2d-9",
+        "dataset_version": "pbe-v1",
+        "mc2d_id": "mc2d-9",
+        "structure_uuid": "relaxed-uuid",
+        "formula": "C2",
+        "elements": ["C"],
+        "nsites": 2,
+        "band_gap": 1.5,
+        "band_gap_match": "stale",
+        "structure": structure.as_dict(),
+    }
+    rows = crosswalk.annotate_json_file(
+        tmp_path / "mc2d_3elements.json",
+        [entry],
+        overview_by_id=OVERVIEW_BY_ID,
+        uuid_to_id=UUID_TO_ID,
+        by_elements=BY_ELEMENTS,
+        by_formula=BY_FORMULA,
+        cache=_cache(),
+        tolerance=0.02,
+        sleep=0.0,
+    )
+    assert entry["mc2d_id"] == "mc2d-9"
+    assert entry["structure_uuid"] == "relaxed-uuid"
+    assert entry["band_gap"] == 1.5
+    assert entry["band_gap_match"] == "mc2d_id"
+    assert rows[0]["mc2d_id"] == "mc2d-9"

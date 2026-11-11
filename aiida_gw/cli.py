@@ -119,10 +119,24 @@ def _load_structures_from_json(
             try:
                 node = OrmStructureData(pymatgen=pmg_struct)
                 node.store()
-                node.base.extras.set("source", "mc2d_optimade")
-                node.base.extras.set("optimade_id", entry.get("id", ""))
+                is_pbev1 = entry.get("dataset_version") == "pbe-v1"
+                node.base.extras.set("source", "mc2d_pbev1" if is_pbev1 else "mc2d_optimade")
+                optimade_id = entry.get("optimade_id")
+                if optimade_id is None and not is_pbev1:
+                    optimade_id = entry.get("id", "")
+                if optimade_id:
+                    node.base.extras.set("optimade_id", optimade_id)
                 node.base.extras.set("formula", entry.get("formula", ""))
-                for key in ("mc2d_id", "band_gap", "magnetic_state", "unstable", "band_gap_match", "mc2d_candidates"):
+                for key in (
+                    "mc2d_id",
+                    "structure_uuid",
+                    "dataset_version",
+                    "band_gap",
+                    "magnetic_state",
+                    "unstable",
+                    "band_gap_match",
+                    "mc2d_candidates",
+                ):
                     value = entry.get(key)
                     if value is not None:
                         node.base.extras.set(key, value)
