@@ -9,7 +9,11 @@ from types import SimpleNamespace
 import pytest
 from pymatgen.core import Lattice, Structure
 
-from aiida_gw.cli import _band_gap_allowed, _load_structures_from_json
+from aiida_gw.cli import (
+    _band_gap_allowed,
+    _copy_structure_extras,
+    _load_structures_from_json,
+)
 
 
 @pytest.mark.parametrize(
@@ -34,6 +38,10 @@ class _Extras:
     def __init__(self):
         self._data = {}
 
+    @property
+    def all(self):
+        return dict(self._data)
+
     def set(self, key, value):
         self._data[key] = value
 
@@ -48,6 +56,18 @@ class _FakeStructure:
 
     def store(self):
         return self
+
+
+def test_copy_structure_extras_preserves_provenance():
+    source = _FakeStructure()
+    source.base.extras.set("mc2d_id", "mc2d-2")
+    source.base.extras.set("structure_uuid", "abc")
+    source.base.extras.set("band_gap", 2.9)
+
+    target = _FakeStructure()
+    _copy_structure_extras(source, target)
+
+    assert target.base.extras.all == source.base.extras.all
 
 
 @pytest.fixture

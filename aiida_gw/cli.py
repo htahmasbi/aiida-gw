@@ -58,6 +58,21 @@ def _node_band_gap(node):
         return None
 
 
+def _copy_structure_extras(source, target):
+    """Copy provenance extras from a loaded structure to its prepared copy.
+
+    Preparing a structure creates a new ``StructureData`` (vacuum/supercell),
+    so the MC2D identifiers stored on the original node would otherwise be
+    lost and the node crosswalk could not match the run directly.
+    """
+    try:
+        extras = source.base.extras.all
+    except Exception:
+        return
+    for key, value in extras.items():
+        target.base.extras.set(key, value)
+
+
 def _load_structures_from_json(
     file_paths: list[Path],
     formula: str | None,
@@ -485,6 +500,7 @@ def run(
                     supercell=supercell_val,
                 )
                 prepared_node = StructureData(pymatgen=prepared).store()
+                _copy_structure_extras(struct, prepared_node)
                 prepared_node.label = f"prepared_{i}"
 
                 from aiida_gw.workflows.gw import GwWorkChain
