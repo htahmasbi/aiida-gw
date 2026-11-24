@@ -45,6 +45,7 @@ TABLE_SLICES = {
 
 OUT_FIELDS = [
     "decision",
+    "original_decision",
     "reason",
     "report_key",
     "gw_pk",
@@ -290,6 +291,12 @@ def classify(row, args):
     return "report", "ok"
 
 
+def has_positive_scf_gw(row):
+    scf = number(row.get("scf_gap_indirect_eV"))
+    gw = number(row.get("g0w0_gap_indirect_eV"))
+    return scf is not None and gw is not None and scf > 0 and gw > 0
+
+
 def quality(row):
     score = 0
     if row.get("status") == "ok":
@@ -446,6 +453,7 @@ def main(argv=None):
     parser.add_argument("--allow-unknown-mc2d-bg", action="store_true", help="Keep rows with unknown MC2D gap")
     parser.add_argument("--exclude-unknown-magnetic", action="store_true", help="Exclude rows with unknown magnetic state")
     parser.add_argument("--max-hf-gap", type=float, default=0.0, help="Flag HF gap below VALUE as numerical failure")
+    parser.add_argument("--positive-gw-only", action="store_true", help="Also write all jobs with positive SCF and G0W0 indirect gaps, ignoring other filters")
     parser.add_argument("--resubmit-group", default="gw_runs_2el_neg_gw_r3", help="Group name in generated resubmit commands")
     parser.add_argument("--no-plots", action="store_true", help="Skip plotting")
     args = parser.parse_args(argv)
@@ -461,6 +469,16 @@ def main(argv=None):
         row["decision"] = decision
         row["reason"] = reason
         classified.append(output_row(row, decision, reason, args))
+
+    positive_rows = []
+    if args.positive_gw_only:
+        for row in sorted(rows, key=lambda item: integer(item.get("gw_pk")) or 0):
+            if not has_positive_scf_gw(row):
+                continue
+            reason = f"original={row['decision']};{row['reason']};positive_scf_gw"
+            out = output_row(row, "positive_gw_candidate", reason, args)
+            out["original_decision"] = row["decision"]
+            positive_rows.append(out)
 
     report_rows = choose([row for row in rows if row["decision"] == "report"])
     report_keys = {row["report_key"] for row in report_rows}
@@ -485,6 +503,8 @@ def main(argv=None):
     write_csv(outdir / "negative_gw_resubmit.csv", negative_rows)
     write_csv(outdir / "failed_or_excluded.csv", other_rows)
     write_csv(outdir / "all_classified.csv", sorted(classified, key=lambda row: integer(row.get("gw_pk")) or 0))
+    if args.positive_gw_only:
+        write_csv(outdir / "positive_gw_jobs.csv", positive_rows)
 
     decisions = Counter(row["decision"] for row in rows)
     buckets = Counter(failure_bucket(row) for row in rows if row["decision"] in {"failed", "incomplete", "running"})
@@ -498,6 +518,8 @@ def main(argv=None):
         "min_mc2d_bg": args.min_mc2d_bg,
         "unknown_mc2d_bg_allowed": args.allow_unknown_mc2d_bg,
     }
+    if args.positive_gw_only:
+        summary["positive_gw_jobs"] = len(positive_rows)
     (outdir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
     if negative_rows:
